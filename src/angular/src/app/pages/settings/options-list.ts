@@ -220,5 +220,20 @@ export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
             valuePath: ["controller", "download_validation_max_retries"],
             description: "Maximum number of times to re-download a file that fails validation"
         },
+        {
+            type: OptionType.Checkbox,
+            label: "Enable Chunked Validation",
+            valuePath: ["controller", "use_chunked_validation"],
+            description: "When enabled, files are validated in chunks and only corrupted chunks " +
+                         "are re-downloaded instead of the entire file. Reduces bandwidth usage " +
+                         "on validation failures."
+        },
+        {
+            type: OptionType.Text,
+            label: "Validation Chunk Size (MB)",
+            valuePath: ["controller", "validation_chunk_size_mb"],
+            description: "Size of each chunk in megabytes for chunked validation. " +
+                         "Smaller chunks mean less re-download on failure but more overhead."
+        },
     ]
 };

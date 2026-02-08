@@ -272,6 +272,8 @@ class Config(Persist):
         use_local_path_as_extract_path = PROP("use_local_path_as_extract_path", Checkers.null, Converters.bool)
         enable_download_validation = PROP("enable_download_validation", Checkers.null, Converters.bool)
         download_validation_max_retries = PROP("download_validation_max_retries", Checkers.int_positive, Converters.int)
+        use_chunked_validation = PROP("use_chunked_validation", Checkers.null, Converters.bool)
+        validation_chunk_size_mb = PROP("validation_chunk_size_mb", Checkers.int_positive, Converters.int)
 
         def __init__(self):
             super().__init__()
@@ -282,6 +284,8 @@ class Config(Persist):
             self.use_local_path_as_extract_path = None
             self.enable_download_validation = None
             self.download_validation_max_retries = None
+            self.use_chunked_validation = None
+            self.validation_chunk_size_mb = None
 
     class Web(InnerConfig):
         port = PROP("port", Checkers.int_positive, Converters.int)

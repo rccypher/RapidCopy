@@ -64,6 +64,8 @@ interface IController {
     use_local_path_as_extract_path: boolean;
     enable_download_validation: boolean;
     download_validation_max_retries: number;
+    use_chunked_validation: boolean;
+    validation_chunk_size_mb: number;
 }
 const DefaultController: IController = {
     interval_ms_remote_scan: null,
@@ -73,6 +75,8 @@ const DefaultController: IController = {
     use_local_path_as_extract_path: null,
     enable_download_validation: null,
     download_validation_max_retries: null,
+    use_chunked_validation: null,
+    validation_chunk_size_mb: null,
 };
 const ControllerRecord = Record(DefaultController);
 

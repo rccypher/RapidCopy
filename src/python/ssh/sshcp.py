@@ -197,3 +197,29 @@ class Sshcp:
             flags=" ".join(flags),
             args=" ".join(args)
         )
+
+    def copy_from_remote(self, remote_path: str, local_path: str):
+        """
+        Copies remote file at remote_path to local local_path
+        :param remote_path:
+        :param local_path:
+        :return:
+        """
+        if not local_path:
+            raise ValueError("Local path cannot be empty")
+        if not remote_path:
+            raise ValueError("Remote path cannot be empty")
+
+        flags = [
+            "-q",  # quiet
+            "-P", str(self.__port),  # port
+        ]
+        args = [
+            "{}@{}:{}".format(self.__user, self.__host, remote_path),
+            local_path
+        ]
+        self.__run_command(
+            command="scp",
+            flags=" ".join(flags),
+            args=" ".join(args)
+        )
