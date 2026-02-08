@@ -6,6 +6,8 @@ from threading import Lock
 from queue import Queue
 from enum import Enum
 import copy
+import os
+import shutil
 
 # my libs
 from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
@@ -16,6 +18,7 @@ from model import ModelError, ModelFile, Model, ModelDiff, ModelDiffUtil, IModel
 from lftp import Lftp, LftpError, LftpJobStatus
 from .controller_persist import ControllerPersist
 from .delete import DeleteLocalProcess, DeleteRemoteProcess
+from .validate import ValidateProcess, ValidationResult, ValidationStatus
 
 
 class ControllerError(AppError):
@@ -168,9 +171,14 @@ class Controller:
         # Keep track of active files
         self.__active_downloading_file_names = []
         self.__active_extracting_file_names = []
+        self.__active_validating_file_names = []
 
         # Keep track of active command processes
         self.__active_command_processes = []
+
+        # Keep track of active validation processes
+        # Maps file_name -> ValidateProcess
+        self.__active_validation_processes = {}
 
         self.__started = False
 
@@ -199,6 +207,7 @@ class Controller:
         self.__propagate_exceptions()
         self.__cleanup_commands()
         self.__process_commands()
+        self.__check_validation_results()
         self.__update_model()
 
     def exit(self):
@@ -209,10 +218,16 @@ class Controller:
             self.__local_scan_process.terminate()
             self.__remote_scan_process.terminate()
             self.__extract_process.terminate()
+            # Terminate any active validation processes
+            for process in self.__active_validation_processes.values():
+                process.terminate()
             self.__active_scan_process.join()
             self.__local_scan_process.join()
             self.__remote_scan_process.join()
             self.__extract_process.join()
+            for process in self.__active_validation_processes.values():
+                process.join()
+            self.__active_validation_processes.clear()
             self.__mp_logger.stop()
             self.__started = False
             self.logger.info("Exited controller")
@@ -311,6 +326,7 @@ class Controller:
             self.__active_extracting_file_names = [
                 s.name for s in latest_extract_statuses.statuses if s.state == ExtractStatus.State.EXTRACTING
             ]
+        self.__active_validating_file_names = list(self.__active_validation_processes.keys())
 
         # Update the active scanner's state
         self.__active_scanner.set_active_files(
@@ -332,6 +348,13 @@ class Controller:
             for result in latest_extracted_results:
                 self.__persist.extracted_file_names.add(result.name)
             self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+
+        # Update model builder with validation statuses
+        validation_statuses = [
+            ValidationStatus(name=name, is_dir=proc.is_dir)
+            for name, proc in self.__active_validation_processes.items()
+        ]
+        self.__model_builder.set_validation_statuses(validation_statuses)
 
         # Build the new model, if needed
         if self.__model_builder.has_changes():
@@ -370,6 +393,11 @@ class Controller:
                     self.__persist.downloaded_file_names.add(diff.new_file.name)
                     self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
+                    # Trigger validation if enabled and not already validating
+                    if self.__context.config.controller.enable_download_validation and \
+                            diff.new_file.name not in self.__active_validation_processes:
+                        self.__start_validation(diff.new_file.name, diff.new_file.is_dir)
+
             # Prune the extracted files list of any files that were deleted locally
             # This prevents these files from going to EXTRACTED state if they are re-downloaded
             remove_extracted_file_names = set()
@@ -399,6 +427,110 @@ class Controller:
             self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
         if latest_local_scan is not None:
             self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+
+    def __start_validation(self, file_name: str, is_dir: bool):
+        """
+        Start a validation process for the given file
+        """
+        self.logger.info("Starting download validation for: {}".format(file_name))
+        process = ValidateProcess(
+            local_path=self.__context.config.lftp.local_path,
+            remote_path=self.__context.config.lftp.remote_path,
+            file_name=file_name,
+            is_dir=is_dir,
+            remote_address=self.__context.config.lftp.remote_address,
+            remote_username=self.__context.config.lftp.remote_username,
+            remote_password=self.__password,
+            remote_port=self.__context.config.lftp.remote_port
+        )
+        process.set_multiprocessing_logger(self.__mp_logger)
+        self.__active_validation_processes[file_name] = process
+        process.start()
+
+    def __check_validation_results(self):
+        """
+        Check for completed validation processes and handle results
+        """
+        completed = []
+        for file_name, process in self.__active_validation_processes.items():
+            if not process.is_alive():
+                result = process.pop_result()
+                if result is not None:
+                    completed.append((file_name, result))
+                else:
+                    # Process died without producing a result
+                    self.logger.error("Validation process for {} died without result".format(file_name))
+                    completed.append((file_name, ValidationResult(
+                        file_name=file_name,
+                        is_dir=False,
+                        status=ValidationResult.Status.ERROR,
+                        error_message="Validation process terminated unexpectedly"
+                    )))
+                # Propagate any exceptions
+                process.propagate_exception()
+
+        for file_name, result in completed:
+            del self.__active_validation_processes[file_name]
+
+            if result.status == ValidationResult.Status.PASSED:
+                self.logger.info("Validation passed for: {}".format(file_name))
+                # Clear retry count on success
+                if file_name in self.__persist.validation_retry_counts:
+                    del self.__persist.validation_retry_counts[file_name]
+
+            elif result.status == ValidationResult.Status.FAILED:
+                retry_count = self.__persist.validation_retry_counts.get(file_name, 0)
+                max_retries = self.__context.config.controller.download_validation_max_retries
+
+                if retry_count < max_retries:
+                    self.__persist.validation_retry_counts[file_name] = retry_count + 1
+                    self.logger.warning(
+                        "Validation failed for {} (attempt {}/{}): {}. "
+                        "Deleting local copy and re-queuing.".format(
+                            file_name, retry_count + 1, max_retries, result.error_message
+                        ))
+                    # Remove from downloaded set so it can be re-downloaded
+                    self.__persist.downloaded_file_names.discard(file_name)
+                    self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
+                    # Delete local file and re-queue
+                    self.__delete_local_and_requeue(file_name, result.is_dir)
+                else:
+                    self.logger.error(
+                        "Validation failed for {} after {} retries: {}. Giving up.".format(
+                            file_name, max_retries, result.error_message
+                        ))
+                    # Clear retry count
+                    del self.__persist.validation_retry_counts[file_name]
+
+            elif result.status == ValidationResult.Status.ERROR:
+                self.logger.error("Validation error for {}: {}".format(
+                    file_name, result.error_message))
+                # On error, don't retry - just log and move on
+
+    def __delete_local_and_requeue(self, file_name: str, is_dir: bool):
+        """
+        Delete the local copy of a file and re-queue it for download
+        """
+        local_file_path = os.path.join(self.__context.config.lftp.local_path, file_name)
+        self.logger.info("Deleting local file for re-download: {}".format(file_name))
+        try:
+            if os.path.isfile(local_file_path):
+                os.remove(local_file_path)
+            elif os.path.isdir(local_file_path):
+                shutil.rmtree(local_file_path, ignore_errors=True)
+        except OSError as e:
+            self.logger.error("Failed to delete local file {}: {}".format(file_name, str(e)))
+            return
+
+        # Force a local scan to pick up the deletion
+        self.__local_scan_process.force_scan()
+
+        # Re-queue the file for download
+        try:
+            self.__lftp.queue(file_name, is_dir)
+            self.logger.info("Re-queued {} for download after validation failure".format(file_name))
+        except LftpError as e:
+            self.logger.error("Failed to re-queue {}: {}".format(file_name, str(e)))
 
     def __process_commands(self):
         def _notify_failure(_command: Controller.Command, _msg: str):

@@ -94,6 +94,7 @@ export module ViewFile {
         STOPPED         = <any> "stopped",
         DELETED         = <any> "deleted",
         EXTRACTING      = <any> "extracting",
-        EXTRACTED       = <any> "extracted"
+        EXTRACTED       = <any> "extracted",
+        VALIDATING      = <any> "validating"
     }
 }

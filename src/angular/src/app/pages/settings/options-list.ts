@@ -202,3 +202,23 @@ export const OPTIONS_CONTEXT_EXTRACT: IOptionsContext = {
         },
     ]
 };
+
+export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
+    header: "Download Validation",
+    id: "validation",
+    options: [
+        {
+            type: OptionType.Checkbox,
+            label: "Enable Download Validation",
+            valuePath: ["controller", "enable_download_validation"],
+            description: "Compare checksums between remote and local files after download. " +
+                         "If validation fails, the local file is deleted and re-downloaded."
+        },
+        {
+            type: OptionType.Text,
+            label: "Max Validation Retries",
+            valuePath: ["controller", "download_validation_max_retries"],
+            description: "Maximum number of times to re-download a file that fails validation"
+        },
+    ]
+};

@@ -308,6 +308,8 @@ class Seedsync:
         config.controller.interval_ms_downloading_scan = 1000
         config.controller.extract_path = "/tmp"
         config.controller.use_local_path_as_extract_path = True
+        config.controller.enable_download_validation = False
+        config.controller.download_validation_max_retries = 3
 
         config.web.port = 8800
 
