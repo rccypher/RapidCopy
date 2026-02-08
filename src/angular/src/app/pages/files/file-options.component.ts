@@ -31,6 +31,7 @@ export class FileOptionsComponent implements OnInit {
     public isDownloadingStatusEnabled = false;
     public isQueuedStatusEnabled = false;
     public isStoppedStatusEnabled = false;
+    public isValidatingStatusEnabled = false;
 
     private _latestOptions: ViewFileOptions;
 
@@ -62,6 +63,9 @@ export class FileOptionsComponent implements OnInit {
             );
             this.isStoppedStatusEnabled = FileOptionsComponent.isStatusEnabled(
                 files, ViewFile.Status.STOPPED
+            );
+            this.isValidatingStatusEnabled = FileOptionsComponent.isStatusEnabled(
+                files, ViewFile.Status.VALIDATING
             );
             this._changeDetector.detectChanges();
         });

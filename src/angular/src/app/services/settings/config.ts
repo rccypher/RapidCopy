@@ -62,6 +62,8 @@ interface IController {
     interval_ms_downloading_scan: number;
     extract_path: string;
     use_local_path_as_extract_path: boolean;
+    enable_download_validation: boolean;
+    download_validation_max_retries: number;
 }
 const DefaultController: IController = {
     interval_ms_remote_scan: null,
@@ -69,6 +71,8 @@ const DefaultController: IController = {
     interval_ms_downloading_scan: null,
     extract_path: null,
     use_local_path_as_extract_path: null,
+    enable_download_validation: null,
+    download_validation_max_retries: null,
 };
 const ControllerRecord = Record(DefaultController);
 

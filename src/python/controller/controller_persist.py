@@ -13,10 +13,13 @@ class ControllerPersist(Persist):
     # Keys
     __KEY_DOWNLOADED_FILE_NAMES = "downloaded"
     __KEY_EXTRACTED_FILE_NAMES = "extracted"
+    __KEY_VALIDATION_RETRY_COUNTS = "validation_retry_counts"
 
     def __init__(self):
         self.downloaded_file_names = set()
         self.extracted_file_names = set()
+        # Maps file_name -> number of validation retries attempted
+        self.validation_retry_counts = dict()
 
     @classmethod
     @overrides(Persist)
@@ -26,9 +29,12 @@ class ControllerPersist(Persist):
             dct = json.loads(content)
             persist.downloaded_file_names = set(dct[ControllerPersist.__KEY_DOWNLOADED_FILE_NAMES])
             persist.extracted_file_names = set(dct[ControllerPersist.__KEY_EXTRACTED_FILE_NAMES])
+            persist.validation_retry_counts = dict(
+                dct.get(ControllerPersist.__KEY_VALIDATION_RETRY_COUNTS, {})
+            )
             return persist
         except (json.decoder.JSONDecodeError, KeyError) as e:
-            raise PersistError("Error parsing AutoQueuePersist - {}: {}".format(
+            raise PersistError("Error parsing ControllerPersist - {}: {}".format(
                 type(e).__name__, str(e))
             )
 
@@ -37,4 +43,5 @@ class ControllerPersist(Persist):
         dct = dict()
         dct[ControllerPersist.__KEY_DOWNLOADED_FILE_NAMES] = list(self.downloaded_file_names)
         dct[ControllerPersist.__KEY_EXTRACTED_FILE_NAMES] = list(self.extracted_file_names)
+        dct[ControllerPersist.__KEY_VALIDATION_RETRY_COUNTS] = self.validation_retry_counts
         return json.dumps(dct, indent=Constants.JSON_PRETTY_PRINT_INDENT)

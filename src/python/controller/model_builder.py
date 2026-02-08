@@ -10,6 +10,7 @@ from system import SystemFile
 from lftp import LftpJobStatus
 from model import ModelFile, Model, ModelError
 from .extract import ExtractStatus, Extract
+from .validate import ValidationStatus
 
 
 class ModelBuilder:
@@ -29,6 +30,7 @@ class ModelBuilder:
         self.__downloaded_files = set()
         self.__extract_statuses = dict()
         self.__extracted_files = set()
+        self.__validation_statuses = dict()
         self.__cached_model = None
 
     def set_base_logger(self, base_logger: logging.Logger):
@@ -84,6 +86,13 @@ class ModelBuilder:
         if self.__extracted_files != prev_extracted_files:
             self.__cached_model = None
 
+    def set_validation_statuses(self, validation_statuses: List[ValidationStatus]):
+        prev_validation_statuses = self.__validation_statuses
+        self.__validation_statuses = {status.name: status for status in validation_statuses}
+        # Invalidate the cache
+        if self.__validation_statuses != prev_validation_statuses:
+            self.__cached_model = None
+
     def clear(self):
         self.__local_files.clear()
         self.__remote_files.clear()
@@ -91,6 +100,7 @@ class ModelBuilder:
         self.__downloaded_files.clear()
         self.__extract_statuses.clear()
         self.__extracted_files.clear()
+        self.__validation_statuses.clear()
         self.__cached_model = None
 
     def has_changes(self) -> bool:
@@ -335,6 +345,15 @@ class ModelBuilder:
             #       If a Default file is extracted, it will return back to the Default state
             if model_file.name in self.__extracted_files and model_file.state == ModelFile.State.DOWNLOADED:
                     model_file.state = ModelFile.State.EXTRACTED
+
+            # next we check if root is Validating
+            # root is Validating if it has an active validation status and is in an expected state
+            if model_file.name in self.__validation_statuses:
+                if model_file.state in (
+                    ModelFile.State.DEFAULT,
+                    ModelFile.State.DOWNLOADED
+                ) and model_file.local_size is not None:
+                    model_file.state = ModelFile.State.VALIDATING
 
             model.add_file(model_file)
 
