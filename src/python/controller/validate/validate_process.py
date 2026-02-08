@@ -44,8 +44,8 @@ class ValidateProcess(AppOneShotProcess):
     Process that validates a downloaded file by comparing checksums
     between the local and remote copies.
 
-    For single files: computes MD5 hash locally and remotely, compares them.
-    For directories: computes MD5 hash for each file in the directory tree,
+    For single files: computes SHA256 hash locally and remotely, compares them.
+    For directories: computes SHA256 hash for each file in the directory tree,
                      compares each pair.
     """
     def __init__(self,
@@ -112,14 +112,14 @@ class ValidateProcess(AppOneShotProcess):
         self.__result_queue.put(result)
 
     def _validate_file(self, ssh: Sshcp) -> ValidationResult:
-        """Validate a single file by comparing MD5 checksums"""
+        """Validate a single file by comparing SHA256 checksums"""
         local_file_path = os.path.join(self.__local_path, self.__file_name)
         remote_file_path = os.path.join(self.__remote_path, self.__file_name)
 
-        # Compute local MD5
-        self.logger.debug("Computing local MD5 for: {}".format(local_file_path))
-        local_md5 = self._compute_local_md5(local_file_path)
-        if local_md5 is None:
+        # Compute local SHA256
+        self.logger.debug("Computing local SHA256 for: {}".format(local_file_path))
+        local_hash = self._compute_local_sha256(local_file_path)
+        if local_hash is None:
             return ValidationResult(
                 file_name=self.__file_name,
                 is_dir=self.__is_dir,
@@ -127,22 +127,22 @@ class ValidateProcess(AppOneShotProcess):
                 error_message="Local file not found: {}".format(local_file_path)
             )
 
-        # Compute remote MD5
-        self.logger.debug("Computing remote MD5 for: {}".format(remote_file_path))
+        # Compute remote SHA256
+        self.logger.debug("Computing remote SHA256 for: {}".format(remote_file_path))
         try:
-            remote_md5 = self._compute_remote_md5(ssh, remote_file_path)
+            remote_hash = self._compute_remote_sha256(ssh, remote_file_path)
         except SshcpError as e:
             return ValidationResult(
                 file_name=self.__file_name,
                 is_dir=self.__is_dir,
                 status=ValidationResult.Status.ERROR,
-                error_message="Failed to compute remote MD5: {}".format(str(e))
+                error_message="Failed to compute remote SHA256: {}".format(str(e))
             )
 
         # Compare
-        if local_md5 == remote_md5:
+        if local_hash == remote_hash:
             self.logger.info("Validation PASSED for {}: {} == {}".format(
-                self.__file_name, local_md5, remote_md5))
+                self.__file_name, local_hash, remote_hash))
             return ValidationResult(
                 file_name=self.__file_name,
                 is_dir=self.__is_dir,
@@ -150,16 +150,16 @@ class ValidateProcess(AppOneShotProcess):
             )
         else:
             self.logger.warning("Validation FAILED for {}: local={} remote={}".format(
-                self.__file_name, local_md5, remote_md5))
+                self.__file_name, local_hash, remote_hash))
             return ValidationResult(
                 file_name=self.__file_name,
                 is_dir=self.__is_dir,
                 status=ValidationResult.Status.FAILED,
-                error_message="Checksum mismatch: local={} remote={}".format(local_md5, remote_md5)
+                error_message="Checksum mismatch: local={} remote={}".format(local_hash, remote_hash)
             )
 
     def _validate_directory(self, ssh: Sshcp) -> ValidationResult:
-        """Validate a directory by comparing MD5 checksums of all files within it"""
+        """Validate a directory by comparing SHA256 checksums of all files within it"""
         local_dir_path = os.path.join(self.__local_path, self.__file_name)
         remote_dir_path = os.path.join(self.__remote_path, self.__file_name)
 
@@ -197,8 +197,8 @@ class ValidateProcess(AppOneShotProcess):
 
             self.logger.debug("Validating file in directory: {}".format(rel_path))
 
-            local_md5 = self._compute_local_md5(local_file_path)
-            if local_md5 is None:
+            local_hash = self._compute_local_sha256(local_file_path)
+            if local_hash is None:
                 return ValidationResult(
                     file_name=self.__file_name,
                     is_dir=self.__is_dir,
@@ -207,24 +207,24 @@ class ValidateProcess(AppOneShotProcess):
                 )
 
             try:
-                remote_md5 = self._compute_remote_md5(ssh, remote_file_path)
+                remote_hash = self._compute_remote_sha256(ssh, remote_file_path)
             except SshcpError as e:
                 return ValidationResult(
                     file_name=self.__file_name,
                     is_dir=self.__is_dir,
                     status=ValidationResult.Status.ERROR,
-                    error_message="Failed to compute remote MD5 for {}: {}".format(rel_path, str(e))
+                    error_message="Failed to compute remote SHA256 for {}: {}".format(rel_path, str(e))
                 )
 
-            if local_md5 != remote_md5:
+            if local_hash != remote_hash:
                 self.logger.warning("Validation FAILED for {}/{}: local={} remote={}".format(
-                    self.__file_name, rel_path, local_md5, remote_md5))
+                    self.__file_name, rel_path, local_hash, remote_hash))
                 return ValidationResult(
                     file_name=self.__file_name,
                     is_dir=self.__is_dir,
                     status=ValidationResult.Status.FAILED,
                     error_message="Checksum mismatch in {}: local={} remote={}".format(
-                        rel_path, local_md5, remote_md5)
+                        rel_path, local_hash, remote_hash)
                 )
 
         self.logger.info("Validation PASSED for directory: {} ({} files checked)".format(
@@ -236,21 +236,21 @@ class ValidateProcess(AppOneShotProcess):
         )
 
     @staticmethod
-    def _compute_local_md5(file_path: str) -> Optional[str]:
-        """Compute MD5 hash of a local file"""
+    def _compute_local_sha256(file_path: str) -> Optional[str]:
+        """Compute SHA256 hash of a local file"""
         if not os.path.isfile(file_path):
             return None
-        md5 = hashlib.md5()
+        sha256 = hashlib.sha256()
         with open(file_path, 'rb') as f:
             for chunk in iter(lambda: f.read(8192), b''):
-                md5.update(chunk)
-        return md5.hexdigest()
+                sha256.update(chunk)
+        return sha256.hexdigest()
 
     @staticmethod
-    def _compute_remote_md5(ssh: Sshcp, remote_file_path: str) -> str:
-        """Compute MD5 hash of a remote file via SSH"""
-        out = ssh.shell("md5sum '{}' | awk '{{print $1}}'".format(remote_file_path))
-        md5_hash = out.decode().strip()
-        if not md5_hash or len(md5_hash) != 32:
-            raise SshcpError("Invalid MD5 output for {}: {}".format(remote_file_path, md5_hash))
-        return md5_hash
+    def _compute_remote_sha256(ssh: Sshcp, remote_file_path: str) -> str:
+        """Compute SHA256 hash of a remote file via SSH"""
+        out = ssh.shell("sha256sum '{}' | awk '{{print $1}}'".format(remote_file_path))
+        sha256_hash = out.decode().strip()
+        if not sha256_hash or len(sha256_hash) != 64:
+            raise SshcpError("Invalid SHA256 output for {}: {}".format(remote_file_path, sha256_hash))
+        return sha256_hash
