@@ -441,7 +441,9 @@ class Controller:
             remote_address=self.__context.config.lftp.remote_address,
             remote_username=self.__context.config.lftp.remote_username,
             remote_password=self.__password,
-            remote_port=self.__context.config.lftp.remote_port
+            remote_port=self.__context.config.lftp.remote_port,
+            use_chunked=self.__context.config.controller.use_chunked_validation,
+            chunk_size_bytes=self.__context.config.controller.validation_chunk_size_mb * 1024 * 1024
         )
         process.set_multiprocessing_logger(self.__mp_logger)
         self.__active_validation_processes[file_name] = process
