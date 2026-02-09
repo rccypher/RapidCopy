@@ -5,6 +5,7 @@ export interface IOption {
     label: string;
     valuePath: [string, string];
     description: string;
+    enabledBy?: [string, string];
 }
 export interface IOptionsContext {
     header: string;
@@ -211,27 +212,30 @@ export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
             type: OptionType.Checkbox,
             label: "Enable Download Validation",
             valuePath: ["controller", "enable_download_validation"],
-            description: "Compare checksums between remote and local files after download. " +
-                         "If validation fails, the local file is deleted and re-downloaded."
+            description: "Verify file integrity by comparing SHA256 checksums between remote and local " +
+                         "files after each download. Files that fail validation are re-downloaded automatically."
         },
         {
             type: OptionType.Text,
             label: "Max Validation Retries",
             valuePath: ["controller", "download_validation_max_retries"],
+            enabledBy: ["controller", "enable_download_validation"],
             description: "Maximum number of times to re-download a file that fails validation"
         },
         {
             type: OptionType.Checkbox,
-            label: "Enable Chunked Validation",
+            label: "Use Chunked Validation",
             valuePath: ["controller", "use_chunked_validation"],
-            description: "When enabled, files are validated in chunks and only corrupted chunks " +
-                         "are re-downloaded instead of the entire file. Reduces bandwidth usage " +
-                         "on validation failures."
+            enabledBy: ["controller", "enable_download_validation"],
+            description: "Instead of re-downloading the entire file on validation failure, " +
+                         "split files into chunks and only re-download corrupted chunks. " +
+                         "Requires Download Validation to be enabled."
         },
         {
             type: OptionType.Text,
-            label: "Validation Chunk Size (MB)",
+            label: "Chunk Size (MB)",
             valuePath: ["controller", "validation_chunk_size_mb"],
+            enabledBy: ["controller", "enable_download_validation"],
             description: "Size of each chunk in megabytes for chunked validation. " +
                          "Smaller chunks mean less re-download on failure but more overhead."
         },

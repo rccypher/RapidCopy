@@ -46,3 +46,8 @@ input[type="checkbox"] {
 input[type="text"] {
     width: 100%;
 }
+
+.form-group.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}

@@ -17,6 +17,7 @@
                         [label]="option.label"
                         [description]="option.description"
                         [value]="(config | async)?.get(option.valuePath[0]).get(option.valuePath[1])"
+                        [optionDisabled]="option.enabledBy ? !(config | async)?.get(option.enabledBy[0]).get(option.enabledBy[1]) : false"
                         (changeEvent)="onSetConfig(option.valuePath[0], option.valuePath[1], $event)">
                     </app-option>
                 </div>
