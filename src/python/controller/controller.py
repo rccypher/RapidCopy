@@ -14,6 +14,7 @@ from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
 from .extract import ExtractProcess, ExtractStatus
 from .model_builder import ModelBuilder
 from common import Context, AppError, MultiprocessingLogger, AppOneShotProcess, Constants
+from common.config import PathMapping
 from model import ModelError, ModelFile, Model, ModelDiff, ModelDiffUtil, IModelListener
 from lftp import Lftp, LftpError, LftpJobStatus
 from .controller_persist import ControllerPersist
@@ -84,35 +85,42 @@ class Controller:
         # Decide the password here
         self.__password = context.config.lftp.remote_password if not context.config.lftp.use_ssh_key else None
 
+        # Path mappings
+        self.__path_mappings = context.config.get_path_mappings()
+        if not self.__path_mappings:
+            # Backward compat: fall back to single lftp path
+            self.__path_mappings = [PathMapping(
+                context.config.lftp.remote_path,
+                context.config.lftp.local_path
+            )]
+        self.logger.info("Configured {} path mapping(s)".format(len(self.__path_mappings)))
+        for idx, m in enumerate(self.__path_mappings):
+            self.logger.info("  Mapping {}: {} -> {}".format(idx, m.remote_path, m.local_path))
+
         # The command queue
         self.__command_queue = Queue()
 
         # The model
         self.__model = Model()
         self.__model.set_base_logger(self.logger)
-        # Lock for the model
-        # Note: While the scanners are in a separate process, the rest of the application
-        #       is threaded in a single process. (The webserver is bottle+paste which is
-        #       multi-threaded). Therefore it is safe to use a threading Lock for the model
-        #       (the scanner processes never try to access the model)
         self.__model_lock = Lock()
 
         # Model builder
-        self.__model_builder = ModelBuilder()
+        self.__model_builder = ModelBuilder(num_mappings=len(self.__path_mappings))
         self.__model_builder.set_base_logger(self.logger)
         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
         self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
         self.__model_builder.set_validated_files(self.__persist.validated_file_names)
         self.__model_builder.set_validation_enabled(self.__context.config.controller.enable_download_validation)
 
-        # Lftp
+        # Lftp - use first mapping as base paths
         self.__lftp = Lftp(address=self.__context.config.lftp.remote_address,
                            port=self.__context.config.lftp.remote_port,
                            user=self.__context.config.lftp.remote_username,
                            password=self.__password)
         self.__lftp.set_base_logger(self.logger)
-        self.__lftp.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
-        self.__lftp.set_base_local_dir_path(self.__context.config.lftp.local_path)
+        self.__lftp.set_base_remote_dir_path(self.__path_mappings[0].remote_path)
+        self.__lftp.set_base_local_dir_path(self.__path_mappings[0].local_path)
         # Configure Lftp
         self.__lftp.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
         self.__lftp.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
@@ -123,51 +131,65 @@ class Controller:
         self.__lftp.temp_file_name = "*" + Constants.LFTP_TEMP_FILE_SUFFIX
         self.__lftp.set_verbose_logging(self.__context.config.general.verbose)
 
-        # Setup the scanners and scanner processes
-        self.__active_scanner = ActiveScanner(self.__context.config.lftp.local_path)
-        self.__local_scanner = LocalScanner(
-            local_path=self.__context.config.lftp.local_path,
-            use_temp_file=self.__context.config.lftp.use_temp_file
-        )
-        self.__remote_scanner = RemoteScanner(
-            remote_address=self.__context.config.lftp.remote_address,
-            remote_username=self.__context.config.lftp.remote_username,
-            remote_password=self.__password,
-            remote_port=self.__context.config.lftp.remote_port,
-            remote_path_to_scan=self.__context.config.lftp.remote_path,
-            local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
-            remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script
-        )
+        # Setup per-mapping scanners and scanner processes
+        self.__active_scan_processes = []
+        self.__local_scan_processes = []
+        self.__remote_scan_processes = []
+        self.__active_scanners = []
 
-        self.__active_scan_process = ScannerProcess(
-            scanner=self.__active_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_downloading_scan,
-            verbose=False
-        )
-        self.__local_scan_process = ScannerProcess(
-            scanner=self.__local_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_local_scan,
-        )
-        self.__remote_scan_process = ScannerProcess(
-            scanner=self.__remote_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_remote_scan,
-        )
+        for idx, mapping in enumerate(self.__path_mappings):
+            active_scanner = ActiveScanner(mapping.local_path)
+            local_scanner = LocalScanner(
+                local_path=mapping.local_path,
+                use_temp_file=self.__context.config.lftp.use_temp_file
+            )
+            remote_scanner = RemoteScanner(
+                remote_address=self.__context.config.lftp.remote_address,
+                remote_username=self.__context.config.lftp.remote_username,
+                remote_password=self.__password,
+                remote_port=self.__context.config.lftp.remote_port,
+                remote_path_to_scan=mapping.remote_path,
+                local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
+                remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script
+            )
 
-        # Setup extract process
+            active_process = ScannerProcess(
+                scanner=active_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_downloading_scan,
+                verbose=False
+            )
+            local_process = ScannerProcess(
+                scanner=local_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_local_scan,
+            )
+            remote_process = ScannerProcess(
+                scanner=remote_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_remote_scan,
+            )
+
+            self.__active_scanners.append(active_scanner)
+            self.__active_scan_processes.append(active_process)
+            self.__local_scan_processes.append(local_process)
+            self.__remote_scan_processes.append(remote_process)
+
+        # Setup extract process (uses first mapping's local path as default)
         if self.__context.config.controller.use_local_path_as_extract_path:
-            out_dir_path = self.__context.config.lftp.local_path
+            out_dir_path = self.__path_mappings[0].local_path
         else:
             out_dir_path = self.__context.config.controller.extract_path
         self.__extract_process = ExtractProcess(
             out_dir_path=out_dir_path,
-            local_path=self.__context.config.lftp.local_path
+            local_path=self.__path_mappings[0].local_path
         )
 
         # Setup multiprocess logging
         self.__mp_logger = MultiprocessingLogger(self.logger)
-        self.__active_scan_process.set_multiprocessing_logger(self.__mp_logger)
-        self.__local_scan_process.set_multiprocessing_logger(self.__mp_logger)
-        self.__remote_scan_process.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__active_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__local_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__remote_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
         self.__extract_process.set_multiprocessing_logger(self.__mp_logger)
 
         # Keep track of active files
@@ -191,9 +213,12 @@ class Controller:
         :return:
         """
         self.logger.debug("Starting controller")
-        self.__active_scan_process.start()
-        self.__local_scan_process.start()
-        self.__remote_scan_process.start()
+        for proc in self.__active_scan_processes:
+            proc.start()
+        for proc in self.__local_scan_processes:
+            proc.start()
+        for proc in self.__remote_scan_processes:
+            proc.start()
         self.__extract_process.start()
         self.__mp_logger.start()
         self.__started = True
@@ -216,16 +241,22 @@ class Controller:
         self.logger.debug("Exiting controller")
         if self.__started:
             self.__lftp.exit()
-            self.__active_scan_process.terminate()
-            self.__local_scan_process.terminate()
-            self.__remote_scan_process.terminate()
+            for proc in self.__active_scan_processes:
+                proc.terminate()
+            for proc in self.__local_scan_processes:
+                proc.terminate()
+            for proc in self.__remote_scan_processes:
+                proc.terminate()
             self.__extract_process.terminate()
             # Terminate any active validation processes
             for process in self.__active_validation_processes.values():
                 process.terminate()
-            self.__active_scan_process.join()
-            self.__local_scan_process.join()
-            self.__remote_scan_process.join()
+            for proc in self.__active_scan_processes:
+                proc.join()
+            for proc in self.__local_scan_processes:
+                proc.join()
+            for proc in self.__remote_scan_processes:
+                proc.join()
             self.__extract_process.join()
             for process in self.__active_validation_processes.values():
                 process.join()
@@ -294,6 +325,11 @@ class Controller:
     def queue_command(self, command: Command):
         self.__command_queue.put(command)
 
+    def __get_mapping_for_file(self, file: ModelFile) -> PathMapping:
+        """Get the PathMapping for a model file based on its mapping_index"""
+        idx = file.mapping_index if file.mapping_index is not None else 0
+        return self.__path_mappings[idx]
+
     def __get_model_files(self) -> List[ModelFile]:
         model_files = []
         for filename in self.__model.get_file_names():
@@ -301,10 +337,25 @@ class Controller:
         return model_files
 
     def __update_model(self):
-        # Grab the latest scan results
-        latest_remote_scan = self.__remote_scan_process.pop_latest_result()
-        latest_local_scan = self.__local_scan_process.pop_latest_result()
-        latest_active_scan = self.__active_scan_process.pop_latest_result()
+        # Grab per-mapping scan results
+        for idx in range(len(self.__path_mappings)):
+            latest_remote_scan = self.__remote_scan_processes[idx].pop_latest_result()
+            latest_local_scan = self.__local_scan_processes[idx].pop_latest_result()
+            latest_active_scan = self.__active_scan_processes[idx].pop_latest_result()
+
+            if latest_remote_scan is not None:
+                self.__model_builder.set_remote_files(latest_remote_scan.files, mapping_index=idx)
+                # Update controller status from first mapping's remote scan
+                if idx == 0:
+                    self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
+                    self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
+                    self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
+            if latest_local_scan is not None:
+                self.__model_builder.set_local_files(latest_local_scan.files, mapping_index=idx)
+                if idx == 0:
+                    self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+            if latest_active_scan is not None:
+                self.__model_builder.set_active_files(latest_active_scan.files, mapping_index=idx)
 
         # Grab the Lftp status
         lftp_statuses = None
@@ -330,18 +381,12 @@ class Controller:
             ]
         self.__active_validating_file_names = list(self.__active_validation_processes.keys())
 
-        # Update the active scanner's state
-        self.__active_scanner.set_active_files(
-            self.__active_downloading_file_names + self.__active_extracting_file_names
-        )
+        # Update all active scanners with active file names
+        for scanner in self.__active_scanners:
+            scanner.set_active_files(
+                self.__active_downloading_file_names + self.__active_extracting_file_names
+            )
 
-        # Update model builder state
-        if latest_remote_scan is not None:
-            self.__model_builder.set_remote_files(latest_remote_scan.files)
-        if latest_local_scan is not None:
-            self.__model_builder.set_local_files(latest_local_scan.files)
-        if latest_active_scan is not None:
-            self.__model_builder.set_active_files(latest_active_scan.files)
         if lftp_statuses is not None:
             self.__model_builder.set_lftp_statuses(lftp_statuses)
         if latest_extract_statuses is not None:
@@ -404,7 +449,8 @@ class Controller:
                 if needs_validation:
                     # Start validation if not already running
                     if diff.new_file.name not in self.__active_validation_processes:
-                        self.__start_validation(diff.new_file.name, diff.new_file.is_dir)
+                        mi = diff.new_file.mapping_index if diff.new_file.mapping_index is not None else 0
+                        self.__start_validation(diff.new_file.name, diff.new_file.is_dir, mi)
 
             # Prune the extracted files list of any files that were deleted locally
             # This prevents these files from going to EXTRACTED state if they are re-downloaded
@@ -441,22 +487,17 @@ class Controller:
             # Release the model
             self.__model_lock.release()
 
-        # Update the controller status
-        if latest_remote_scan is not None:
-            self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
-            self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
-            self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
-        if latest_local_scan is not None:
-            self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+        # Note: controller status updated in per-mapping scan loop above
 
-    def __start_validation(self, file_name: str, is_dir: bool):
+    def __start_validation(self, file_name: str, is_dir: bool, mapping_index: int = 0):
         """
         Start a validation process for the given file
         """
-        self.logger.info("Starting download validation for: {}".format(file_name))
+        mapping = self.__path_mappings[mapping_index]
+        self.logger.info("Starting download validation for: {} (mapping {})".format(file_name, mapping_index))
         process = ValidateProcess(
-            local_path=self.__context.config.lftp.local_path,
-            remote_path=self.__context.config.lftp.remote_path,
+            local_path=mapping.local_path,
+            remote_path=mapping.remote_path,
             file_name=file_name,
             is_dir=is_dir,
             remote_address=self.__context.config.lftp.remote_address,
@@ -542,7 +583,16 @@ class Controller:
         """
         Delete the local copy of a file and re-queue it for download
         """
-        local_file_path = os.path.join(self.__context.config.lftp.local_path, file_name)
+        # Look up the mapping for this file from the model
+        mapping_idx = 0
+        try:
+            file = self.__model.get_file(file_name)
+            mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+        except ModelError:
+            pass
+        mapping = self.__path_mappings[mapping_idx]
+
+        local_file_path = os.path.join(mapping.local_path, file_name)
         self.logger.info("Deleting local file for re-download: {}".format(file_name))
         try:
             if os.path.isfile(local_file_path):
@@ -554,11 +604,13 @@ class Controller:
             return
 
         # Force a local scan to pick up the deletion
-        self.__local_scan_process.force_scan()
+        self.__local_scan_processes[mapping_idx].force_scan()
 
         # Re-queue the file for download
         try:
-            self.__lftp.queue(file_name, is_dir)
+            self.__lftp.queue(file_name, is_dir,
+                              remote_path=mapping.remote_path,
+                              local_path=mapping.local_path)
             self.logger.info("Re-queued {} for download after validation failure".format(file_name))
         except LftpError as e:
             self.logger.error("Failed to re-queue {}: {}".format(file_name, str(e)))
@@ -583,7 +635,10 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 try:
-                    self.__lftp.queue(file.name, file.is_dir)
+                    mapping = self.__get_mapping_for_file(file)
+                    self.__lftp.queue(file.name, file.is_dir,
+                                     remote_path=mapping.remote_path,
+                                     local_path=mapping.local_path)
                 except LftpError as e:
                     _notify_failure(command, "Lftp error: ".format(str(e)))
                     continue
@@ -629,12 +684,14 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
                     continue
                 else:
+                    mapping = self.__get_mapping_for_file(file)
                     process = DeleteLocalProcess(
-                        local_path=self.__context.config.lftp.local_path,
+                        local_path=mapping.local_path,
                         file_name=file.name
                     )
                     process.set_multiprocessing_logger(self.__mp_logger)
-                    post_callback = self.__local_scan_process.force_scan
+                    mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+                    post_callback = self.__local_scan_processes[mapping_idx].force_scan
                     command_wrapper = Controller.CommandProcessWrapper(
                         process=process,
                         post_callback=post_callback
@@ -657,16 +714,18 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 else:
+                    mapping = self.__get_mapping_for_file(file)
                     process = DeleteRemoteProcess(
                         remote_address=self.__context.config.lftp.remote_address,
                         remote_username=self.__context.config.lftp.remote_username,
                         remote_password=self.__password,
                         remote_port=self.__context.config.lftp.remote_port,
-                        remote_path=self.__context.config.lftp.remote_path,
+                        remote_path=mapping.remote_path,
                         file_name=file.name
                     )
                     process.set_multiprocessing_logger(self.__mp_logger)
-                    post_callback = self.__remote_scan_process.force_scan
+                    mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+                    post_callback = self.__remote_scan_processes[mapping_idx].force_scan
                     command_wrapper = Controller.CommandProcessWrapper(
                         process=process,
                         post_callback=post_callback
@@ -684,9 +743,12 @@ class Controller:
         :return:
         """
         self.__lftp.raise_pending_error()
-        self.__active_scan_process.propagate_exception()
-        self.__local_scan_process.propagate_exception()
-        self.__remote_scan_process.propagate_exception()
+        for proc in self.__active_scan_processes:
+            proc.propagate_exception()
+        for proc in self.__local_scan_processes:
+            proc.propagate_exception()
+        for proc in self.__remote_scan_processes:
+            proc.propagate_exception()
         self.__mp_logger.propagate_exception()
         self.__extract_process.propagate_exception()
 
