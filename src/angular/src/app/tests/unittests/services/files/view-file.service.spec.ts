@@ -127,7 +127,8 @@ describe("Testing view file service", () => {
             ViewFile.Status.STOPPED,
             ViewFile.Status.DELETED,
             ViewFile.Status.EXTRACTING,
-            ViewFile.Status.EXTRACTED
+            ViewFile.Status.EXTRACTED,
+            ViewFile.Status.VALIDATING
         ];
 
         // First state - DEFAULT
@@ -190,12 +191,19 @@ describe("Testing view file service", () => {
         tick();
         expect(count).toBe(7);
 
-        // Next state - DELETED
+        // Next state - EXTRACTED
         modelFile = new ModelFile(modelFile.set("state", ModelFile.State.EXTRACTED));
         model = model.set(modelFile.name, modelFile);
         mockModelService._files.next(model);
         tick();
         expect(count).toBe(8);
+
+        // Next state - VALIDATING
+        modelFile = new ModelFile(modelFile.set("state", ModelFile.State.VALIDATING));
+        model = model.set(modelFile.name, modelFile);
+        mockModelService._files.next(model);
+        tick();
+        expect(count).toBe(9);
     }));
 
     it("should always set a non-null file sizes in ViewFile", fakeAsync(() => {
@@ -286,6 +294,8 @@ describe("Testing view file service", () => {
             [[ModelFile.State.EXTRACTING, 100, null], [false, ViewFile.Status.EXTRACTING]],
             // Extracted file is NOT queueable
             [[ModelFile.State.EXTRACTED, 100, 100], [false, ViewFile.Status.EXTRACTED]],
+            // Validating file is NOT queueable
+            [[ModelFile.State.VALIDATING, 100, 100], [false, ViewFile.Status.VALIDATING]],
         ];
 
         let count = -1;
@@ -344,6 +354,8 @@ describe("Testing view file service", () => {
             [[ModelFile.State.EXTRACTING, 100, 100], [false, ViewFile.Status.EXTRACTING]],
             // Extracted file is NOT stoppable
             [[ModelFile.State.EXTRACTED, 100, 100], [false, ViewFile.Status.EXTRACTED]],
+            // Validating file is NOT stoppable
+            [[ModelFile.State.VALIDATING, 100, 100], [false, ViewFile.Status.VALIDATING]],
         ];
 
         let count = -1;
@@ -402,6 +414,8 @@ describe("Testing view file service", () => {
             [[ModelFile.State.EXTRACTING, 100, 100], [false, ViewFile.Status.EXTRACTING]],
             // Extracted file is extractable
             [[ModelFile.State.EXTRACTED, 100, 100], [true, ViewFile.Status.EXTRACTED]],
+            // Validating file is NOT extractable
+            [[ModelFile.State.VALIDATING, 100, 100], [false, ViewFile.Status.VALIDATING]],
         ];
 
         let count = -1;
@@ -588,6 +602,8 @@ describe("Testing view file service", () => {
             [[ModelFile.State.EXTRACTING, 100, 100], [false, ViewFile.Status.EXTRACTING]],
             // Extracted file is locally deletable
             [[ModelFile.State.EXTRACTED, 100, 100], [true, ViewFile.Status.EXTRACTED]],
+            // Validating file is NOT locally deletable
+            [[ModelFile.State.VALIDATING, 100, 100], [false, ViewFile.Status.VALIDATING]],
         ];
 
         let count = -1;
@@ -646,6 +662,8 @@ describe("Testing view file service", () => {
             [[ModelFile.State.EXTRACTING, 100, 100], [false, ViewFile.Status.EXTRACTING]],
             // Extracted file is remotely deletable
             [[ModelFile.State.EXTRACTED, 100, 100], [true, ViewFile.Status.EXTRACTED]],
+            // Validating file is NOT remotely deletable
+            [[ModelFile.State.VALIDATING, 100, 100], [false, ViewFile.Status.VALIDATING]],
         ];
 
         let count = -1;

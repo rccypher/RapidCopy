@@ -17,6 +17,8 @@
                  *ngIf="file.status === ViewFile.Status.EXTRACTING" />
             <img src="assets/icons/extracted.svg" id="extracted"
                  *ngIf="file.status === ViewFile.Status.EXTRACTED" />
+            <img src="assets/icons/validating.svg" id="validating"
+                 *ngIf="file.status === ViewFile.Status.VALIDATING" />
             <!-- don't show text for default status -->
             <span *ngIf="file.status != ViewFile.Status.DEFAULT"
                   class="text">{{file.status | capitalize}}</span>
@@ -66,11 +68,13 @@
                 <div class="progress-bar" role="progressbar"
                      [class.progress-bar-animated]="
                         file.status === ViewFile.Status.DOWNLOADING ||
-                        file.status === ViewFile.Status.EXTRACTING
+                        file.status === ViewFile.Status.EXTRACTING ||
+                        file.status === ViewFile.Status.VALIDATING
                      "
                      [class.progress-bar-striped]="
                         file.status === ViewFile.Status.DOWNLOADING ||
-                        file.status === ViewFile.Status.EXTRACTING
+                        file.status === ViewFile.Status.EXTRACTING ||
+                        file.status === ViewFile.Status.VALIDATING
                      "
                      [attr.aria-valuenow]="file.percentDownloaded" aria-valuemin="0" aria-valuemax="100"
                      [style.width]="

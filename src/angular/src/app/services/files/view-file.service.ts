@@ -387,6 +387,10 @@ export class ViewFileService {
                 status = ViewFile.Status.EXTRACTED;
                 break;
             }
+            case ModelFile.State.VALIDATING: {
+                status = ViewFile.Status.VALIDATING;
+                break;
+            }
         }
 
         const isQueueable: boolean = [ViewFile.Status.DEFAULT,

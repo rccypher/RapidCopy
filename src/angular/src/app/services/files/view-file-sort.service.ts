@@ -21,12 +21,13 @@ const StatusComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number 
         const statusPriorities = {
             [ViewFile.Status.EXTRACTING]: 0,
             [ViewFile.Status.DOWNLOADING]: 1,
-            [ViewFile.Status.QUEUED]: 2,
-            [ViewFile.Status.EXTRACTED]: 3,
-            [ViewFile.Status.DOWNLOADED]: 4,
-            [ViewFile.Status.STOPPED]: 5,
-            [ViewFile.Status.DEFAULT]: 6,
-            [ViewFile.Status.DELETED]: 6  // intermix deleted and default
+            [ViewFile.Status.VALIDATING]: 2,
+            [ViewFile.Status.QUEUED]: 3,
+            [ViewFile.Status.EXTRACTED]: 4,
+            [ViewFile.Status.DOWNLOADED]: 5,
+            [ViewFile.Status.STOPPED]: 6,
+            [ViewFile.Status.DEFAULT]: 7,
+            [ViewFile.Status.DELETED]: 7  // intermix deleted and default
         };
         if (statusPriorities[a.status] !== statusPriorities[b.status]) {
             return statusPriorities[a.status] - statusPriorities[b.status];

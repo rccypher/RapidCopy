@@ -56,6 +56,9 @@ describe("Testing model file initialization", () => {
         baseJson.state = "extracted";
         baseModelFile = ModelFile.fromJson(baseJson);
         expect(baseModelFile.state).toBe(ModelFile.State.EXTRACTED);
+        baseJson.state = "validating";
+        baseModelFile = ModelFile.fromJson(baseJson);
+        expect(baseModelFile.state).toBe(ModelFile.State.VALIDATING);
     });
 
     it("should initialize with correct values", () => {
