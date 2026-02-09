@@ -17,15 +17,16 @@ class ModelBuilder:
     """
     ModelBuilder combines all the difference sources of file system info
     to build a model. These sources include:
-      * downloading file system as a Dict[name, SystemFile]
-      * local file system as a Dict[name, SystemFile]
-      * remote file system as a Dict[name, SystemFile]
+      * downloading file system as a Dict[name, SystemFile] (per mapping)
+      * local file system as a Dict[name, SystemFile] (per mapping)
+      * remote file system as a Dict[name, SystemFile] (per mapping)
       * lftp status as Dict[name, LftpJobStatus]
     """
-    def __init__(self):
+    def __init__(self, num_mappings: int = 1):
         self.logger = logging.getLogger("ModelBuilder")
-        self.__local_files = dict()
-        self.__remote_files = dict()
+        self.__num_mappings = num_mappings
+        self.__local_files_by_mapping = [dict() for _ in range(num_mappings)]
+        self.__remote_files_by_mapping = [dict() for _ in range(num_mappings)]
         self.__lftp_statuses = dict()
         self.__downloaded_files = set()
         self.__extract_statuses = dict()
@@ -38,26 +39,26 @@ class ModelBuilder:
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild("ModelBuilder")
 
-    def set_active_files(self, active_files: List[SystemFile]):
+    def set_active_files(self, active_files: List[SystemFile], mapping_index: int = 0):
         # Update the local file state with this latest information
         for file in active_files:
-            self.__local_files[file.name] = file
+            self.__local_files_by_mapping[mapping_index][file.name] = file
         # Invalidate the cache
         if len(active_files) > 0:
             self.__cached_model = None
 
-    def set_local_files(self, local_files: List[SystemFile]):
-        prev_local_files = self.__local_files
-        self.__local_files = {file.name: file for file in local_files}
+    def set_local_files(self, local_files: List[SystemFile], mapping_index: int = 0):
+        prev_local_files = self.__local_files_by_mapping[mapping_index]
+        self.__local_files_by_mapping[mapping_index] = {file.name: file for file in local_files}
         # Invalidate the cache
-        if self.__local_files != prev_local_files:
+        if self.__local_files_by_mapping[mapping_index] != prev_local_files:
             self.__cached_model = None
 
-    def set_remote_files(self, remote_files: List[SystemFile]):
-        prev_remote_files = self.__remote_files
-        self.__remote_files = {file.name: file for file in remote_files}
+    def set_remote_files(self, remote_files: List[SystemFile], mapping_index: int = 0):
+        prev_remote_files = self.__remote_files_by_mapping[mapping_index]
+        self.__remote_files_by_mapping[mapping_index] = {file.name: file for file in remote_files}
         # Invalidate the cache
-        if self.__remote_files != prev_remote_files:
+        if self.__remote_files_by_mapping[mapping_index] != prev_remote_files:
             self.__cached_model = None
 
     def set_lftp_statuses(self, lftp_statuses: List[LftpJobStatus]):
@@ -109,8 +110,10 @@ class ModelBuilder:
             self.__cached_model = None
 
     def clear(self):
-        self.__local_files.clear()
-        self.__remote_files.clear()
+        for d in self.__local_files_by_mapping:
+            d.clear()
+        for d in self.__remote_files_by_mapping:
+            d.clear()
         self.__lftp_statuses.clear()
         self.__downloaded_files.clear()
         self.__extract_statuses.clear()
@@ -133,12 +136,40 @@ class ModelBuilder:
 
         model = Model()
         model.set_base_logger(logging.getLogger("dummy"))  # ignore the logs for this temp model
-        all_file_names = set().union(self.__local_files.keys(),
-                                     self.__remote_files.keys(),
+
+        # Merge files from all mappings into flat dicts, tracking which mapping each came from
+        merged_local_files = dict()
+        merged_remote_files = dict()
+        file_mapping_index = dict()  # name -> mapping_index
+
+        for mapping_idx in range(self.__num_mappings):
+            for name, sf in self.__remote_files_by_mapping[mapping_idx].items():
+                if name not in merged_remote_files:
+                    merged_remote_files[name] = sf
+                    file_mapping_index[name] = mapping_idx
+                else:
+                    self.logger.warning(
+                        "File '{}' exists in mapping {} and {}, using first occurrence".format(
+                            name, file_mapping_index[name], mapping_idx
+                        ))
+            for name, sf in self.__local_files_by_mapping[mapping_idx].items():
+                if name not in merged_local_files:
+                    merged_local_files[name] = sf
+                    if name not in file_mapping_index:
+                        file_mapping_index[name] = mapping_idx
+                else:
+                    if name not in file_mapping_index or file_mapping_index[name] != mapping_idx:
+                        self.logger.warning(
+                            "Local file '{}' exists in mapping {} and {}, using first occurrence".format(
+                                name, file_mapping_index.get(name, '?'), mapping_idx
+                            ))
+
+        all_file_names = set().union(merged_local_files.keys(),
+                                     merged_remote_files.keys(),
                                      self.__lftp_statuses.keys())
         for name in all_file_names:
-            remote = self.__remote_files.get(name, None)
-            local = self.__local_files.get(name, None)
+            remote = merged_remote_files.get(name, None)
+            local = merged_local_files.get(name, None)
             status = self.__lftp_statuses.get(name, None)
 
             if remote is None and local is None and status is None:
@@ -206,6 +237,7 @@ class ModelBuilder:
                         _model_file.remote_modified_timestamp = _remote.timestamp_modified
 
             model_file = ModelFile(name, is_dir)
+            model_file.mapping_index = file_mapping_index.get(name, 0)
             # set the file state
             # for now we only set to Queued or Downloading
             # later after all children are built, we can set to Downloaded after performing a check
