@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import tempfile
 from enum import Enum
@@ -89,6 +90,9 @@ class ValidateProcess(AppOneShotProcess):
         self.__use_chunked = use_chunked
         self.__chunk_size_bytes = chunk_size_bytes
         self.__result_queue = Queue()
+
+    def set_base_logger(self, base_logger: logging.Logger):
+        self.logger = base_logger.getChild("ValidateProcess")
 
     @property
     def file_name(self) -> str:
