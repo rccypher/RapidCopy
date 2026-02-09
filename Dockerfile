@@ -8,7 +8,7 @@ COPY src/angular/package*.json /app/
 WORKDIR /app
 RUN npm install
 COPY src/angular /app
-RUN node_modules/@angular/cli/bin/ng build -prod --output-path /build/html/
+RUN mkdir -p /build/html && node_modules/@angular/cli/bin/ng build -prod --output-path /build/html/
 
 # Stage 2: Build Python environment and final image
 FROM python:3.8-slim AS seedsync_run
