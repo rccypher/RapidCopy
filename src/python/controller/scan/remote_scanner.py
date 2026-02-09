@@ -1,6 +1,7 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import logging
+import io
 import pickle
 from typing import List
 import os
@@ -11,6 +12,19 @@ from .scanner_process import IScanner, ScannerError
 from common import overrides, Localization
 from ssh import Sshcp, SshcpError
 from system import SystemFile
+
+
+class _ScanfsUnpickler(pickle.Unpickler):
+    """
+    Custom unpickler that remaps __main__.SystemFile to system.file.SystemFile.
+    The standalone scanfs script runs as __main__ on the remote server,
+    so pickle encodes SystemFile with module='__main__'. This unpickler
+    maps it to the real SystemFile class.
+    """
+    def find_class(self, module, name):
+        if module == '__main__' and name == 'SystemFile':
+            return SystemFile
+        return super().find_class(module, name)
 
 
 class RemoteScanner(IScanner):
@@ -71,7 +85,7 @@ class RemoteScanner(IScanner):
             )
 
         try:
-            remote_files = pickle.loads(out)
+            remote_files = _ScanfsUnpickler(io.BytesIO(out)).load()
         except pickle.UnpicklingError as err:
             self.logger.error("Unpickling error: {}\n{}".format(str(err), out))
             raise ScannerError(

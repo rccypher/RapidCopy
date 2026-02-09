@@ -51,10 +51,6 @@ class SystemFile:
             raise TypeError("Cannot add children to a file")
         self.__children.append(file)
 
-# Override module so pickle serializes as system.file.SystemFile
-# This is required for the receiving end (seedsync) to unpickle correctly
-SystemFile.__module__ = 'system.file'
-
 
 class SystemScannerError(Exception):
     pass
