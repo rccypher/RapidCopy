@@ -14,6 +14,7 @@ export class OptionComponent implements OnInit {
     @Input() label: string;
     @Input() value: any;
     @Input() description: string;
+    @Input() optionDisabled: boolean = false;
 
     @Output() changeEvent = new EventEmitter<any>();
 
