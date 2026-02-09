@@ -41,7 +41,7 @@ RUN apt-get update && \
 RUN curl -s https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && \
     python get-pip.py --force-reinstall && \
     rm get-pip.py
-RUN pip3 install poetry
+RUN pip3 install "poetry==1.5.1"
 RUN poetry config virtualenvs.create false
 
 ENV LC_ALL=C.UTF-8
