@@ -14,6 +14,7 @@ interface IModelFile {
     eta: number;
     full_path: string;
     is_extractable: boolean;
+    mapping_index: number;
     local_created_timestamp: Date;
     local_modified_timestamp: Date;
     remote_created_timestamp: Date;
@@ -32,6 +33,7 @@ const DefaultModelFile: IModelFile = {
     eta: null,
     full_path: null,
     is_extractable: null,
+    mapping_index: null,
     local_created_timestamp: null,
     local_modified_timestamp: null,
     remote_created_timestamp: null,
@@ -56,6 +58,7 @@ export class ModelFile extends ModelFileRecord implements IModelFile {
     eta: number;
     full_path: string;
     is_extractable: boolean;
+    mapping_index: number;
     local_created_timestamp: Date;
     local_modified_timestamp: Date;
     remote_created_timestamp: Date;

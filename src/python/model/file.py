@@ -43,6 +43,7 @@ class ModelFile:
         # timestamp of the latest update
         # Note: timestamp is not part of equality operator
         self.__update_timestamp = datetime.now()
+        self.__mapping_index = None  # index into PathMappings list
         self.__children = []  # children files
         self.__parent = None  # direct predecessor
 
@@ -51,16 +52,14 @@ class ModelFile:
         #   timestamp: we don't care about it
         #   parent: semantics are to check self and children only
         #   children: check these manually for easier debugging
-        ka = set(self.__dict__).difference({
+        _excluded = {
             "_ModelFile__update_timestamp",
             "_ModelFile__parent",
-            "_ModelFile__children"
-        })
-        kb = set(other.__dict__).difference({
-            "_ModelFile__update_timestamp",
-            "_ModelFile__parent",
-            "_ModelFile__children"
-        })
+            "_ModelFile__children",
+            "_ModelFile__mapping_index"
+        }
+        ka = set(self.__dict__).difference(_excluded)
+        kb = set(other.__dict__).difference(_excluded)
         # Check self properties
         if ka != kb:
             return False
@@ -243,3 +242,10 @@ class ModelFile:
     @property
     def parent(self) -> Optional["ModelFile"]:
         return self.__parent
+
+    @property
+    def mapping_index(self) -> Optional[int]: return self.__mapping_index
+
+    @mapping_index.setter
+    def mapping_index(self, idx: Optional[int]):
+        self.__mapping_index = idx
