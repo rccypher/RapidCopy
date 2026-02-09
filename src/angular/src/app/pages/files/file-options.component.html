@@ -54,11 +54,6 @@
                     <div class="icon"><img src="assets/icons/stopped.svg" class="stopped" /></div>
                     <span class="text">Stopped</span>
                 </div>
-                <div class="sel-item"
-                     *ngIf="(options | async)?.selectedStatusFilter == ViewFile.Status.VALIDATING">
-                    <div class="icon"><img src="assets/icons/extracting.svg" class="validating" /></div>
-                    <span class="text">Validating</span>
-                </div>
             </div>
         </button>
         <div class="dropdown-menu">
@@ -109,13 +104,6 @@
                  (click)="onFilterByStatus(ViewFile.Status.STOPPED)">
                 <div class="icon"><img src="assets/icons/stopped.svg" class="stopped" /></div>
                 <span class="text">Stopped</span>
-            </div>
-            <div class="dropdown-item"
-                 [class.active]="(options | async)?.selectedStatusFilter == ViewFile.Status.VALIDATING"
-                 [class.disabled]="isValidatingStatusEnabled ? null : true"
-                 (click)="onFilterByStatus(ViewFile.Status.VALIDATING)">
-                <div class="icon"><img src="assets/icons/extracting.svg" class="validating" /></div>
-                <span class="text">Validating</span>
             </div>
         </div>
     </div>

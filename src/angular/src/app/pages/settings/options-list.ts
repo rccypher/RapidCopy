@@ -209,34 +209,17 @@ export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
     id: "validation",
     options: [
         {
-            type: OptionType.Checkbox,
-            label: "Enable Download Validation",
-            valuePath: ["controller", "enable_download_validation"],
-            description: "Verify file integrity by comparing SHA256 checksums between remote and local " +
-                         "files after each download. Files that fail validation are re-downloaded automatically."
-        },
-        {
             type: OptionType.Text,
             label: "Max Validation Retries",
             valuePath: ["controller", "download_validation_max_retries"],
-            enabledBy: ["controller", "enable_download_validation"],
-            description: "Maximum number of times to re-download a file that fails validation"
-        },
-        {
-            type: OptionType.Checkbox,
-            label: "Use Chunked Validation",
-            valuePath: ["controller", "use_chunked_validation"],
-            enabledBy: ["controller", "enable_download_validation"],
-            description: "Instead of re-downloading the entire file on validation failure, " +
-                         "split files into chunks and only re-download corrupted chunks. " +
-                         "Requires Download Validation to be enabled."
+            description: "Maximum number of times to re-download a file or chunk that fails " +
+                         "integrity validation after download"
         },
         {
             type: OptionType.Text,
             label: "Chunk Size (MB)",
             valuePath: ["controller", "validation_chunk_size_mb"],
-            enabledBy: ["controller", "enable_download_validation"],
-            description: "Size of each chunk in megabytes for chunked validation. " +
+            description: "Size of each chunk in megabytes for chunked validation and repair. " +
                          "Smaller chunks mean less re-download on failure but more overhead."
         },
     ]
