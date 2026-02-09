@@ -1,7 +1,8 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import configparser
-from typing import Dict
+import json
+from typing import Dict, List
 from io import StringIO
 import collections
 from distutils.util import strtobool
@@ -18,6 +19,30 @@ class ConfigError(AppError):
     Exception indicating a bad config value
     """
     pass
+
+
+class PathMapping:
+    """
+    Represents a single remote/local directory path mapping
+    """
+    def __init__(self, remote_path: str, local_path: str):
+        self.remote_path = remote_path
+        self.local_path = local_path
+
+    def to_dict(self) -> dict:
+        return {"remote_path": self.remote_path, "local_path": self.local_path}
+
+    @staticmethod
+    def from_dict(d: dict) -> "PathMapping":
+        return PathMapping(d["remote_path"], d["local_path"])
+
+    def __eq__(self, other):
+        if not isinstance(other, PathMapping):
+            return False
+        return self.remote_path == other.remote_path and self.local_path == other.local_path
+
+    def __repr__(self):
+        return "PathMapping(remote_path={}, local_path={})".format(self.remote_path, self.local_path)
 
 
 InnerConfigType = Dict[str, str]
@@ -305,12 +330,20 @@ class Config(Persist):
             self.patterns_only = None
             self.auto_extract = None
 
+    class PathMappings(IC):
+        mappings_json = PROP("mappings_json", Checkers.null, Converters.null)
+
+        def __init__(self):
+            super().__init__()
+            self.mappings_json = None
+
     def __init__(self):
         self.general = Config.General()
         self.lftp = Config.Lftp()
         self.controller = Config.Controller()
         self.web = Config.Web()
         self.autoqueue = Config.AutoQueue()
+        self.pathmappings = Config.PathMappings()
 
     @staticmethod
     def _check_section(dct: OuterConfigType, name: str) -> InnerConfigType:
@@ -370,6 +403,17 @@ class Config(Persist):
         config.web = Config.Web.from_dict(Config._check_section(config_dict, "Web"))
         config.autoqueue = Config.AutoQueue.from_dict(Config._check_section(config_dict, "AutoQueue"))
 
+        # PathMappings is optional for backward compatibility
+        if "PathMappings" in config_dict:
+            config.pathmappings = Config.PathMappings.from_dict(
+                Config._check_section(config_dict, "PathMappings")
+            )
+        else:
+            # Migrate from lftp.remote_path and lftp.local_path
+            config.pathmappings = Config.PathMappings()
+            mappings = [PathMapping(config.lftp.remote_path, config.lftp.local_path)]
+            config.pathmappings.mappings_json = json.dumps([m.to_dict() for m in mappings])
+
         Config._check_empty_outer_dict(config_dict)
         return config
 
@@ -382,7 +426,23 @@ class Config(Persist):
         config_dict["Controller"] = self.controller.as_dict()
         config_dict["Web"] = self.web.as_dict()
         config_dict["AutoQueue"] = self.autoqueue.as_dict()
+        config_dict["PathMappings"] = self.pathmappings.as_dict()
         return config_dict
+
+    def get_path_mappings(self) -> List[PathMapping]:
+        """
+        Returns the list of path mappings from the config
+        """
+        if self.pathmappings.mappings_json:
+            data = json.loads(self.pathmappings.mappings_json)
+            return [PathMapping.from_dict(d) for d in data]
+        return []
+
+    def set_path_mappings(self, mappings: List[PathMapping]):
+        """
+        Sets the path mappings in the config
+        """
+        self.pathmappings.mappings_json = json.dumps([m.to_dict() for m in mappings])
 
     def has_section(self, name: str) -> bool:
         """

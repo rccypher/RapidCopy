@@ -16,6 +16,7 @@ import platform
 from common import ServiceExit, Context, Constants, Config, Args, AppError
 from common import ServiceRestart
 from common import Localization, Status, ConfigError, Persist, PersistError
+from common.config import PathMapping
 from controller import Controller, ControllerJob, ControllerPersist, AutoQueue, AutoQueuePersist
 from web import WebAppJob, WebAppBuilder
 
@@ -318,6 +319,10 @@ class Seedsync:
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = False
         config.autoqueue.auto_extract = True
+
+        config.set_path_mappings([
+            PathMapping(Seedsync.__CONFIG_DUMMY_VALUE, Seedsync.__CONFIG_DUMMY_VALUE)
+        ])
 
         return config
 

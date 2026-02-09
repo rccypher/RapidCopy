@@ -1,10 +1,11 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
+import json
 import unittest
 import os
 import tempfile
 
-from common import Config, ConfigError, PersistError
+from common import Config, ConfigError, PersistError, PathMapping
 from common.config import InnerConfig, Checkers, Converters
 
 
@@ -184,6 +185,7 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(config.has_section("controller"))
         self.assertTrue(config.has_section("web"))
         self.assertTrue(config.has_section("autoqueue"))
+        self.assertTrue(config.has_section("pathmappings"))
         self.assertFalse(config.has_section("nope"))
         self.assertFalse(config.has_section("from_file"))
         self.assertFalse(config.has_section("__init__"))
@@ -375,6 +377,79 @@ class TestConfig(unittest.TestCase):
         self.check_bad_value_error(Config.AutoQueue, good_dict, "auto_extract", "SomeString")
         self.check_bad_value_error(Config.AutoQueue, good_dict, "auto_extract", "-1")
 
+    def test_pathmappings(self):
+        good_dict = {
+            "mappings_json": json.dumps([
+                {"remote_path": "/remote/path1", "local_path": "/local/path1"},
+                {"remote_path": "/remote/path2", "local_path": "/local/path2"},
+            ])
+        }
+        pm = Config.PathMappings.from_dict(good_dict)
+        self.assertIsNotNone(pm.mappings_json)
+
+        # Test via Config helper methods
+        config = Config()
+        config.pathmappings = pm
+        mappings = config.get_path_mappings()
+        self.assertEqual(2, len(mappings))
+        self.assertEqual("/remote/path1", mappings[0].remote_path)
+        self.assertEqual("/local/path1", mappings[0].local_path)
+        self.assertEqual("/remote/path2", mappings[1].remote_path)
+        self.assertEqual("/local/path2", mappings[1].local_path)
+
+        # Test set_path_mappings
+        config.set_path_mappings([
+            PathMapping("/new/remote", "/new/local")
+        ])
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/new/remote", mappings[0].remote_path)
+        self.assertEqual("/new/local", mappings[0].local_path)
+
+        # Test empty mappings
+        config.set_path_mappings([])
+        self.assertEqual(0, len(config.get_path_mappings()))
+
+    def test_pathmappings_backward_compat(self):
+        """Test that config without PathMappings section migrates from lftp paths"""
+        config_dict = {
+            "General": {"debug": "True", "verbose": "False"},
+            "Lftp": {
+                "remote_address": "server.com",
+                "remote_username": "user",
+                "remote_password": "pass",
+                "remote_port": "22",
+                "remote_path": "/data/files",
+                "local_path": "/downloads/files",
+                "remote_path_to_scan_script": "/tmp",
+                "use_ssh_key": "False",
+                "num_max_parallel_downloads": "2",
+                "num_max_parallel_files_per_download": "3",
+                "num_max_connections_per_root_file": "4",
+                "num_max_connections_per_dir_file": "4",
+                "num_max_total_connections": "8",
+                "use_temp_file": "False",
+            },
+            "Controller": {
+                "interval_ms_remote_scan": "30000",
+                "interval_ms_local_scan": "10000",
+                "interval_ms_downloading_scan": "1000",
+                "extract_path": "/tmp",
+                "use_local_path_as_extract_path": "True",
+                "enable_download_validation": "True",
+                "download_validation_max_retries": "3",
+                "use_chunked_validation": "False",
+                "validation_chunk_size_mb": "4",
+            },
+            "Web": {"port": "8800"},
+            "AutoQueue": {"enabled": "True", "patterns_only": "False", "auto_extract": "True"},
+        }
+        config = Config.from_dict(config_dict)
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/data/files", mappings[0].remote_path)
+        self.assertEqual("/downloads/files", mappings[0].local_path)
+
     def test_from_file(self):
         # Create empty config file
         config_file = open(tempfile.mktemp(suffix="test_config"), "w")
@@ -456,6 +531,12 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(True, config.autoqueue.patterns_only)
         self.assertEqual(True, config.autoqueue.auto_extract)
 
+        # PathMappings should be auto-migrated from lftp paths
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/path/on/remote/server", mappings[0].remote_path)
+        self.assertEqual("/path/on/local/server", mappings[0].local_path)
+
         # unknown section error
         config_file.write("""
         [Unknown]
@@ -503,6 +584,9 @@ class TestConfig(unittest.TestCase):
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = True
         config.autoqueue.auto_extract = False
+        config.set_path_mappings([
+            PathMapping("/remote/server/path", "/local/server/path")
+        ])
         config.to_file(config_file_path)
         with open(config_file_path, "r") as f:
             actual_str = f.read()
@@ -547,6 +631,9 @@ class TestConfig(unittest.TestCase):
         enabled = True
         patterns_only = True
         auto_extract = False
+
+        [PathMappings]
+        mappings_json = [{"remote_path": "/remote/server/path", "local_path": "/local/server/path"}]
         """
 
         golden_lines = [s.strip() for s in golden_str.splitlines()]
