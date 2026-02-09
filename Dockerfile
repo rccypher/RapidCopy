@@ -59,10 +59,9 @@ COPY src/python /app/python
 # Copy Angular build output
 COPY --from=angular_build /build/html /app/html
 
-# Create scanfs wrapper script (uses scan_fs.py directly instead of PyInstaller binary)
-RUN echo '#!/bin/sh' > /app/scanfs && \
-    echo 'exec python /app/python/scan_fs.py "$@"' >> /app/scanfs && \
-    chmod +x /app/scanfs
+# Copy self-contained scanfs script (gets SCP'd to remote servers and executed there)
+COPY src/python/scanfs_standalone.py /app/scanfs
+RUN chmod +x /app/scanfs
 
 # Copy config setup script
 COPY src/docker/build/docker-image/setup_default_config.sh /scripts/
