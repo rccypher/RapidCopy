@@ -299,6 +299,8 @@ class Config(Persist):
         download_validation_max_retries = PROP("download_validation_max_retries", Checkers.int_positive, Converters.int)
         use_chunked_validation = PROP("use_chunked_validation", Checkers.null, Converters.bool)
         validation_chunk_size_mb = PROP("validation_chunk_size_mb", Checkers.int_positive, Converters.int)
+        enable_disk_space_check = PROP("enable_disk_space_check", Checkers.null, Converters.bool)
+        disk_space_min_percent = PROP("disk_space_min_percent", Checkers.int_positive, Converters.int)
 
         def __init__(self):
             super().__init__()
@@ -311,6 +313,8 @@ class Config(Persist):
             self.download_validation_max_retries = None
             self.use_chunked_validation = None
             self.validation_chunk_size_mb = None
+            self.enable_disk_space_check = None
+            self.disk_space_min_percent = None
 
     class Web(InnerConfig):
         port = PROP("port", Checkers.int_positive, Converters.int)

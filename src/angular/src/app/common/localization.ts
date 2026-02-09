@@ -19,6 +19,10 @@ export class Localization {
         public static readonly NEW_VERSION_AVAILABLE = (url: string) =>
             `A new version of SeedSync is available! \
              Click <a href="${url}" target="blank">here</a> to grab the latest version.`
+
+        public static readonly STATUS_DISK_SPACE_LOW = (error: string) =>
+            `Downloads paused due to low disk space. Free up space and restart SeedSync.\
+             ${error ? "<br />" + error : ""}`
     };
 
     static Modal = class {

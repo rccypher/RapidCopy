@@ -27,6 +27,7 @@ export class HeaderComponent implements OnInit {
     private _prevServerNotification: Notification;
     private _prevWaitingForRemoteScanNotification: Notification;
     private _prevRemoteServerErrorNotification: Notification;
+    private _prevDiskSpaceNotification: Notification;
 
     constructor(private _logger: LoggerService,
                 _streamServiceRegistry: StreamServiceRegistry,
@@ -121,6 +122,27 @@ export class HeaderComponent implements OnInit {
                     if (this._prevRemoteServerErrorNotification != null) {
                         this._notificationService.hide(this._prevRemoteServerErrorNotification);
                         this._prevRemoteServerErrorNotification = null;
+                    }
+                }
+            }
+        });
+
+        // Set up a subscriber to show disk space low notifications
+        this._serverStatusService.status.subscribe({
+            next: status => {
+                if (status.server.up && status.controller.downloadsPausedDiskSpace === true) {
+                    // Downloads paused due to low disk space - show notification
+                    if (this._prevDiskSpaceNotification == null) {
+                        this._prevDiskSpaceNotification = new Notification({
+                            level: Notification.Level.DANGER,
+                            text: Localization.Notification.STATUS_DISK_SPACE_LOW(status.controller.diskSpaceError)
+                        });
+                        this._notificationService.show(this._prevDiskSpaceNotification);
+                    }
+                } else {
+                    if (this._prevDiskSpaceNotification != null) {
+                        this._notificationService.hide(this._prevDiskSpaceNotification);
+                        this._prevDiskSpaceNotification = null;
                     }
                 }
             }

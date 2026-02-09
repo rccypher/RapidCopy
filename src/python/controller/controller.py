@@ -8,6 +8,7 @@ from enum import Enum
 import copy
 import os
 import shutil
+import time
 
 # my libs
 from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
@@ -204,6 +205,10 @@ class Controller:
         # Maps file_name -> ValidateProcess
         self.__active_validation_processes = {}
 
+        # Disk space check state
+        self.__downloads_paused_disk_space = False
+        self.__last_disk_space_check_time = 0
+
         self.__started = False
 
     def start(self):
@@ -232,6 +237,7 @@ class Controller:
         if not self.__started:
             raise ControllerError("Cannot process, controller is not started")
         self.__propagate_exceptions()
+        self.__check_disk_space()
         self.__cleanup_commands()
         self.__process_commands()
         self.__check_validation_results()
@@ -615,6 +621,43 @@ class Controller:
         except LftpError as e:
             self.logger.error("Failed to re-queue {}: {}".format(file_name, str(e)))
 
+    _DISK_SPACE_CHECK_INTERVAL_S = 30
+
+    def __check_disk_space(self):
+        """Check disk space on all local paths and pause downloads if low"""
+        if not self.__context.config.controller.enable_disk_space_check:
+            return
+        if self.__downloads_paused_disk_space:
+            return
+
+        now = time.monotonic()
+        if now - self.__last_disk_space_check_time < Controller._DISK_SPACE_CHECK_INTERVAL_S:
+            return
+        self.__last_disk_space_check_time = now
+
+        threshold = self.__context.config.controller.disk_space_min_percent
+        for mapping in self.__path_mappings:
+            try:
+                usage = shutil.disk_usage(mapping.local_path)
+                percent_free = (usage.free / usage.total) * 100
+                if percent_free < threshold:
+                    self.logger.warning(
+                        "Low disk space on {} ({:.1f}% free, threshold {}%). "
+                        "Pausing all downloads.".format(mapping.local_path, percent_free, threshold)
+                    )
+                    self.__lftp.kill_all()
+                    self.__downloads_paused_disk_space = True
+                    self.__context.status.controller.downloads_paused_disk_space = True
+                    self.__context.status.controller.disk_space_error = \
+                        "Low disk space on {} ({:.1f}% free, threshold {}%)".format(
+                            mapping.local_path, percent_free, threshold
+                        )
+                    return
+            except OSError as e:
+                self.logger.warning("Could not check disk space on {}: {}".format(
+                    mapping.local_path, str(e)
+                ))
+
     def __process_commands(self):
         def _notify_failure(_command: Controller.Command, _msg: str):
             self.logger.warning("Command failed. {}".format(_msg))
@@ -631,6 +674,9 @@ class Controller:
                 continue
 
             if command.action == Controller.Command.Action.QUEUE:
+                if self.__downloads_paused_disk_space:
+                    _notify_failure(command, "Downloads paused: low disk space")
+                    continue
                 if file.remote_size is None:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue

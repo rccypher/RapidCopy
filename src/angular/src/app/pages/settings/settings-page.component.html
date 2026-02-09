@@ -50,6 +50,11 @@
                 *ngTemplateOutlet="optionsList;context:OPTIONS_CONTEXT_VALIDATION">
             </ng-container>
 
+            <!--suppress HtmlUnknownAttribute, UnnecessaryLabelJS -->
+            <ng-container
+                *ngTemplateOutlet="optionsList;context:OPTIONS_CONTEXT_DISK_SPACE">
+            </ng-container>
+
             <div class="card">
                 <h3 class="card-header" id="heading-pathmappings">
                     <button class="btn"

@@ -66,6 +66,8 @@ interface IController {
     download_validation_max_retries: number;
     use_chunked_validation: boolean;
     validation_chunk_size_mb: number;
+    enable_disk_space_check: boolean;
+    disk_space_min_percent: number;
 }
 const DefaultController: IController = {
     interval_ms_remote_scan: null,
@@ -77,6 +79,8 @@ const DefaultController: IController = {
     download_validation_max_retries: null,
     use_chunked_validation: null,
     validation_chunk_size_mb: null,
+    enable_disk_space_check: null,
+    disk_space_min_percent: null,
 };
 const ControllerRecord = Record(DefaultController);
 

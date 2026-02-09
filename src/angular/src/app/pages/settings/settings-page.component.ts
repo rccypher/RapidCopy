@@ -11,7 +11,7 @@ import {ServerCommandService} from "../../services/server/server-command.service
 import {
     OPTIONS_CONTEXT_CONNECTIONS, OPTIONS_CONTEXT_DISCOVERY, OPTIONS_CONTEXT_OTHER,
     OPTIONS_CONTEXT_SERVER, OPTIONS_CONTEXT_AUTOQUEUE, OPTIONS_CONTEXT_EXTRACT,
-    OPTIONS_CONTEXT_VALIDATION
+    OPTIONS_CONTEXT_VALIDATION, OPTIONS_CONTEXT_DISK_SPACE
 } from "./options-list";
 import {ConnectedService} from "../../services/utils/connected.service";
 import {StreamServiceRegistry} from "../../services/base/stream-service.registry";
@@ -36,6 +36,7 @@ export class SettingsPageComponent implements OnInit {
     public OPTIONS_CONTEXT_AUTOQUEUE = OPTIONS_CONTEXT_AUTOQUEUE;
     public OPTIONS_CONTEXT_EXTRACT = OPTIONS_CONTEXT_EXTRACT;
     public OPTIONS_CONTEXT_VALIDATION = OPTIONS_CONTEXT_VALIDATION;
+    public OPTIONS_CONTEXT_DISK_SPACE = OPTIONS_CONTEXT_DISK_SPACE;
 
     public config: Observable<Config>;
 

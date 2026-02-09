@@ -117,6 +117,8 @@ class Status(BaseStatus):
         latest_remote_scan_time = StatusComponent._create_property("latest_remote_scan_time")
         latest_remote_scan_failed = StatusComponent._create_property("latest_remote_scan_failed")
         latest_remote_scan_error = StatusComponent._create_property("latest_remote_scan_error")
+        downloads_paused_disk_space = StatusComponent._create_property("downloads_paused_disk_space")
+        disk_space_error = StatusComponent._create_property("disk_space_error")
 
         def __init__(self):
             super().__init__()
@@ -124,6 +126,8 @@ class Status(BaseStatus):
             self.latest_remote_scan_time = None
             self.latest_remote_scan_failed = None
             self.latest_remote_scan_error = None
+            self.downloads_paused_disk_space = None
+            self.disk_space_error = None
 
     # ----- End of component definition -----
 

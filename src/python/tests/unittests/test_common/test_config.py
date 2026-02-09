@@ -292,6 +292,8 @@ class TestConfig(unittest.TestCase):
             "download_validation_max_retries": "3",
             "use_chunked_validation": "False",
             "validation_chunk_size_mb": "4",
+            "enable_disk_space_check": "True",
+            "disk_space_min_percent": "10",
         }
         controller = Config.Controller.from_dict(good_dict)
         self.assertEqual(30000, controller.interval_ms_remote_scan)
@@ -303,6 +305,8 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(3, controller.download_validation_max_retries)
         self.assertEqual(False, controller.use_chunked_validation)
         self.assertEqual(4, controller.validation_chunk_size_mb)
+        self.assertEqual(True, controller.enable_disk_space_check)
+        self.assertEqual(10, controller.disk_space_min_percent)
 
         self.check_common(Config.Controller,
                           good_dict,
@@ -316,6 +320,8 @@ class TestConfig(unittest.TestCase):
                               "download_validation_max_retries",
                               "use_chunked_validation",
                               "validation_chunk_size_mb",
+                              "enable_disk_space_check",
+                              "disk_space_min_percent",
                           })
 
         # bad values
@@ -333,6 +339,9 @@ class TestConfig(unittest.TestCase):
         self.check_bad_value_error(Config.Controller, good_dict, "use_chunked_validation", "SomeString")
         self.check_bad_value_error(Config.Controller, good_dict, "validation_chunk_size_mb", "-1")
         self.check_bad_value_error(Config.Controller, good_dict, "validation_chunk_size_mb", "0")
+        self.check_bad_value_error(Config.Controller, good_dict, "enable_disk_space_check", "SomeString")
+        self.check_bad_value_error(Config.Controller, good_dict, "disk_space_min_percent", "-1")
+        self.check_bad_value_error(Config.Controller, good_dict, "disk_space_min_percent", "0")
 
     def test_web(self):
         good_dict = {
@@ -440,6 +449,8 @@ class TestConfig(unittest.TestCase):
                 "download_validation_max_retries": "3",
                 "use_chunked_validation": "False",
                 "validation_chunk_size_mb": "4",
+                "enable_disk_space_check": "True",
+                "disk_space_min_percent": "10",
             },
             "Web": {"port": "8800"},
             "AutoQueue": {"enabled": "True", "patterns_only": "False", "auto_extract": "True"},
@@ -485,6 +496,8 @@ class TestConfig(unittest.TestCase):
         download_validation_max_retries=5
         use_chunked_validation=True
         validation_chunk_size_mb=8
+        enable_disk_space_check=True
+        disk_space_min_percent=15
 
         [Web]
         port=88
@@ -524,6 +537,8 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(5, config.controller.download_validation_max_retries)
         self.assertEqual(True, config.controller.use_chunked_validation)
         self.assertEqual(8, config.controller.validation_chunk_size_mb)
+        self.assertEqual(True, config.controller.enable_disk_space_check)
+        self.assertEqual(15, config.controller.disk_space_min_percent)
 
         self.assertEqual(88, config.web.port)
 
@@ -580,6 +595,8 @@ class TestConfig(unittest.TestCase):
         config.controller.download_validation_max_retries = 3
         config.controller.use_chunked_validation = True
         config.controller.validation_chunk_size_mb = 4
+        config.controller.enable_disk_space_check = True
+        config.controller.disk_space_min_percent = 10
         config.web.port = 13
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = True
@@ -623,6 +640,8 @@ class TestConfig(unittest.TestCase):
         download_validation_max_retries = 3
         use_chunked_validation = True
         validation_chunk_size_mb = 4
+        enable_disk_space_check = True
+        disk_space_min_percent = 10
 
         [Web]
         port = 13

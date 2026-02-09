@@ -73,7 +73,9 @@ describe("Testing config service", () => {
             controller: {
                 interval_ms_remote_scan: 30000,
                 interval_ms_local_scan: 10000,
-                interval_ms_downloading_scan: 1000
+                interval_ms_downloading_scan: 1000,
+                enable_disk_space_check: true,
+                disk_space_min_percent: 10
             },
             web: {
                 port: 8800

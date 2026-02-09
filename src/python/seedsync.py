@@ -313,6 +313,8 @@ class Seedsync:
         config.controller.download_validation_max_retries = 3
         config.controller.use_chunked_validation = True
         config.controller.validation_chunk_size_mb = 4
+        config.controller.enable_disk_space_check = True
+        config.controller.disk_space_min_percent = 10
 
         config.web.port = 8800
 

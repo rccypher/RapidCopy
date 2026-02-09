@@ -16,6 +16,8 @@ class SerializeStatusJson:
     __KEY_CONTROLLER_LATEST_REMOTE_SCAN_TIME = "latest_remote_scan_time"
     __KEY_CONTROLLER_LATEST_REMOTE_SCAN_FAILED = "latest_remote_scan_failed"
     __KEY_CONTROLLER_LATEST_REMOTE_SCAN_ERROR = "latest_remote_scan_error"
+    __KEY_CONTROLLER_DOWNLOADS_PAUSED_DISK_SPACE = "downloads_paused_disk_space"
+    __KEY_CONTROLLER_DISK_SPACE_ERROR = "disk_space_error"
 
     @staticmethod
     def status(status: Status) -> str:
@@ -38,6 +40,10 @@ class SerializeStatusJson:
             status.controller.latest_remote_scan_failed
         json_dict[SerializeStatusJson.__KEY_CONTROLLER][SerializeStatusJson.__KEY_CONTROLLER_LATEST_REMOTE_SCAN_ERROR] = \
             status.controller.latest_remote_scan_error
+        json_dict[SerializeStatusJson.__KEY_CONTROLLER][SerializeStatusJson.__KEY_CONTROLLER_DOWNLOADS_PAUSED_DISK_SPACE] = \
+            status.controller.downloads_paused_disk_space
+        json_dict[SerializeStatusJson.__KEY_CONTROLLER][SerializeStatusJson.__KEY_CONTROLLER_DISK_SPACE_ERROR] = \
+            status.controller.disk_space_error
 
         status_json = json.dumps(json_dict)
         return status_json

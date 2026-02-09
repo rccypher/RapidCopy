@@ -192,6 +192,25 @@ export const OPTIONS_CONTEXT_EXTRACT: IOptionsContext = {
     ]
 };
 
+export const OPTIONS_CONTEXT_DISK_SPACE: IOptionsContext = {
+    header: "Disk Space",
+    id: "disk-space",
+    options: [
+        {
+            type: OptionType.Checkbox,
+            label: "Enable Disk Space Check",
+            valuePath: ["controller", "enable_disk_space_check"],
+            description: "Automatically pause downloads when disk space is low"
+        },
+        {
+            type: OptionType.Text,
+            label: "Minimum Free Space (%)",
+            valuePath: ["controller", "disk_space_min_percent"],
+            description: "Pause downloads when free space drops below this percentage"
+        },
+    ]
+};
+
 export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
     header: "Download Validation",
     id: "validation",
