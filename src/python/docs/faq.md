@@ -22,6 +22,19 @@ where `<directory on host>` refers to the location on host machine where you wis
 state.
 
 
+### How do I sync files from multiple remote directories?
+
+Use **Path Mappings** in the Settings page. Each path mapping pairs a remote directory with a local
+directory. You can add as many mappings as needed. See the [Usage](usage.md#path-mappings) page for details.
+
+### How do I verify my downloads are not corrupted?
+
+Enable **Download Validation** in the Settings page. SeedSync will compute SHA256 checksums on both
+the remote and local files after each download and automatically re-download any files that don't match.
+For large files, you can enable chunked validation to only re-download the corrupted portions.
+See the [Usage](usage.md#download-validation) page for details.
+
+
 ## Security
 
 ### Does SeedSync collect any data?

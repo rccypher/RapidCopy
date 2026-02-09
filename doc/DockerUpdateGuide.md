@@ -1,18 +1,26 @@
 # Updating an Existing Docker Container to the New Build
 
 This guide describes how to update an existing SeedSync Docker container
-to include the download validation feature (whole-file and chunked SHA256
-validation with selective re-download).
+to include new features: download validation and multi-path mapping support.
 
 ## Overview of Changes
 
 The new build adds:
+
+### Download Validation
 - **Download validation**: SHA256 integrity checks after file downloads
 - **Chunked validation**: Per-chunk validation with selective re-download of
   only corrupted chunks (reduces bandwidth on validation failures)
 - **New config settings**: `enable_download_validation`, `download_validation_max_retries`,
   `use_chunked_validation`, `validation_chunk_size_mb`
 - **New UI settings section**: "Download Validation" in the web interface
+
+### Multi-Path Mapping
+- **Multiple path mappings**: Sync files from multiple remote directories to different local directories
+- **New config section**: `[PathMappings]` with JSON-based path mapping definitions
+- **New UI settings section**: "Path Mappings" editor with add/remove support
+- **Per-mapping scanners**: Independent file scanning for each configured path mapping
+- Replaces the previous single "Server Directory" / "Local Directory" settings
 
 ## Prerequisites
 
@@ -115,11 +123,39 @@ docker-compose up -d   # recreates container with new image
 
 ## Configuration Migration
 
-The new validation settings are automatically initialized with defaults
+The new settings are automatically initialized with defaults
 when the updated application starts for the first time. No manual
 configuration changes are required.
 
-### Default Values
+### Path Mappings Migration
+
+Existing configurations are automatically migrated. If your config file has
+the old `remote_path` and `local_path` settings under `[Lftp]` but no
+`[PathMappings]` section, SeedSync will automatically create a single path
+mapping from those values. No action is required.
+
+After migration, you can add additional path mappings via the web UI or
+by editing `settings.cfg` directly:
+
+```ini
+[PathMappings]
+mappings_json = [{"remote_path": "/home/user/files", "local_path": "/downloads"}, {"remote_path": "/home/user/media", "local_path": "/downloads/media"}]
+```
+
+When using multiple local paths with Docker, make sure to mount each host
+directory to its corresponding container path:
+
+```bash
+docker run -d \
+  --name seedsync \
+  -p 8800:8800 \
+  -v /path/to/config:/config \
+  -v /media/files:/downloads \
+  -v /media/other:/downloads/media \
+  leanid/seedsync:latest
+```
+
+### Validation Default Values
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -242,13 +278,23 @@ config file do not cause errors.
 
 **Validation always shows ERROR:**
 - Check that the remote server is accessible via SSH from inside the container
-- Verify the remote path is correct in Settings > Server > Server Directory
+- Verify the remote path is correct in Settings > Path Mappings
 - Check container logs: `docker logs seedsync 2>&1 | grep -i "validation error"`
 
 **High bandwidth usage with chunked validation:**
 - Increase the chunk size (e.g., 8MB or 16MB) to reduce per-chunk overhead
 - Ensure `use_chunked_validation` is enabled - otherwise the whole file is
   re-downloaded on any mismatch
+
+**Files not appearing from a path mapping:**
+- Verify both the remote and local paths are correct and accessible
+- Check container logs for scanner errors: `docker logs seedsync 2>&1 | grep -i "scan"`
+- Make sure the local path exists inside the container (mount it with `-v`)
+
+**Duplicate filenames across path mappings:**
+- If the same filename exists in multiple remote directories, a warning is logged
+  and the first mapping takes priority
+- Use distinct directory structures to avoid collisions
 
 **Container won't start after update:**
 - Check for config file syntax errors: `docker logs seedsync`

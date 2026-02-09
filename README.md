@@ -31,6 +31,8 @@ It uses LFTP to transfer files fast!
 
 * Built on top of [LFTP](http://lftp.tech/), the fastest file transfer program ever
 * Web UI - track and control your transfers from anywhere
+* Multi-path mapping - sync multiple remote directories to different local directories
+* Download validation - SHA256 integrity checks with optional chunked re-download
 * Automatically extract your files after sync
 * Auto-Queue - only sync the files you want based on pattern matching
 * Delete local and remote files easily
