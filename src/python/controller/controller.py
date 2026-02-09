@@ -102,6 +102,8 @@ class Controller:
         self.__model_builder.set_base_logger(self.logger)
         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
         self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+        self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+        self.__model_builder.set_validation_enabled(self.__context.config.controller.enable_download_validation)
 
         # Lftp
         self.__lftp = Lftp(address=self.__context.config.lftp.remote_address,
@@ -375,13 +377,11 @@ class Controller:
                 elif diff.change == ModelDiff.Change.UPDATED:
                     self.__model.update_file(diff.new_file)
 
-                # Detect if a file was just Downloaded
-                #   an Added file in Downloaded state
-                #   an Updated file transitioning to Downloaded state
-                # If so, update the persist state
-                # Note: This step is done after the new model is build because
-                #       model_builder is the one that discovers when a file is Downloaded
+                # Detect if a file was just Downloaded or needs validation
+                # When validation is enabled, files go to VALIDATING instead of DOWNLOADED
+                # When validation is disabled, files go directly to DOWNLOADED
                 downloaded = False
+                needs_validation = False
                 if diff.change == ModelDiff.Change.ADDED and \
                         diff.new_file.state == ModelFile.State.DOWNLOADED:
                     downloaded = True
@@ -389,13 +389,21 @@ class Controller:
                         diff.new_file.state == ModelFile.State.DOWNLOADED and \
                         diff.old_file.state != ModelFile.State.DOWNLOADED:
                     downloaded = True
-                if downloaded:
+                elif diff.change == ModelDiff.Change.ADDED and \
+                        diff.new_file.state == ModelFile.State.VALIDATING:
+                    needs_validation = True
+                elif diff.change == ModelDiff.Change.UPDATED and \
+                        diff.new_file.state == ModelFile.State.VALIDATING and \
+                        diff.old_file.state not in (ModelFile.State.VALIDATING, ModelFile.State.DOWNLOADED):
+                    needs_validation = True
+
+                if downloaded or needs_validation:
                     self.__persist.downloaded_file_names.add(diff.new_file.name)
                     self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
-                    # Trigger validation if enabled and not already validating
-                    if self.__context.config.controller.enable_download_validation and \
-                            diff.new_file.name not in self.__active_validation_processes:
+                if needs_validation:
+                    # Start validation if not already running
+                    if diff.new_file.name not in self.__active_validation_processes:
                         self.__start_validation(diff.new_file.name, diff.new_file.is_dir)
 
             # Prune the extracted files list of any files that were deleted locally
@@ -416,6 +424,19 @@ class Controller:
                 self.logger.info("Removing from extracted list: {}".format(remove_extracted_file_names))
                 self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
                 self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+
+            # Prune the validated files list of any files that were deleted locally
+            # This allows re-validation if the file is re-downloaded
+            remove_validated_file_names = set()
+            for validated_file_name in self.__persist.validated_file_names:
+                if validated_file_name in existing_file_names:
+                    file = self.__model.get_file(validated_file_name)
+                    if file.state == ModelFile.State.DELETED:
+                        remove_validated_file_names.add(validated_file_name)
+            if remove_validated_file_names:
+                self.logger.info("Removing from validated list: {}".format(remove_validated_file_names))
+                self.__persist.validated_file_names.difference_update(remove_validated_file_names)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
 
             # Release the model
             self.__model_lock.release()
@@ -476,6 +497,9 @@ class Controller:
 
             if result.status == ValidationResult.Status.PASSED:
                 self.logger.info("Validation passed for: {}".format(file_name))
+                # Mark as validated so it won't be re-validated
+                self.__persist.validated_file_names.add(file_name)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
                 # Clear retry count on success
                 if file_name in self.__persist.validation_retry_counts:
                     del self.__persist.validation_retry_counts[file_name]
@@ -503,11 +527,16 @@ class Controller:
                         ))
                     # Clear retry count
                     del self.__persist.validation_retry_counts[file_name]
+                    # Mark as validated to stop retrying (failed but exhausted retries)
+                    self.__persist.validated_file_names.add(file_name)
+                    self.__model_builder.set_validated_files(self.__persist.validated_file_names)
 
             elif result.status == ValidationResult.Status.ERROR:
                 self.logger.error("Validation error for {}: {}".format(
                     file_name, result.error_message))
-                # On error, don't retry - just log and move on
+                # Mark as validated to avoid blocking the file forever on errors
+                self.__persist.validated_file_names.add(file_name)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
 
     def __delete_local_and_requeue(self, file_name: str, is_dir: bool):
         """

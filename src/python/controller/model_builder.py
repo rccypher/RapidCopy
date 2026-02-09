@@ -31,6 +31,8 @@ class ModelBuilder:
         self.__extract_statuses = dict()
         self.__extracted_files = set()
         self.__validation_statuses = dict()
+        self.__validated_files = set()
+        self.__validation_enabled = False
         self.__cached_model = None
 
     def set_base_logger(self, base_logger: logging.Logger):
@@ -93,6 +95,19 @@ class ModelBuilder:
         if self.__validation_statuses != prev_validation_statuses:
             self.__cached_model = None
 
+    def set_validated_files(self, validated_files: Set[str]):
+        prev_validated_files = self.__validated_files
+        self.__validated_files = validated_files
+        # Invalidate the cache
+        if self.__validated_files != prev_validated_files:
+            self.__cached_model = None
+
+    def set_validation_enabled(self, enabled: bool):
+        prev = self.__validation_enabled
+        self.__validation_enabled = enabled
+        if prev != enabled:
+            self.__cached_model = None
+
     def clear(self):
         self.__local_files.clear()
         self.__remote_files.clear()
@@ -101,6 +116,8 @@ class ModelBuilder:
         self.__extract_statuses.clear()
         self.__extracted_files.clear()
         self.__validation_statuses.clear()
+        self.__validated_files.clear()
+        self.__validation_enabled = False
         self.__cached_model = None
 
     def has_changes(self) -> bool:
@@ -306,6 +323,14 @@ class ModelBuilder:
                     if all_downloaded:
                         model_file.state = ModelFile.State.DOWNLOADED
 
+            # next we check if root needs validation before being marked complete
+            # If validation is enabled and file is DOWNLOADED but not yet validated,
+            # set it to VALIDATING so it doesn't appear as complete
+            if model_file.state == ModelFile.State.DOWNLOADED and \
+                    self.__validation_enabled and \
+                    model_file.name not in self.__validated_files:
+                model_file.state = ModelFile.State.VALIDATING
+
             # next we determine if root was Deleted
             # root is Deleted if it does not exist locally, but was downloaded in the past
             if model_file.state == ModelFile.State.DEFAULT and \
@@ -345,15 +370,6 @@ class ModelBuilder:
             #       If a Default file is extracted, it will return back to the Default state
             if model_file.name in self.__extracted_files and model_file.state == ModelFile.State.DOWNLOADED:
                     model_file.state = ModelFile.State.EXTRACTED
-
-            # next we check if root is Validating
-            # root is Validating if it has an active validation status and is in an expected state
-            if model_file.name in self.__validation_statuses:
-                if model_file.state in (
-                    ModelFile.State.DEFAULT,
-                    ModelFile.State.DOWNLOADED
-                ) and model_file.local_size is not None:
-                    model_file.state = ModelFile.State.VALIDATING
 
             model.add_file(model_file)
 
