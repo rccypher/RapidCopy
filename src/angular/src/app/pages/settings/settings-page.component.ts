@@ -83,7 +83,7 @@ export class SettingsPageComponent implements OnInit {
         this.config.subscribe({
             next: (config: Config) => {
                 if (config && config.pathmappings) {
-                    const json = config.pathmappings.get("mappings_json");
+                    const json = config.pathmappings.mappings_json;
                     if (json) {
                         try {
                             const parsed = JSON.parse(json);
