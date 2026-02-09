@@ -149,15 +149,12 @@ class Sshcp:
             raise ValueError("Command cannot be empty")
 
         # escape the command
-        if "'" in command and '"' in command:
-            # I don't know how to handle this yet...
-            raise ValueError("Command cannot contain both single and double quotes")
-        elif '"' in command:
-            # double quote in command, cover with single quotes
-            command = "'{}'".format(command)
-        else:
-            # no double quote in command, cover with double quotes
-            command = '"{}"'.format(command)
+        # Always wrap in single quotes for the local shell.
+        # This means $var is NOT expanded locally but IS expanded on the remote shell.
+        # Escape any existing single quotes using the standard POSIX technique:
+        #   ' -> '"'"'  (end single-quote, add double-quoted literal ', start single-quote)
+        escaped = command.replace("'", "'\"'\"'")
+        command = "'{}'".format(escaped)
 
         flags = [
             "-p", str(self.__port),  # port
