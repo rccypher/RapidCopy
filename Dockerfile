@@ -38,7 +38,7 @@ RUN apt-get update && \
     && apt-get clean
 
 # Install Poetry
-RUN curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+RUN curl -s https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && \
     python get-pip.py --force-reinstall && \
     rm get-pip.py
 RUN pip3 install poetry
