@@ -135,9 +135,9 @@ class SystemScanner:
 
     @staticmethod
     def _lftp_status_file_size(status):
-        size_pattern_m = re.compile("^size=(\d+)$")
-        pos_pattern_m = re.compile("^\d+\.pos=(\d+)$")
-        limit_pattern_m = re.compile("^\d+\.limit=(\d+)$")
+        size_pattern_m = re.compile(r"^size=(\d+)$")
+        pos_pattern_m = re.compile(r"^\d+\.pos=(\d+)$")
+        limit_pattern_m = re.compile(r"^\d+\.limit=(\d+)$")
         lines = [s.strip() for s in status.splitlines()]
         lines = list(filter(None, lines))
         if not lines:
