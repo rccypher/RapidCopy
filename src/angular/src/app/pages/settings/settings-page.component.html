@@ -50,6 +50,51 @@
                 *ngTemplateOutlet="optionsList;context:OPTIONS_CONTEXT_VALIDATION">
             </ng-container>
 
+            <div class="card">
+                <h3 class="card-header" id="heading-pathmappings">
+                    <button class="btn"
+                            type="button"
+                            data-toggle="collapse"
+                            data-target="#collapse-pathmappings">
+                        Path Mappings
+                    </button>
+                </h3>
+                <div id="collapse-pathmappings" class="collapse" data-parent="#accordion">
+                    <div class="card-body path-mappings-body">
+                        <div class="path-mappings-description">
+                            Map remote server directories to local directories. Each mapping syncs files from a remote path to a local path.
+                        </div>
+                        <div *ngFor="let mapping of pathMappings; let i = index" class="path-mapping-row">
+                            <div class="path-mapping-fields">
+                                <label>
+                                    <span class="name">Remote Path</span>
+                                    <input type="text"
+                                           class="form-control"
+                                           [ngModel]="mapping.remote_path"
+                                           (ngModelChange)="onPathMappingChange(i, 'remote_path', $event)" />
+                                </label>
+                                <label>
+                                    <span class="name">Local Path</span>
+                                    <input type="text"
+                                           class="form-control"
+                                           [ngModel]="mapping.local_path"
+                                           (ngModelChange)="onPathMappingChange(i, 'local_path', $event)" />
+                                </label>
+                            </div>
+                            <button *ngIf="pathMappings.length > 1"
+                                    class="btn btn-sm btn-remove-mapping"
+                                    (click)="onRemovePathMapping(i)">
+                                Remove
+                            </button>
+                        </div>
+                        <button class="btn btn-sm btn-add-mapping"
+                                (click)="onAddPathMapping()">
+                            + Add Path Mapping
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </div>
         <div id="right">
             <!--suppress HtmlUnknownAttribute, UnnecessaryLabelJS -->

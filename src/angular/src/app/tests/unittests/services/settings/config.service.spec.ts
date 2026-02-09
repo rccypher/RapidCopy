@@ -81,6 +81,9 @@ describe("Testing config service", () => {
             autoqueue: {
                 enabled: true,
                 patterns_only: false
+            },
+            pathmappings: {
+                mappings_json: '[{"remote_path":"/remote","local_path":"/local"}]'
             }
         };
         httpMock.expectOne("/server/config/get").flush(configJson);
@@ -107,6 +110,7 @@ describe("Testing config service", () => {
                 expect(config.web.port).toBe(8800);
                 expect(config.autoqueue.enabled).toBe(true);
                 expect(config.autoqueue.patterns_only).toBe(false);
+                expect(config.pathmappings.mappings_json).toBe('[{"remote_path":"/remote","local_path":"/local"}]');
             }
         });
 

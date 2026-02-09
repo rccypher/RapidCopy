@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, OnInit} from "@angular/core";
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit} from "@angular/core";
 import {Observable} from "rxjs/Observable";
 
 import {LoggerService} from "../../services/utils/logger.service";
@@ -16,6 +16,11 @@ import {
 import {ConnectedService} from "../../services/utils/connected.service";
 import {StreamServiceRegistry} from "../../services/base/stream-service.registry";
 
+export interface PathMappingEntry {
+    remote_path: string;
+    local_path: string;
+}
+
 @Component({
     selector: "app-settings-page",
     templateUrl: "./settings-page.component.html",
@@ -23,7 +28,6 @@ import {StreamServiceRegistry} from "../../services/base/stream-service.registry
     providers: [],
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-
 export class SettingsPageComponent implements OnInit {
     public OPTIONS_CONTEXT_SERVER = OPTIONS_CONTEXT_SERVER;
     public OPTIONS_CONTEXT_DISCOVERY = OPTIONS_CONTEXT_DISCOVERY;
@@ -37,16 +41,20 @@ export class SettingsPageComponent implements OnInit {
 
     public commandsEnabled: boolean;
 
+    public pathMappings: PathMappingEntry[] = [];
+
     private _connectedService: ConnectedService;
 
     private _configRestartNotif: Notification;
     private _badValueNotifs: Map<string, Notification>;
+    private _pathMappingDebounceTimer: any = null;
 
     constructor(private _logger: LoggerService,
                 _streamServiceRegistry: StreamServiceRegistry,
                 private _configService: ConfigService,
                 private _notifService: NotificationService,
-                private _commandService: ServerCommandService) {
+                private _commandService: ServerCommandService,
+                private _cdr: ChangeDetectorRef) {
         this._connectedService = _streamServiceRegistry.connectedService;
         this.config = _configService.config;
         this.commandsEnabled = false;
@@ -68,6 +76,29 @@ export class SettingsPageComponent implements OnInit {
 
                 // Enable/disable commands based on server connection
                 this.commandsEnabled = connected;
+            }
+        });
+
+        // Load path mappings from config
+        this.config.subscribe({
+            next: (config: Config) => {
+                if (config && config.pathmappings) {
+                    const json = config.pathmappings.get("mappings_json");
+                    if (json) {
+                        try {
+                            const parsed = JSON.parse(json);
+                            if (Array.isArray(parsed) && this.pathMappings.length === 0) {
+                                this.pathMappings = parsed.map(m => ({
+                                    remote_path: m.remote_path || "",
+                                    local_path: m.local_path || ""
+                                }));
+                                this._cdr.markForCheck();
+                            }
+                        } catch (e) {
+                            // Ignore parse errors
+                        }
+                    }
+                }
             }
         });
     }
@@ -104,6 +135,36 @@ export class SettingsPageComponent implements OnInit {
                 }
             }
         });
+    }
+
+    onPathMappingChange(index: number, field: string, value: string) {
+        this.pathMappings[index][field] = value;
+        this._savePathMappingsDebounced();
+    }
+
+    onAddPathMapping() {
+        this.pathMappings = [...this.pathMappings, {remote_path: "", local_path: ""}];
+        this._cdr.markForCheck();
+    }
+
+    onRemovePathMapping(index: number) {
+        this.pathMappings = this.pathMappings.filter((_, i) => i !== index);
+        this._cdr.markForCheck();
+        this._savePathMappings();
+    }
+
+    private _savePathMappingsDebounced() {
+        if (this._pathMappingDebounceTimer) {
+            clearTimeout(this._pathMappingDebounceTimer);
+        }
+        this._pathMappingDebounceTimer = setTimeout(() => {
+            this._savePathMappings();
+        }, 1000);
+    }
+
+    private _savePathMappings() {
+        const jsonValue = JSON.stringify(this.pathMappings);
+        this.onSetConfig("pathmappings", "mappings_json", jsonValue);
     }
 
     onCommandRestart() {

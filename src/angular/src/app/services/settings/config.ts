@@ -109,6 +109,17 @@ const AutoQueueRecord = Record(DefaultAutoQueue);
 
 
 /*
+ * PATHMAPPINGS
+ */
+interface IPathMappings {
+    mappings_json: string;
+}
+const DefaultPathMappings: IPathMappings = {
+    mappings_json: null,
+};
+const PathMappingsRecord = Record(DefaultPathMappings);
+
+/*
  * CONFIG
  */
 export interface IConfig {
@@ -117,7 +128,7 @@ export interface IConfig {
     controller: IController;
     web: IWeb;
     autoqueue: IAutoQueue;
-
+    pathmappings: IPathMappings;
 }
 const DefaultConfig: IConfig = {
     general: null,
@@ -125,6 +136,7 @@ const DefaultConfig: IConfig = {
     controller: null,
     web: null,
     autoqueue: null,
+    pathmappings: null,
 };
 const ConfigRecord = Record(DefaultConfig);
 
@@ -135,6 +147,7 @@ export class Config extends ConfigRecord implements IConfig {
     controller: IController;
     web: IWeb;
     autoqueue: IAutoQueue;
+    pathmappings: IPathMappings;
 
     constructor(props) {
         // Create immutable members
@@ -143,7 +156,8 @@ export class Config extends ConfigRecord implements IConfig {
             lftp: LftpRecord(props.lftp),
             controller: ControllerRecord(props.controller),
             web: WebRecord(props.web),
-            autoqueue: AutoQueueRecord(props.autoqueue)
+            autoqueue: AutoQueueRecord(props.autoqueue),
+            pathmappings: PathMappingsRecord(props.pathmappings)
         });
     }
 }

@@ -40,6 +40,9 @@ describe("Testing config record initialization", () => {
                 enabled: true,
                 patterns_only: false,
                 auto_extract: true,
+            },
+            pathmappings: {
+                mappings_json: '[{"remote_path":"/remote/one","local_path":"/local/one"}]',
             }
         };
         config = new Config(configJson);
@@ -71,6 +74,7 @@ describe("Testing config record initialization", () => {
         expect(config.autoqueue.enabled).toBe(true);
         expect(config.autoqueue.patterns_only).toBe(false);
         expect(config.autoqueue.auto_extract).toBe(true);
+        expect(config.pathmappings.mappings_json).toBe('[{"remote_path":"/remote/one","local_path":"/local/one"}]');
     });
 
     it("should be immutable", () => {
@@ -83,5 +87,6 @@ describe("Testing config record initialization", () => {
         expect(config.controller instanceof Immutable.Record).toBe(true);
         expect(config.web instanceof Immutable.Record).toBe(true);
         expect(config.autoqueue instanceof Immutable.Record).toBe(true);
+        expect(config.pathmappings instanceof Immutable.Record).toBe(true);
     });
 });
