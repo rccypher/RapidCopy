@@ -104,7 +104,6 @@ export module ModelFile {
         DOWNLOADED      = <any> "downloaded",
         DELETED         = <any> "deleted",
         EXTRACTING      = <any> "extracting",
-        EXTRACTED       = <any> "extracted",
-        VALIDATING      = <any> "validating"
+        EXTRACTED       = <any> "extracted"
     }
 }
