@@ -325,11 +325,18 @@ class ModelBuilder:
 
             # next we check if root needs validation before being marked complete
             # If validation is enabled and file is DOWNLOADED but not yet validated,
-            # set it to VALIDATING so it doesn't appear as complete
+            # set it to VALIDATING so it doesn't appear as complete.
+            # Also set to VALIDATING if there's an active validation status for this file.
             if model_file.state == ModelFile.State.DOWNLOADED and \
                     self.__validation_enabled and \
                     model_file.name not in self.__validated_files:
                 model_file.state = ModelFile.State.VALIDATING
+            if model_file.name in self.__validation_statuses:
+                validation_status = self.__validation_statuses[model_file.name]
+                if model_file.is_dir != validation_status.is_dir:
+                    raise ModelError("Mismatch in is_dir between file and validation status")
+                if model_file.state == ModelFile.State.DOWNLOADED:
+                    model_file.state = ModelFile.State.VALIDATING
 
             # next we determine if root was Deleted
             # root is Deleted if it does not exist locally, but was downloaded in the past

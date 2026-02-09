@@ -47,7 +47,7 @@ class SerializeModel(Serialize):
         ModelFile.State.DELETED: "deleted",
         ModelFile.State.EXTRACTING: "extracting",
         ModelFile.State.EXTRACTED: "extracted",
-        ModelFile.State.VALIDATING: "downloading"
+        ModelFile.State.VALIDATING: "validating"
     }
     __KEY_FILE_REMOTE_SIZE = "remote_size"
     __KEY_FILE_LOCAL_SIZE = "local_size"
