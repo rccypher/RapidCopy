@@ -1,7 +1,6 @@
-<p align="center">
-    <img src="https://user-images.githubusercontent.com/12875506/85908858-c637a100-b7cb-11ea-8ab3-75c0c0ddf756.png" alt="SeedSync" />
-</p>
+Based on the work from ipsingh06
 
+Updated coming:
 
 <p align="center">
   <!--<a href="https://travis-ci.com/ipsingh06/seedsync">
