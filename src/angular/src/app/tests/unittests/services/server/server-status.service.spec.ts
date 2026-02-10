@@ -54,7 +54,9 @@ describe("Testing server status service", () => {
                 latest_local_scan_time: null,
                 latest_remote_scan_time: null,
                 latest_remote_scan_failed: null,
-                latest_remote_scan_error: null
+                latest_remote_scan_error: null,
+                downloads_paused_disk_space: null,
+                disk_space_error: null
             }
         };
         serverStatusService.notifyEvent("status", JSON.stringify(statusJson));
@@ -83,7 +85,9 @@ describe("Testing server status service", () => {
                 latest_local_scan_time: null,
                 latest_remote_scan_time: null,
                 latest_remote_scan_failed: null,
-                latest_remote_scan_error: null
+                latest_remote_scan_error: null,
+                downloads_paused_disk_space: null,
+                disk_space_error: null
             }
         };
         serverStatusService.notifyEvent("status", JSON.stringify(statusJson));
