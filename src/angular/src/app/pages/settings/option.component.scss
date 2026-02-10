@@ -7,9 +7,9 @@
 }
 
 .error {
-    background-color: #f2dede;
-    color: #a94442;
-    border: 1px solid #a94442;
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-text);
 }
 
 label {
@@ -21,7 +21,7 @@ label {
 }
 
 span.description {
-    color: darkgrey;
+    color: var(--text-muted);
     font-size: 80%;
     line-height: initial;
     width: 100%;

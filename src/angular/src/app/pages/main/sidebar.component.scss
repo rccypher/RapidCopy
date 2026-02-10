@@ -18,11 +18,11 @@
         user-select: none;
 
         &:active {
-            background-color: $primary-color;
+            background-color: var(--primary-color);
         }
 
         &.selected {
-            background-color: $secondary-color;
+            background-color: var(--secondary-color);
             color: white;
             border-color: #6ac19e;
 
@@ -41,12 +41,39 @@
             height: 18px;
             margin-right: 4px;
             margin-bottom: 2px;
+            filter: var(--icon-filter);
         }
     }
 
     hr {
         margin-top: 3px;
         margin-bottom: 3px;
-        border: 1px solid $header-dark-color;
+        border: 1px solid var(--header-dark-color);
+    }
+
+    .theme-toggle {
+        background-color: inherit;
+        color: inherit;
+        display: block;
+        width: 100%;
+        padding: 8px 16px;
+        text-align: left;
+        border: none;
+        outline: none;
+        cursor: default;
+        user-select: none;
+        font-weight: bolder;
+
+        &:active {
+            background-color: var(--primary-color);
+        }
+
+        img {
+            width: 18px;
+            height: 18px;
+            margin-right: 4px;
+            margin-bottom: 2px;
+            filter: var(--icon-filter);
+        }
     }
 }

@@ -3,7 +3,7 @@
 // Common dropdown template
 %dropdown {
     button {
-        background-color: $primary-color;
+        background-color: var(--primary-color);
         color: white;
         height: 34px;
         width: 100%;
@@ -37,8 +37,8 @@
     }
 
     .dropdown-menu {
-        background-color: $primary-color;
-        border: 1px solid $primary-dark-color;
+        background-color: var(--primary-color);
+        border: 1px solid var(--primary-dark-color);
         color: white;
         padding: 0;
         cursor: default;
@@ -55,17 +55,17 @@
 
             &.active,
             &.active:hover {
-                background-color: $secondary-dark-color;
+                background-color: var(--secondary-dark-color);
             }
 
             &:hover,
             &:active {
-                background-color: $primary-color;
+                background-color: var(--primary-color);
             }
 
             &.disabled {
                 opacity: .65;
-                background-color: $primary-color;
+                background-color: var(--primary-color);
             }
 
             .icon {
@@ -105,8 +105,8 @@
 
 
 %toggle {
-    background-color: $primary-color;
-    border: 1px solid $primary-dark-color;
+    background-color: var(--primary-color);
+    border: 1px solid var(--primary-dark-color);
     color: white;
     height: 34px;
     cursor: default;
@@ -119,18 +119,18 @@
 
     &.active,
     &.active:hover{
-        background-color: $secondary-dark-color;
-        border-color: $secondary-darker-color;
+        background-color: var(--secondary-dark-color);
+        border-color: var(--secondary-darker-color);
     }
 
     &:hover,
     &:active {
-        background-color: $primary-color;
+        background-color: var(--primary-color);
     }
 
     &.disabled {
         opacity: .65;
-        background-color: $primary-color;
+        background-color: var(--primary-color);
     }
 
     .selection {
@@ -157,7 +157,7 @@
 #file-options {
     position: static;
     z-index: $zindex-file-options;
-    background-color: $header-color;
+    background-color: var(--header-color);
     padding: 0 8px 8px 8px;
 
     display: flex;

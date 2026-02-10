@@ -24,7 +24,7 @@
 }
 
 #title-bar {
-    background-color: $header-color;
+    background-color: var(--header-color);
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -41,7 +41,7 @@
 }
 
 #top-sidebar {
-    background-color: $primary-light-color;
+    background-color: var(--sidebar-bg);
     width: $sidebar-width;
     height: 100%;
     position: fixed;
@@ -70,7 +70,7 @@
             font-size: 140%;
             cursor: default;
             user-select: none;
-            color: $logo-color;
+            color: var(--logo-color);
             font-family: $logo-font;
         }
 
@@ -113,6 +113,7 @@
 
 .sidebar-btn {
     background-color: inherit;
+    color: var(--text-color);
     display: block;
     padding: 8px 16px;
     border: none;
@@ -127,7 +128,7 @@
     text-align: left;
 
     &:active {
-        background-color: $header-dark-color;
+        background-color: var(--header-dark-color);
     }
 }
 

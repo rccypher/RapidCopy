@@ -15,4 +15,12 @@
         <img src="assets/icons/refresh.svg" />
         <span class="text">Restart</span>
     </a>
+
+    <hr>
+
+    <a class="theme-toggle"
+       (click)="onToggleTheme()">
+        <img [src]="isDarkTheme ? 'assets/icons/sun.svg' : 'assets/icons/moon.svg'" />
+        <span class="text">{{isDarkTheme ? 'Light Mode' : 'Dark Mode'}}</span>
+    </a>
 </div>

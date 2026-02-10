@@ -48,13 +48,13 @@
         padding: 10px 20px;
 
         .path-mappings-description {
-            color: darkgrey;
+            color: var(--text-muted);
             font-size: 80%;
             margin-bottom: 10px;
         }
 
         .path-mapping-row {
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             padding: 10px;
             margin-bottom: 8px;
@@ -81,25 +81,25 @@
             }
 
             .btn-remove-mapping {
-                color: #a94442;
-                border-color: #a94442;
+                color: var(--danger-text);
+                border-color: var(--danger-text);
                 margin-top: 5px;
                 font-size: 80%;
 
                 &:hover {
-                    background-color: #a94442;
+                    background-color: var(--danger-text);
                     color: white;
                 }
             }
         }
 
         .btn-add-mapping {
-            color: #5cb85c;
-            border-color: #5cb85c;
+            color: var(--success-color);
+            border-color: var(--success-color);
             font-size: 80%;
 
             &:hover {
-                background-color: #5cb85c;
+                background-color: var(--success-color);
                 color: white;
             }
         }

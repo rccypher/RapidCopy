@@ -36,6 +36,8 @@ class TestControllerValidationConfig(unittest.TestCase):
             "download_validation_max_retries": "3",
             "use_chunked_validation": "False",
             "validation_chunk_size_mb": "4",
+            "enable_disk_space_check": "True",
+            "disk_space_min_percent": "10",
         }
 
     def test_validation_fields_from_dict(self):
@@ -197,6 +199,8 @@ enable_download_validation=True
 download_validation_max_retries=5
 use_chunked_validation=True
 validation_chunk_size_mb=8
+enable_disk_space_check=True
+disk_space_min_percent=10
 
 [Web]
 port=88

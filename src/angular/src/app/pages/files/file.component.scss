@@ -6,7 +6,7 @@
 
 /* selected file */
 .file.selected {
-    background-color: $secondary-color;
+    background-color: var(--secondary-color);
 }
 
 /* content */
@@ -59,7 +59,7 @@
             flex-direction: column;
 
             .details-text {
-                color: darkgray;
+                color: var(--text-muted);
                 font-size: 80%;
                 line-height: 120%;
 
@@ -171,7 +171,7 @@
     .loader {
         display: none;
         border: 5px solid white;
-        border-top: 5px solid $secondary-dark-color;
+        border-top: 5px solid var(--secondary-dark-color);
         border-radius: 50%;
         width: 25px;
         height: 25px;
@@ -186,8 +186,8 @@
     // Show loader icon when loading
     &.loading {
         opacity: 1.0;
-        background-color: $secondary-dark-color;
-        border-color: $secondary-darker-color;
+        background-color: var(--secondary-dark-color);
+        border-color: var(--secondary-darker-color);
 
         img {
             display: none;
@@ -211,7 +211,7 @@
 @media only screen and (min-width: $medium-min-width) {
     /* enable row hover */
     .file:not(.selected):hover {
-        background-color: $secondary-light-color;
+        background-color: var(--secondary-light-color);
     }
 
     /* width */

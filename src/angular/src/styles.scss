@@ -1,5 +1,144 @@
 @import 'app/common/common';
 
+// ============================================
+// Theme: CSS Custom Properties
+// ============================================
+:root {
+    // Core palette
+    --primary-color: #337BB7;
+    --primary-dark-color: #2e6da4;
+    --primary-light-color: #D7E7F4;
+    --primary-lighter-color: #F6F6F6;
+    --secondary-color: #79DFB6;
+    --secondary-light-color: #C5F0DE;
+    --secondary-dark-color: #32AD7B;
+    --secondary-darker-color: #077F4F;
+    --header-color: #DDDDDD;
+    --header-dark-color: #D3D3D3;
+    --logo-color: #118247;
+
+    // Backgrounds
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --text-muted: darkgray;
+    --sidebar-bg: #D7E7F4;
+    --card-bg: #ffffff;
+    --card-header-bg: rgba(0, 0, 0, .03);
+    --border-color: #e0e0e0;
+
+    // File list
+    --stripe-bg: #F6F6F6;
+    --table-header-bg: #000000;
+    --table-header-text: #ffffff;
+    --file-separator: #ddd;
+
+    // Inputs / Forms
+    --input-bg: #ffffff;
+    --input-text: #495057;
+    --input-border: #ced4da;
+    --input-focus-border: #80bdff;
+
+    // Logs
+    --log-debug: darkgray;
+    --log-info: black;
+    --log-warning-text: #8a6d3b;
+    --log-warning-bg: #fcf8e3;
+    --log-warning-border: #faebcc;
+    --log-error-text: #a94442;
+    --log-error-bg: #f2dede;
+    --log-error-border: #ebccd1;
+    --connected-line: #e3e3e3;
+    --connected-span-bg: #f5f5f5;
+
+    // Buttons
+    --btn-active-color: #286090;
+    --danger-text: #a94442;
+    --danger-bg: #f2dede;
+    --success-color: #5cb85c;
+
+    // Bootstrap alert overrides
+    --alert-danger-bg: #f8d7da;
+    --alert-danger-text: #721c24;
+    --alert-danger-border: #f5c6cb;
+    --alert-warning-bg: #fff3cd;
+    --alert-warning-text: #856404;
+    --alert-warning-border: #ffeeba;
+    --alert-info-bg: #d1ecf1;
+    --alert-info-text: #0c5460;
+    --alert-info-border: #bee5eb;
+
+    // Sidebar icon filter (no inversion in light mode)
+    --icon-filter: none;
+}
+
+body.dark-theme {
+    // Core palette (adjusted for dark backgrounds)
+    --primary-color: #4a90d9;
+    --primary-dark-color: #3a7bc8;
+    --primary-light-color: #1a2744;
+    --primary-lighter-color: #2a2a3a;
+    --secondary-color: #5cc49a;
+    --secondary-light-color: #1a3a2e;
+    --secondary-dark-color: #32AD7B;
+    --secondary-darker-color: #077F4F;
+    --header-color: #2a2a3a;
+    --header-dark-color: #222233;
+    --logo-color: #5cc49a;
+
+    // Backgrounds
+    --bg-color: #1a1a2e;
+    --text-color: #d4d4d4;
+    --text-muted: #888888;
+    --sidebar-bg: #16213e;
+    --card-bg: #222240;
+    --card-header-bg: #2a2a4a;
+    --border-color: #3a3a5a;
+
+    // File list
+    --stripe-bg: #1f1f3a;
+    --table-header-bg: #16213e;
+    --table-header-text: #d4d4d4;
+    --file-separator: #3a3a5a;
+
+    // Inputs / Forms
+    --input-bg: #2a2a4a;
+    --input-text: #d4d4d4;
+    --input-border: #3a3a5a;
+    --input-focus-border: #4a90d9;
+
+    // Logs
+    --log-debug: #666666;
+    --log-info: #d4d4d4;
+    --log-warning-text: #f0c674;
+    --log-warning-bg: #3a3520;
+    --log-warning-border: #4a4530;
+    --log-error-text: #e06c75;
+    --log-error-bg: #3a2020;
+    --log-error-border: #4a2525;
+    --connected-line: #3a3a5a;
+    --connected-span-bg: #222240;
+
+    // Buttons
+    --btn-active-color: #3a7bc8;
+    --danger-text: #e06c75;
+    --danger-bg: #3a2020;
+    --success-color: #5cc49a;
+
+    // Bootstrap alert overrides
+    --alert-danger-bg: #3a2020;
+    --alert-danger-text: #e06c75;
+    --alert-danger-border: #4a2525;
+    --alert-warning-bg: #3a3520;
+    --alert-warning-text: #f0c674;
+    --alert-warning-border: #4a4530;
+    --alert-info-bg: #1a2744;
+    --alert-info-text: #7ec8e3;
+    --alert-info-border: #2a3754;
+
+    // Sidebar icon filter (invert dark icons for visibility)
+    --icon-filter: invert(0.8);
+}
+
 html {
     -ms-text-size-adjust: 100%;
     -webkit-text-size-adjust: 100%;
@@ -11,6 +150,12 @@ html, body {
     font-size: 15px;
     line-height: 1.5;
     margin: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* show the input search cancel button */
@@ -30,4 +175,59 @@ div {
     overflow-wrap: normal;
     hyphens: auto;
     word-break: break-word;
+}
+
+// ============================================
+// Bootstrap Dark Theme Overrides
+// ============================================
+body.dark-theme {
+    // Cards
+    .card {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+    }
+    .card-header {
+        background-color: var(--card-header-bg);
+        border-bottom-color: var(--border-color);
+    }
+
+    // Form controls
+    .form-control {
+        background-color: var(--input-bg);
+        color: var(--input-text);
+        border-color: var(--input-border);
+
+        &:focus {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border-color: var(--input-focus-border);
+        }
+    }
+
+    // Alerts
+    .alert-danger {
+        background-color: var(--alert-danger-bg);
+        color: var(--alert-danger-text);
+        border-color: var(--alert-danger-border);
+    }
+    .alert-warning {
+        background-color: var(--alert-warning-bg);
+        color: var(--alert-warning-text);
+        border-color: var(--alert-warning-border);
+    }
+    .alert-info {
+        background-color: var(--alert-info-bg);
+        color: var(--alert-info-text);
+        border-color: var(--alert-info-border);
+    }
+
+    // Buttons
+    .btn-link {
+        color: var(--primary-color);
+    }
+
+    // Progress bars
+    .progress {
+        background-color: var(--border-color);
+    }
 }
