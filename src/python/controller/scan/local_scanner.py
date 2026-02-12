@@ -12,6 +12,7 @@ class LocalScanner(IScanner):
     """
     Scanner implementation to scan the local filesystem
     """
+
     def __init__(self, local_path: str, use_temp_file: bool):
         self.__scanner = SystemScanner(local_path)
         if use_temp_file:
@@ -26,7 +27,7 @@ class LocalScanner(IScanner):
     def scan(self) -> List[SystemFile]:
         try:
             result = self.__scanner.scan()
-        except SystemScannerError:
+        except SystemScannerError as e:
             self.logger.exception("Caught SystemScannerError")
-            raise ScannerError(Localization.Error.LOCAL_SERVER_SCAN, recoverable=False)
+            raise ScannerError(Localization.Error.LOCAL_SERVER_SCAN, recoverable=False) from e
         return result

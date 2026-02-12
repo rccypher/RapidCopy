@@ -17,22 +17,22 @@ class RemoteScanner(IScanner):
     """
     Scanner implementation to scan the remote filesystem
     """
-    def __init__(self,
-                 remote_address: str,
-                 remote_username: str,
-                 remote_password: str | None,
-                 remote_port: int,
-                 remote_path_to_scan: str,
-                 local_path_to_scan_script: str,
-                 remote_path_to_scan_script: str):
+
+    def __init__(
+        self,
+        remote_address: str,
+        remote_username: str,
+        remote_password: str | None,
+        remote_port: int,
+        remote_path_to_scan: str,
+        local_path_to_scan_script: str,
+        remote_path_to_scan_script: str,
+    ):
         self.logger = logging.getLogger("RemoteScanner")
         self.__remote_path_to_scan = remote_path_to_scan
         self.__local_path_to_scan_script = local_path_to_scan_script
         self.__remote_path_to_scan_script = remote_path_to_scan_script
-        self.__ssh = Sshcp(host=remote_address,
-                           port=remote_port,
-                           user=remote_username,
-                           password=remote_password)
+        self.__ssh = Sshcp(host=remote_address, port=remote_port, user=remote_username, password=remote_password)
         self.__first_run = True
 
         # Append scan script name to remote path if not there already
@@ -51,10 +51,7 @@ class RemoteScanner(IScanner):
             self._install_scanfs()
 
         try:
-            out = self.__ssh.shell("'{}' '{}'".format(
-                self.__remote_path_to_scan_script,
-                self.__remote_path_to_scan)
-            )
+            out = self.__ssh.shell("'{}' '{}'".format(self.__remote_path_to_scan_script, self.__remote_path_to_scan))
         except SshcpError as e:
             self.logger.warning("Caught an SshcpError: {}".format(str(e)))
             recoverable = True
@@ -66,18 +63,16 @@ class RemoteScanner(IScanner):
             if self.__first_run:
                 recoverable = False
             raise ScannerError(
-                Localization.Error.REMOTE_SERVER_SCAN.format(str(e).strip()),
-                recoverable=recoverable
-            )
+                Localization.Error.REMOTE_SERVER_SCAN.format(str(e).strip()), recoverable=recoverable
+            ) from e
 
         try:
             remote_files = pickle.loads(out)
         except pickle.UnpicklingError as err:
             self.logger.error("Unpickling error: {}\n{}".format(str(err), out))
             raise ScannerError(
-                Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"),
-                recoverable=False
-            )
+                Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"), recoverable=False
+            ) from err
 
         self.__first_run = False
         return remote_files
@@ -96,28 +91,26 @@ class RemoteScanner(IScanner):
         except SshcpError as e:
             self.logger.exception("Caught scp exception")
             raise ScannerError(
-                Localization.Error.REMOTE_SERVER_INSTALL.format(str(e).strip()),
-                recoverable=False
-            )
+                Localization.Error.REMOTE_SERVER_INSTALL.format(str(e).strip()), recoverable=False
+            ) from e
 
         # Go ahead and install
-        self.logger.info("Installing local:{} to remote:{}".format(
-            self.__local_path_to_scan_script,
-            self.__remote_path_to_scan_script
-        ))
+        self.logger.info(
+            "Installing local:{} to remote:{}".format(
+                self.__local_path_to_scan_script, self.__remote_path_to_scan_script
+            )
+        )
         if not os.path.isfile(self.__local_path_to_scan_script):
             raise ScannerError(
                 Localization.Error.REMOTE_SERVER_SCAN.format(
                     "Failed to find scanfs executable at {}".format(self.__local_path_to_scan_script)
                 ),
-                recoverable=False
+                recoverable=False,
             )
         try:
-            self.__ssh.copy(local_path=self.__local_path_to_scan_script,
-                            remote_path=self.__remote_path_to_scan_script)
+            self.__ssh.copy(local_path=self.__local_path_to_scan_script, remote_path=self.__remote_path_to_scan_script)
         except SshcpError as e:
             self.logger.exception("Caught scp exception")
             raise ScannerError(
-                Localization.Error.REMOTE_SERVER_INSTALL.format(str(e).strip()),
-                recoverable=False
-            )
+                Localization.Error.REMOTE_SERVER_INSTALL.format(str(e).strip()), recoverable=False
+            ) from e

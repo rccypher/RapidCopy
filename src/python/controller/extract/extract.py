@@ -12,6 +12,7 @@ class ExtractError(AppError):
     """
     Indicates an extraction error
     """
+
     pass
 
 
@@ -19,6 +20,7 @@ class Extract:
     """
     Utility to extract archive files
     """
+
     @staticmethod
     def is_archive(archive_path: str) -> bool:
         if not os.path.isfile(archive_path):
@@ -42,15 +44,7 @@ class Extract:
         if file_ext:
             file_ext = file_ext[1:]  # remove the dot
             # noinspection SpellCheckingInspection
-            return file_ext in [
-                "7z",
-                "bz2",
-                "gz",
-                "lz",
-                "rar",
-                "tar", "tgz", "tbz2",
-                "zip", "zipx"
-            ]
+            return file_ext in ["7z", "bz2", "gz", "lz", "rar", "tar", "tgz", "tbz2", "zip", "zipx"]
         else:
             return False
 
@@ -64,6 +58,6 @@ class Extract:
                 os.makedirs(out_dir_path)
             patoolib.extract_archive(archive_path, outdir=out_dir_path, interactive=False)
         except FileNotFoundError as e:
-            raise ExtractError(str(e))
+            raise ExtractError(str(e)) from e
         except patoolib.util.PatoolError as e:
-            raise ExtractError(str(e))
+            raise ExtractError(str(e)) from e

@@ -28,9 +28,7 @@ class ControllerPersist(Persist):
             persist.extracted_file_names = set(dct[ControllerPersist.__KEY_EXTRACTED_FILE_NAMES])
             return persist
         except (json.decoder.JSONDecodeError, KeyError) as e:
-            raise PersistError("Error parsing AutoQueuePersist - {}: {}".format(
-                type(e).__name__, str(e))
-            )
+            raise PersistError("Error parsing AutoQueuePersist - {}: {}".format(type(e).__name__, str(e))) from e
 
     @overrides(Persist)
     def to_str(self) -> str:
