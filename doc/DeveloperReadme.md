@@ -1,123 +1,119 @@
 [TOC]
 
+# RapidCopy Developer Guide
 
+This guide covers setting up the development environment for RapidCopy.
 
-# Environment Setup
+## Tech Stack
 
-## Install dependencies
-1. Install [nodejs](https://joshtronic.com/2019/04/29/how-to-install-node-v12-on-debian-and-ubuntu/) (comes with npm)
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Backend | Python | 3.11+ |
+| Frontend | Angular | 4.x (upgrade to 18 planned) |
+| Linting | Ruff | 0.4+ |
+| Type Checking | Mypy | 1.10+ |
+| Testing | Pytest | 8.0+ |
+| Build | Docker, Make | - |
 
-2. Install [Poetry](https://python-poetry.org/docs/#installation):
+## Quick Start (Docker-based)
 
-3. Install docker and docker-compose:
-https://docs.docker.com/engine/installation/linux/docker-ce/ubuntu/#install-docker-ce
-https://docs.docker.com/compose/install/
+The recommended approach uses Docker containers for consistent environments.
 
-4. Install docker buildx
-   
-    1. https://github.com/docker/buildx/issues/132#issuecomment-582218096
-    2. https://github.com/docker/buildx/issues/132#issuecomment-636041307
-    
-5. Build dependencies
+### Prerequisites
 
-   ```bash
-   sudo apt-get install -y jq
-   ```
+- Docker & Docker Compose
+- Git
+- Make (optional, for build automation)
 
-6. Install the rest:
-   ```bash
-   sudo apt-get install -y lftp python3-dev rar
-   ```
+### Run Python Tests
 
-## Fetch code
 ```bash
-git clone git@gitlab.com:ipsingh06/seedsync.git
-cd seedsync
+cd src/python
+docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/unittests/ -q
 ```
 
-## Setup Poetry project
+### Run Linting
+
+```bash
+cd src/python
+docker run --rm -v "$(pwd):/src" -w /src python:3.11-slim bash -c "pip install -q ruff && ruff check ."
+```
+
+### Run Type Checking
+
+```bash
+cd src/python
+docker run --rm -v "$(pwd):/src" -w /src python:3.11-slim bash -c "pip install -q mypy types-requests && mypy ."
+```
+
+---
+
+# Full Environment Setup
+
+## Install Dependencies
+
+### 1. Node.js
+Install [Node.js](https://nodejs.org/) (v18+ recommended)
+
+### 2. Poetry (Python Package Manager)
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+### 3. Docker & Docker Compose
+- [Docker Installation](https://docs.docker.com/engine/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### 4. Docker Buildx (for multi-arch builds)
+```bash
+docker buildx create --name mybuilder --driver docker-container
+docker buildx use mybuilder
+docker buildx inspect --bootstrap
+```
+
+### 5. System Dependencies (Linux/Debian)
+```bash
+sudo apt-get install -y lftp python3-dev rar jq
+```
+
+## Fetch Code
+```bash
+git clone git@github.com:rccypher/RapidCopy.git
+cd RapidCopy
+```
+
+## Setup Python Environment
 ```bash
 cd src/python
 poetry install
 ```
 
-## Setup angular node modules
+## Setup Angular Environment
 ```bash
 cd src/angular
 npm install
 ```
 
-## Setup end-to-end tests node modules
+## Setup E2E Tests
 ```bash
 cd src/e2e
 npm install
 ```
 
-# Build
+---
 
-1. Set up docker buildx for multi-arch builds
+# Development
 
-   ```bash
-   docker buildx create --name mybuilder --driver docker-container --driver-opt image=moby/buildkit:master,network=host
-   docker buildx use mybuilder
-   docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-   docker buildx inspect --bootstrap
-   # Make sure the following architectures are listed: linux/amd64, linux/arm64, linux/arm/v7 
-   ```
+## Python Backend
 
-2. Multi-arch docker images can only be stored in a registry.
-   Create local docker registry to store multi-arch images
+### Code Quality Standards
 
-   ```bash
-   docker run -d -p 5000:5000 --restart=always --name registry registry:2
-   ```
+All Python code must pass:
+- **Ruff** - Linting (0 issues required)
+- **Mypy** - Type checking (0 errors required)
+- **Pytest** - All tests passing
 
-3. Run these commands inside the root directory.
-   ```bash
-   make clean
-   make
-   ```
-
-4. The .deb package will be generated inside `build` directory.
-   The docker image will be pushed to the local registry as `seedsync:latest`. See if using:
-
-   ```bash
-   curl -X GET http://localhost:5000/v2/_catalog
-   ```
-   
-   To inspect the architectures of image:
-   
-   ```bash
-   docker buildx imagetools inspect localhost:5000/seedsync:latest
-   ```
-   
-   To use a different registry during the build process, use `STAGING_REGISTRY=`.
-   For example:
-   
-   ```bash
-   make STAGING_REGISTRY=another-registry:5000
-   ```
-   
-   To build a tag other than `latest`, use `STAGING_VERSION=`.
-   For example:
-   
-   ```bash
-   make STAGING_VERSION=0.0.1
-   ```
-   
-   
-
-
-
-## Python Dev Build and Run
-
-### Build scanfs
-
-```bash
-make scanfs
-```
-
-### Run python
+### Running Locally
 
 ```bash
 cd src/python
@@ -125,199 +121,248 @@ mkdir -p build/config
 poetry run python seedsync.py -c build/config --html ../angular/dist --scanfs build/scanfs
 ```
 
+### Build scanfs
+```bash
+make scanfs
+```
 
+## Angular Frontend
 
-## Angular Dev Build and Run
-
+### Development Server
 ```bash
 cd src/angular
-node_modules/@angular/cli/bin/ng build
+npm start
+# or
 node_modules/@angular/cli/bin/ng serve
 ```
 
-Dev build will be served at [http://localhost:4200](http://localhost:4200)
+Dev server runs at [http://localhost:4200](http://localhost:4200)
 
-
-
-## Documentation
-
-### Preview documentation in browser
-
-```bash
-cd src/python
-poetry run mkdocs serve
-```
-
-Preview will be served at  [http://localhost:8000](http://localhost:8000)
-
-### Deploy documentation
-
-```bash
-poetry run mkdocs gh-deploy
-git push github gh-pages
-```
-
-
-
-# Setup dev environment
-
-## PyCharm
-1. Set project root to top-level `seedsync` directory
-
-2. Switch interpreter to virtualenv
-
-3. Mark src/python as 'Sources Root'
-
-4. Add run configuration
-
-   | Config      | Value                                                        |
-   | ----------- | ------------------------------------------------------------ |
-   | Name        | seedsync                                                     |
-   | Script path | seedsync.py                                                  |
-   | Parameters  | -c ./build/config --html ../angular/dist --scanfs ./build/scanfs |
-
-   
-
-# Run tests
-
-## Manual
-
-### Python Unit Tests
-
-Create a new user account for python tests, and add the current user to its authorized keys.
-Also add the test account to the current user group so it may access any files created by the current user.
-Note: the current user must have SSH keys already generated.
-
-```bash
-sudo adduser -q --disabled-password --disabled-login --gecos 'seedsynctest' seedsynctest
-sudo bash -c "echo seedsynctest:seedsyncpass | chpasswd"
-sudo -u seedsynctest mkdir /home/seedsynctest/.ssh
-sudo -u seedsynctest chmod 700 /home/seedsynctest/.ssh
-cat ~/.ssh/id_rsa.pub | sudo -u seedsynctest tee /home/seedsynctest/.ssh/authorized_keys
-sudo -u seedsynctest chmod 664 /home/seedsynctest/.ssh/authorized_keys
-sudo usermod -a -G $USER seedsynctest
-```
-
-Run from PyCharm
-
-OR
-
-Run from terminal
-
-```bash
-cd src/python
-poetry run pytest
-```
-
-### Angular Unit Tests
-
+### Build
 ```bash
 cd src/angular
+npm run build
+```
+
+---
+
+# Testing
+
+## Python Unit Tests
+
+### Using Docker (Recommended)
+```bash
+cd src/python
+docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/unittests/ -v
+```
+
+### Using Poetry
+```bash
+cd src/python
+poetry run pytest tests/unittests/
+```
+
+### Test with Coverage
+```bash
+docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/unittests/ --cov=. --cov-report=html
+```
+
+## Angular Unit Tests
+```bash
+cd src/angular
+npm test
+# or
 node_modules/@angular/cli/bin/ng test
 ```
 
-### E2E Tests
-
-[See here](../src/e2e/README.md)
-
-## Docker-based Test Suite
-
+## E2E Tests
 ```bash
-# Python tests
-make run-tests-python
+# Docker image
+make run-tests-e2e STAGING_VERSION=latest SEEDSYNC_ARCH=amd64
 
-# Angular tests
-make run-tests-angular
-
-# E2E Tests
-# Docker image (arch=amd64,arm64,arm/v7)
-make run-tests-e2e STAGING_VERSION=latest SEEDSYNC_ARCH=<arch code>
-# Debian package (os=ubu1604,ubu1804,ubu2004)
-make run-tests-e2e SEEDSYNC_DEB=`readlink -f build/*.deb` SEEDSYNC_OS=<os code>
+# Debian package
+make run-tests-e2e SEEDSYNC_DEB=`readlink -f build/*.deb` SEEDSYNC_OS=ubu2004
 ```
 
-By default images are pulled from `localhost:5000`. To test image from a registry other than the local, use `STAGING_REGISTRY=`.
-For example:
-
+## Full Test Suite (Docker)
 ```bash
-make run-tests-e2e STAGING_VERSION=latest SEEDSYNC_ARCH=arm64 STAGING_REGISTRY=ipsingh06
+make run-tests-python   # Python tests
+make run-tests-angular  # Angular tests
+make run-tests-e2e      # End-to-end tests
 ```
 
+---
 
+# Code Quality
 
-# Release
-
-## Continuous Integration
-
-This method uses Github Action to post releases.
-
-1. Do all of these in one change
-   1. Version update in `src/angular/package.json`
-   2. Version update and changelog in `src/debian/changelog`.
-      Use command `LANG=C date -R` to get the date.
-   3. Update `src/e2e/tests/about.page.spec.ts`
-   4. Update Copyright date in `about-page.component.html`
-2. Tag the commit as vX.X.X
-3. Push tag to Github
-
-
-
-## Manual Method
-
-This manual method is deprecated in favour of the Github Actions based CI.
-
-### Checklist
-
-1. Do all of these in one change
-    1. Version update in `src/angular/package.json`
-    2. Version update and changelog in `src/debian/changelog`.
-       Use command `LANG=C date -R` to get the date.
-    3. Update `src/e2e/tests/about.page.spec.ts`
-    4. Update Copyright date in `about-page.component.html`
-2. Tag the commit as vX.X.X
-3. Deploy documentation to github
-4. make clean && make
-5. Run all tests
-6. Upload deb file to github
-7. Tag and upload image to Dockerhub (see below)
-
-### Docker image upload to Dockerhub
+## Ruff Linting
 
 ```bash
-make docker-image-release RELEASE_VERSION=<version> RELEASE_REGISTRY=ipsingh06
-make docker-image-release RELEASE_VERSION=latest RELEASE_REGISTRY=ipsingh06
+# Check
+ruff check .
+
+# Auto-fix
+ruff check . --fix
 ```
 
+Configuration in `pyproject.toml`:
+- Target: Python 3.11
+- Line length: 120
+- Rules: E, F, UP, B, SIM
 
+## Mypy Type Checking
 
-# Development
+```bash
+mypy .
+```
 
-## Remote Server
+Configuration in `pyproject.toml`:
+- Python version: 3.11
+- Strict optional handling
+- Ignore missing imports (for third-party libs)
 
-Use the following command to run the docker image for the remote server for development testing.
-This is the same image used by the end-to-end tests.
+## Pre-commit Checks
+
+Before committing, ensure:
+```bash
+cd src/python
+ruff check .              # 0 issues
+mypy .                    # 0 errors
+pytest tests/unittests/   # All pass
+```
+
+---
+
+# Build
+
+## Multi-arch Docker Build
+
+1. Setup buildx:
+```bash
+docker buildx create --name mybuilder --driver docker-container
+docker buildx use mybuilder
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+docker buildx inspect --bootstrap
+```
+
+2. Start local registry:
+```bash
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+```
+
+3. Build:
+```bash
+make clean
+make
+```
+
+4. Verify:
+```bash
+curl -X GET http://localhost:5000/v2/_catalog
+docker buildx imagetools inspect localhost:5000/seedsync:latest
+```
+
+## Custom Registry/Version
+```bash
+make STAGING_REGISTRY=myregistry:5000 STAGING_VERSION=0.0.1
+```
+
+---
+
+# IDE Setup
+
+## PyCharm
+
+1. Set project root to top-level `RapidCopy` directory
+2. Configure interpreter to Poetry virtualenv
+3. Mark `src/python` as 'Sources Root'
+4. Add run configuration:
+
+| Config | Value |
+|--------|-------|
+| Name | rapidcopy |
+| Script path | seedsync.py |
+| Parameters | `-c ./build/config --html ../angular/dist --scanfs ./build/scanfs` |
+
+## VS Code
+
+Recommended extensions:
+- Python
+- Pylance
+- Ruff
+- Docker
+
+Settings (`.vscode/settings.json`):
+```json
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/src/python/.venv/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  }
+}
+```
+
+---
+
+# Remote Development Server
+
+For testing, run a mock remote server:
 
 ```bash
 make run-remote-server
 ```
 
-The connection parameters for the remote server are:
+Connection parameters:
 
-| Option         | Value                             |
-| -------------- | --------------------------------- |
-| Remote Address | localhost or host.docker.internal |
-| Remote Port    | 1234                              |
-| Username       | remoteuser                        |
-| Pass           | remotepass                        |
-| Remote Path    | /home/remoteuser/files            |
+| Option | Value |
+|--------|-------|
+| Remote Address | localhost |
+| Remote Port | 1234 |
+| Username | remoteuser |
+| Password | remotepass |
+| Remote Path | /home/remoteuser/files |
 
+---
 
+# Release Process
 
-## Run Docker Image
+## Using GitHub Actions (Recommended)
 
-Use the following command to run the docker image locally:
+1. Update versions:
+   - `src/angular/package.json`
+   - `src/debian/changelog` (use `LANG=C date -R` for date)
+   - `src/e2e/tests/about.page.spec.ts`
+   - Copyright in `about-page.component.html`
 
+2. Tag the commit:
 ```bash
-docker run --rm -p 8800:8800 localhost:5000/seedsync:latest
+git tag vX.X.X
+git push origin vX.X.X
 ```
 
+GitHub Actions will build and release automatically.
+
+## Manual Release
+
+```bash
+make clean && make
+make docker-image-release RELEASE_VERSION=X.X.X RELEASE_REGISTRY=your-registry
+```
+
+---
+
+# Documentation
+
+## Preview
+```bash
+cd src/python
+poetry run mkdocs serve
+```
+Preview at [http://localhost:8000](http://localhost:8000)
+
+## Deploy
+```bash
+poetry run mkdocs gh-deploy
+git push github gh-pages
+```
