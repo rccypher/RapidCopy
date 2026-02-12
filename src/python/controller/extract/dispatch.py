@@ -43,20 +43,22 @@ class ExtractStatus:
         self.__state = state
 
     @property
-    def name(self) -> str: return self.__name
+    def name(self) -> str:
+        return self.__name
 
     @property
-    def is_dir(self) -> bool: return self.__is_dir
+    def is_dir(self) -> bool:
+        return self.__is_dir
 
     @property
-    def state(self) -> State: return self.__state
+    def state(self) -> State:
+        return self.__state
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
 
 class ExtractDispatch:
-
     __WORKER_SLEEP_INTERVAL_IN_SECS = 0.5
 
     class _Task:
@@ -73,8 +75,7 @@ class ExtractDispatch:
         self.__local_path = local_path
 
         self.__task_queue = queue.Queue()
-        self.__worker = threading.Thread(name="ExtractWorker",
-                                         target=self.__worker)
+        self.__worker = threading.Thread(name="ExtractWorker", target=self.__worker)
         self.__worker_shutdown = threading.Event()
 
         self.__listeners = []
@@ -101,9 +102,11 @@ class ExtractDispatch:
         tasks = list(self.__task_queue.queue)
         statuses = []
         for task in tasks:
-            status = ExtractStatus(name=task.root_name,
-                                   is_dir=task.root_is_dir,
-                                   state=ExtractStatus.State.EXTRACTING)
+            status = ExtractStatus(
+                name=task.root_name,
+                is_dir=task.root_is_dir,
+                state=ExtractStatus.State.EXTRACTING,
+            )
             statuses.append(status)
         return statuses
 
@@ -112,7 +115,9 @@ class ExtractDispatch:
 
         for task in self.__task_queue.queue:
             if task.root_name == model_file.name:
-                self.logger.info("Ignoring extract for {}, already exists".format(model_file.name))
+                self.logger.info(
+                    "Ignoring extract for {}, already exists".format(model_file.name)
+                )
                 return
 
         # noinspection PyProtectedMember
@@ -127,13 +132,20 @@ class ExtractDispatch:
                 if curr_file.is_dir:
                     frontier += curr_file.get_children()
                 else:
-                    archive_full_path = os.path.join(self.__local_path, curr_file.full_path)
-                    out_dir_path = os.path.join(self.__out_dir_path, os.path.dirname(curr_file.full_path))
-                    if curr_file.local_size is not None \
-                            and curr_file.local_size > 0 \
-                            and Extract.is_archive(archive_full_path):
-                        task.add_archive(archive_path=archive_full_path,
-                                         out_dir_path=out_dir_path)
+                    archive_full_path = os.path.join(
+                        self.__local_path, curr_file.full_path
+                    )
+                    out_dir_path = os.path.join(
+                        self.__out_dir_path, os.path.dirname(curr_file.full_path)
+                    )
+                    if (
+                        curr_file.local_size is not None
+                        and curr_file.local_size > 0
+                        and Extract.is_archive(archive_full_path)
+                    ):
+                        task.add_archive(
+                            archive_path=archive_full_path, out_dir_path=out_dir_path
+                        )
 
             # Coalesce extractions
             ExtractDispatch.__coalesce_extractions(task)
@@ -143,17 +155,24 @@ class ExtractDispatch:
                 self.__task_queue.put(task)
             else:
                 raise ExtractDispatchError(
-                    "Directory does not contain any archives: {}".format(model_file.name)
+                    "Directory does not contain any archives: {}".format(
+                        model_file.name
+                    )
                 )
         else:
             # For a single file, it must exist locally and must be an archive
             if model_file.local_size in (None, 0):
-                raise ExtractDispatchError("File does not exist locally: {}".format(model_file.name))
+                raise ExtractDispatchError(
+                    "File does not exist locally: {}".format(model_file.name)
+                )
             archive_full_path = os.path.join(self.__local_path, model_file.name)
             if not Extract.is_archive(archive_full_path):
-                raise ExtractDispatchError("File is not an archive: {}".format(model_file.name))
-            task.add_archive(archive_path=archive_full_path,
-                             out_dir_path=self.__out_dir_path)
+                raise ExtractDispatchError(
+                    "File is not an archive: {}".format(model_file.name)
+                )
+            task.add_archive(
+                archive_path=archive_full_path, out_dir_path=self.__out_dir_path
+            )
             self.__task_queue.put(task)
 
     def __worker(self):
@@ -162,7 +181,9 @@ class ExtractDispatch:
         while not self.__worker_shutdown.is_set():
             # Try to grab next task
             # Do another check for shutdown
-            while len(self.__task_queue.queue) > 0 and not self.__worker_shutdown.is_set():
+            while (
+                len(self.__task_queue.queue) > 0 and not self.__worker_shutdown.is_set()
+            ):
                 # peek the task
                 task = self.__task_queue.queue[0]
 
@@ -179,8 +200,7 @@ class ExtractDispatch:
 
                         self.logger.debug("Extracting {}".format(archive_path))
                         Extract.extract_archive(
-                            archive_path=archive_path,
-                            out_dir_path=out_dir_path
+                            archive_path=archive_path, out_dir_path=out_dir_path
                         )
 
                 except ExtractError:
@@ -214,6 +234,6 @@ class ExtractDispatch:
         filtered_paths = []
         for archive_path, out_path in task.archive_paths:
             file_ext = os.path.splitext(os.path.basename(archive_path))[1]
-            if not re.match("^\.r\d{2,}$", file_ext):
+            if not re.match(r"^\.r\d{2,}$", file_ext):
                 filtered_paths.append((archive_path, out_path))
         task.archive_paths = filtered_paths
