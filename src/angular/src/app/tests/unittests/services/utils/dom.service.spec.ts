@@ -14,7 +14,7 @@ describe("Testing view file options service", () => {
             ]
         });
 
-        domService = TestBed.get(DomService);
+        domService = TestBed.inject(DomService);
     });
 
     it("should create an instance", () => {

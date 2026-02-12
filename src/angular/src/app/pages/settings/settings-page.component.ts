@@ -1,5 +1,6 @@
-import {ChangeDetectionStrategy, Component, OnInit} from "@angular/core";
-import {Observable} from "rxjs";
+import {ChangeDetectionStrategy, Component, OnDestroy, OnInit} from "@angular/core";
+import {Observable, Subject} from "rxjs";
+import {takeUntil} from "rxjs/operators";
 
 import {LoggerService} from "../../services/utils/logger.service";
 import {ConfigService} from "../../services/settings/config.service";
@@ -23,7 +24,7 @@ import {StreamServiceRegistry} from "../../services/base/stream-service.registry
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class SettingsPageComponent implements OnInit {
+export class SettingsPageComponent implements OnInit, OnDestroy {
     public OPTIONS_CONTEXT_SERVER = OPTIONS_CONTEXT_SERVER;
     public OPTIONS_CONTEXT_DISCOVERY = OPTIONS_CONTEXT_DISCOVERY;
     public OPTIONS_CONTEXT_CONNECTIONS = OPTIONS_CONTEXT_CONNECTIONS;
@@ -39,6 +40,7 @@ export class SettingsPageComponent implements OnInit {
 
     private _configRestartNotif: Notification;
     private _badValueNotifs: Map<string, Notification>;
+    private destroy$ = new Subject<void>();
 
     constructor(private _logger: LoggerService,
                 _streamServiceRegistry: StreamServiceRegistry,
@@ -57,17 +59,24 @@ export class SettingsPageComponent implements OnInit {
 
     // noinspection JSUnusedGlobalSymbols
     ngOnInit() {
-        this._connectedService.connected.subscribe({
-            next: (connected: boolean) => {
-                if (!connected) {
-                    // Server went down, hide the config restart notification
-                    this._notifService.hide(this._configRestartNotif);
-                }
+        this._connectedService.connected
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: (connected: boolean) => {
+                    if (!connected) {
+                        // Server went down, hide the config restart notification
+                        this._notifService.hide(this._configRestartNotif);
+                    }
 
-                // Enable/disable commands based on server connection
-                this.commandsEnabled = connected;
-            }
-        });
+                    // Enable/disable commands based on server connection
+                    this.commandsEnabled = connected;
+                }
+            });
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     onSetConfig(section: string, option: string, value: any) {

@@ -1,7 +1,7 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import logging
-import pickle
+import json
 from typing import List
 import os
 from typing import Optional
@@ -67,11 +67,13 @@ class RemoteScanner(IScanner):
             ) from e
 
         try:
-            remote_files = pickle.loads(out)
-        except pickle.UnpicklingError as err:
-            self.logger.error("Unpickling error: {}\n{}".format(str(err), out.decode("utf-8", "replace")))
+            # SECURITY: Use JSON instead of pickle to prevent RCE attacks
+            # The remote scanner script must output JSON-formatted data
+            remote_files = self._parse_scan_output(out)
+        except (json.JSONDecodeError, KeyError, TypeError) as err:
+            self.logger.error("JSON parsing error: {}\n{}".format(str(err), out.decode("utf-8", "replace")))
             raise ScannerError(
-                Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"), recoverable=False
+                Localization.Error.REMOTE_SERVER_SCAN.format("Invalid scan data format"), recoverable=False
             ) from err
 
         self.__first_run = False
@@ -114,3 +116,57 @@ class RemoteScanner(IScanner):
             raise ScannerError(
                 Localization.Error.REMOTE_SERVER_INSTALL.format(str(e).strip()), recoverable=False
             ) from e
+
+    def _parse_scan_output(self, out: bytes) -> List[SystemFile]:
+        """
+        Parse JSON scan output and convert to SystemFile objects.
+
+        SECURITY: This method uses JSON instead of pickle to prevent Remote Code
+        Execution (RCE) attacks. Pickle can deserialize arbitrary Python objects,
+        which could allow an attacker who controls the remote server to execute
+        arbitrary code on the local machine.
+
+        Expected JSON format:
+        [
+            {
+                "name": "filename",
+                "size": 1234,
+                "is_dir": false,
+                "timestamp_created": 1234567890.0,  // optional, Unix timestamp
+                "timestamp_modified": 1234567890.0,  // optional, Unix timestamp
+                "children": []  // optional, for directories
+            },
+            ...
+        ]
+        """
+        from datetime import datetime
+
+        data = json.loads(out.decode("utf-8"))
+
+        def _parse_file(file_dict: dict) -> SystemFile:
+            """Recursively parse a file dictionary into a SystemFile object."""
+            name = file_dict["name"]
+            size = file_dict["size"]
+            is_dir = file_dict.get("is_dir", False)
+
+            # Parse timestamps (optional)
+            time_created = None
+            time_modified = None
+            if "timestamp_created" in file_dict and file_dict["timestamp_created"] is not None:
+                time_created = datetime.fromtimestamp(file_dict["timestamp_created"])
+            if "timestamp_modified" in file_dict and file_dict["timestamp_modified"] is not None:
+                time_modified = datetime.fromtimestamp(file_dict["timestamp_modified"])
+
+            system_file = SystemFile(
+                name=name, size=size, is_dir=is_dir, time_created=time_created, time_modified=time_modified
+            )
+
+            # Parse children for directories
+            if is_dir and "children" in file_dict:
+                for child_dict in file_dict["children"]:
+                    child_file = _parse_file(child_dict)
+                    system_file.add_child(child_file)
+
+            return system_file
+
+        return [_parse_file(f) for f in data]

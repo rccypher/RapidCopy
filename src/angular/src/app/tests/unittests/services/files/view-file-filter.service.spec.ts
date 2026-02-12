@@ -29,14 +29,14 @@ describe("Testing view file filter service", () => {
                 {provide: ViewFileOptionsService, useClass: MockViewFileOptionsService}
             ]
         });
-        viewFileService = TestBed.get(ViewFileService);
+        viewFileService = TestBed.inject(ViewFileService);
         spyOn(viewFileService, "setFilterCriteria").and.callFake(
             value => filterCriteria = value
         );
 
-        viewFileOptionsService = TestBed.get(ViewFileOptionsService);
+        viewFileOptionsService = TestBed.inject(ViewFileOptionsService);
 
-        viewFilterService = TestBed.get(ViewFileFilterService);
+        viewFilterService = TestBed.inject(ViewFileFilterService);
     });
 
     it("should create an instance", () => {

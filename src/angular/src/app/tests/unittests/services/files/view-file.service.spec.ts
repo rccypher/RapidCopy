@@ -27,8 +27,8 @@ describe("Testing view file service", () => {
             ]
         });
 
-        viewService = TestBed.get(ViewFileService);
-        let mockRegistry: MockStreamServiceRegistry = TestBed.get(StreamServiceRegistry);
+        viewService = TestBed.inject(ViewFileService);
+        let mockRegistry: MockStreamServiceRegistry = TestBed.inject(StreamServiceRegistry);
         mockModelService = mockRegistry.modelFileService;
     });
 

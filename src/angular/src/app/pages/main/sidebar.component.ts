@@ -1,4 +1,6 @@
-import {Component, OnInit} from "@angular/core";
+import {Component, OnDestroy, OnInit} from "@angular/core";
+import {Subject} from "rxjs";
+import {takeUntil} from "rxjs/operators";
 
 import {ROUTE_INFOS} from "../../routes";
 import {ServerCommandService} from "../../services/server/server-command.service";
@@ -12,12 +14,13 @@ import {StreamServiceRegistry} from "../../services/base/stream-service.registry
     styleUrls: ["./sidebar.component.scss"]
 })
 
-export class SidebarComponent implements OnInit {
+export class SidebarComponent implements OnInit, OnDestroy {
     routeInfos = ROUTE_INFOS;
 
     public commandsEnabled: boolean;
 
     private _connectedService: ConnectedService;
+    private destroy$ = new Subject<void>();
 
     constructor(private _logger: LoggerService,
                 _streamServiceRegistry: StreamServiceRegistry,
@@ -28,11 +31,18 @@ export class SidebarComponent implements OnInit {
 
     // noinspection JSUnusedGlobalSymbols
     ngOnInit() {
-        this._connectedService.connected.subscribe({
-            next: (connected: boolean) => {
-                this.commandsEnabled = connected;
-            }
-        });
+        this._connectedService.connected
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: (connected: boolean) => {
+                    this.commandsEnabled = connected;
+                }
+            });
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     onCommandRestart() {

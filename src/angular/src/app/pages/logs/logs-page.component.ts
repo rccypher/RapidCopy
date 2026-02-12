@@ -1,8 +1,10 @@
 import {
     AfterContentChecked,
     ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, HostListener,
-    OnInit, ViewChild, ViewContainerRef
+    OnDestroy, OnInit, ViewChild, ViewContainerRef
 } from "@angular/core";
+import {Subject} from "rxjs";
+import {takeUntil} from "rxjs/operators";
 
 import {LogService} from "../../services/logs/log.service";
 import {LogRecord} from "../../services/logs/log-record";
@@ -19,7 +21,7 @@ import {Observable} from "rxjs";
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class LogsPageComponent implements OnInit, AfterContentChecked {
+export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy {
     public readonly LogRecord = LogRecord;
     public readonly Localization = Localization;
 
@@ -38,6 +40,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked {
     public showScrollToBottomButton = false;
 
     private _logService: LogService;
+    private destroy$ = new Subject<void>();
 
     constructor(private _elementRef: ElementRef,
                 private _changeDetector: ChangeDetectorRef,
@@ -48,11 +51,18 @@ export class LogsPageComponent implements OnInit, AfterContentChecked {
     }
 
     ngOnInit() {
-        this._logService.logs.subscribe({
-            next: record => {
-                this.insertRecord(record);
-            }
-        });
+        this._logService.logs
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: record => {
+                    this.insertRecord(record);
+                }
+            });
+    }
+
+    ngOnDestroy() {
+        this.destroy$.next();
+        this.destroy$.complete();
     }
 
     ngAfterContentChecked() {

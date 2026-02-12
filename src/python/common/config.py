@@ -3,13 +3,31 @@
 import configparser
 from io import StringIO
 import collections
-from distutils.util import strtobool
 from abc import ABC
 from typing import Type, TypeVar, Callable, Any
 
 from .error import AppError
 from .persist import Persist, PersistError
 from .types import overrides
+
+
+def strtobool(val: str) -> bool:
+    """
+    Convert a string representation of truth to True or False.
+
+    True values are: 'y', 'yes', 't', 'true', 'on', '1'
+    False values are: 'n', 'no', 'f', 'false', 'off', '0'
+
+    This replaces the deprecated distutils.util.strtobool which was
+    removed in Python 3.12.
+    """
+    val = val.lower().strip()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError(f"Invalid boolean value: {val!r}")
 
 
 class ConfigError(AppError):
@@ -50,7 +68,7 @@ class Converters:
         if not value:
             raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         try:
-            val = bool(strtobool(value))
+            val = strtobool(value)
         except ValueError as e:
             raise ConfigError("Bad config: {}.{} ({}) must be a boolean value".format(cls.__name__, name, value)) from e
         return val

@@ -23,7 +23,7 @@ describe("Testing notification service", () => {
             ]
         });
 
-        notificationService = TestBed.get(NotificationService);
+        notificationService = TestBed.inject(NotificationService);
     });
 
 

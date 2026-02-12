@@ -35,9 +35,9 @@ describe("Testing config service", () => {
             ]
         });
 
-        mockRegistry = TestBed.get(StreamServiceRegistry);
-        httpMock = TestBed.get(HttpTestingController);
-        configService = TestBed.get(ConfigService);
+        mockRegistry = TestBed.inject(StreamServiceRegistry);
+        httpMock = TestBed.inject(HttpTestingController);
+        configService = TestBed.inject(ConfigService);
 
         // Connect the services
         mockRegistry.connect();
