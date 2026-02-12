@@ -15,6 +15,7 @@ from .scan import (
     RemoteScanner,
     MultiPathLocalScanner,
     MultiPathRemoteScanner,
+    MultiPathActiveScanner,
 )
 from .extract import ExtractProcess, ExtractStatus
 from .validate import ValidationProcess
@@ -153,7 +154,7 @@ class Controller:
             # Multi-path mode: create scanners for each path pair
             local_scanners = []
             remote_scanners = []
-            active_local_paths = []
+            path_pair_local_paths = {}  # Map path_pair_id -> local_path
 
             for pair in path_pairs:
                 local_scanners.append(
@@ -177,15 +178,13 @@ class Controller:
                         path_pair_name=pair.name,
                     )
                 )
-                active_local_paths.append(pair.local_path)
+                path_pair_local_paths[pair.id] = pair.local_path
 
             self.__local_scanner = MultiPathLocalScanner(local_scanners)
             self.__remote_scanner = MultiPathRemoteScanner(remote_scanners)
-            # For active scanner, use the first local path (for now)
-            # TODO: Support multi-path active scanning
-            self.__active_scanner = ActiveScanner(
-                active_local_paths[0] if active_local_paths else self.__context.config.lftp.local_path
-            )
+            # Multi-path active scanner: routes files to correct path pair
+            self.__active_scanner = MultiPathActiveScanner(path_pair_local_paths)
+            self.__is_multi_path_mode = True
 
             # Store path pairs for later use (e.g., queuing)
             self.__path_pairs = {pair.id: pair for pair in path_pairs}
@@ -204,6 +203,7 @@ class Controller:
                 local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
                 remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
             )
+            self.__is_multi_path_mode = False
             self.__path_pairs = {}
 
         self.__active_scan_process = ScannerProcess(
@@ -408,9 +408,18 @@ class Controller:
             ]
 
         # Update the active scanner's state
-        self.__active_scanner.set_active_files(
-            self.__active_downloading_file_names + self.__active_extracting_file_names
-        )
+        if self.__is_multi_path_mode:
+            # Multi-path mode: pass (filename, path_pair_id) tuples
+            active_files_with_pairs = []
+            for name in self.__active_downloading_file_names + self.__active_extracting_file_names:
+                path_pair_id = self.__get_path_pair_id_for_file(name)
+                active_files_with_pairs.append((name, path_pair_id))
+            self.__active_scanner.set_active_files(active_files_with_pairs)
+        else:
+            # Single-path mode: pass plain filenames
+            self.__active_scanner.set_active_files(
+                self.__active_downloading_file_names + self.__active_extracting_file_names
+            )
 
         # Update model builder state
         if latest_remote_scan is not None:
@@ -781,3 +790,19 @@ class Controller:
                 return parts[0]
         # Fallback: just use the basename
         return os.path.basename(file_path)
+
+    def __get_path_pair_id_for_file(self, filename: str) -> str | None:
+        """
+        Look up the path_pair_id from the model for a given filename.
+
+        Args:
+            filename: The name of the file to look up
+
+        Returns:
+            The path_pair_id if found, or None if not found or error
+        """
+        try:
+            file = self.__model.get_file(filename)
+            return file.path_pair_id
+        except ModelError:
+            return None
