@@ -15,6 +15,7 @@ class Args:
     These are settings that aren't part of config but still needed by
     sub-components
     """
+
     def __init__(self):
         self.local_path_to_scanfs = None
         self.html_path = None
@@ -34,12 +35,10 @@ class Context:
     """
     Stores contextual information for the entire application
     """
-    def __init__(self,
-                 logger: logging.Logger,
-                 web_access_logger: logging.Logger,
-                 config: Config,
-                 args: Args,
-                 status: Status):
+
+    def __init__(
+        self, logger: logging.Logger, web_access_logger: logging.Logger, config: Config, args: Args, status: Status
+    ):
         """
         Primary constructor to construct the top-level context
         """
@@ -59,8 +58,8 @@ class Context:
         # Print the config
         self.logger.debug("Config:")
         config_dict = self.config.as_dict()
-        for section in config_dict.keys():
-            for option in config_dict[section].keys():
+        for section in config_dict:
+            for option in config_dict[section]:
                 value = config_dict[section][option]
                 self.logger.debug("  {}.{}: {}".format(section, option, value))
 
