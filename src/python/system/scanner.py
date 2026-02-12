@@ -1,5 +1,6 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
+import contextlib
 import os
 import re
 from typing import List
@@ -80,13 +81,9 @@ class SystemScanner:
         :return:
         """
         if not os.path.exists(self.path_to_scan):
-            raise SystemScannerError(
-                "Path does not exist: {}".format(self.path_to_scan)
-            )
+            raise SystemScannerError("Path does not exist: {}".format(self.path_to_scan))
         elif not os.path.isdir(self.path_to_scan):
-            raise SystemScannerError(
-                "Path is not a directory: {}".format(self.path_to_scan)
-            )
+            raise SystemScannerError("Path is not a directory: {}".format(self.path_to_scan))
         return self.__create_children(self.path_to_scan)
 
     def scan_single(self, name: str) -> SystemFile:
@@ -96,11 +93,7 @@ class SystemScanner:
         :return:
         """
         path = os.path.join(self.path_to_scan, name)
-        temp_path = (
-            (path + self.__lftp_temp_file_suffix)
-            if self.__lftp_temp_file_suffix
-            else None
-        )
+        temp_path = (path + self.__lftp_temp_file_suffix) if self.__lftp_temp_file_suffix else None
 
         if os.path.exists(path):
             # We're good to go
@@ -112,9 +105,7 @@ class SystemScanner:
             raise SystemScannerError("Path does not exist: {}".format(path))
 
         return self.__create_system_file(
-            PseudoDirEntry(
-                name=name, path=path, is_dir=os.path.isdir(path), stat=os.stat(path)
-            )
+            PseudoDirEntry(name=name, path=path, is_dir=os.path.isdir(path), stat=os.stat(path))
         )
 
     def __create_system_file(self, entry) -> SystemFile:
@@ -133,19 +124,13 @@ class SystemScanner:
         """
         if entry.is_dir():
             sub_children = self.__create_children(entry.path)
-            name = entry.name.encode("utf-8", "surrogateescape").decode(
-                "utf-8", "replace"
-            )
+            name = entry.name.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
             size = sum(sub_child.size for sub_child in sub_children)
             time_created = None
-            try:
+            with contextlib.suppress(AttributeError):
                 time_created = datetime.fromtimestamp(entry.stat().st_birthtime)
-            except AttributeError:
-                pass
             time_modified = datetime.fromtimestamp(entry.stat().st_mtime)
-            sys_file = SystemFile(
-                name, size, True, time_created=time_created, time_modified=time_modified
-            )
+            sys_file = SystemFile(name, size, True, time_created=time_created, time_modified=time_modified)
             for sub_child in sub_children:
                 sys_file.add_child(sub_child)
         else:
@@ -157,9 +142,7 @@ class SystemScanner:
                 with open(lftp_status_file_path) as f:
                     file_size = SystemScanner._lftp_status_file_size(f.read())
             # Check to see if this is a lftp temp file, and if so, use the real name
-            file_name = entry.name.encode("utf-8", "surrogateescape").decode(
-                "utf-8", "replace"
-            )
+            file_name = entry.name.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
             if (
                 self.__lftp_temp_file_suffix is not None
                 and file_name != self.__lftp_temp_file_suffix
@@ -167,10 +150,8 @@ class SystemScanner:
             ):
                 file_name = file_name[: -len(self.__lftp_temp_file_suffix)]
             time_created = None
-            try:
+            with contextlib.suppress(AttributeError):
                 time_created = datetime.fromtimestamp(entry.stat().st_birthtime)
-            except AttributeError:
-                pass
             time_modified = datetime.fromtimestamp(entry.stat().st_mtime)
             sys_file = SystemFile(
                 file_name,
