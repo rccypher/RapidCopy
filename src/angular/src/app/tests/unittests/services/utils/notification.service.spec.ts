@@ -1,4 +1,5 @@
 import {fakeAsync, TestBed, tick} from "@angular/core/testing";
+import {Injectable} from "@angular/core";
 
 import * as Immutable from "immutable";
 
@@ -6,6 +7,7 @@ import {NotificationService} from "../../../../services/utils/notification.servi
 import {LoggerService} from "../../../../services/utils/logger.service";
 import {Notification} from "../../../../services/utils/notification";
 
+@Injectable()
 class TestNotificationService extends NotificationService {
 
 }

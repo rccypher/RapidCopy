@@ -1,4 +1,5 @@
 import {TestBed} from "@angular/core/testing";
+import {Injectable} from "@angular/core";
 
 import {BaseStreamService} from "../../../../services/base/base-stream.service";
 import {createMockEventSource, MockEventSource} from "../../../mocks/mock-event-source";
@@ -9,6 +10,7 @@ import {EventSourceFactory} from "../../../../services/base/stream-service.regis
 const DoNothing = {next: reaction => {}};
 
 
+@Injectable()
 class TestBaseStreamService extends BaseStreamService {
     eventList = [];
 

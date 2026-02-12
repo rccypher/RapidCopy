@@ -20,15 +20,16 @@ const DefaultLogRecord: ILogRecord = {
 };
 const LogRecordRecord = Record(DefaultLogRecord);
 export class LogRecord extends LogRecordRecord implements ILogRecord {
-    time: Date;
-    level: LogRecord.Level;
-    loggerName: string;
-    message: string;
-    exceptionTraceback: string;
-
     constructor(props) {
         super(props);
     }
+
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get time(): Date { return this.get("time"); }
+    get level(): LogRecord.Level { return this.get("level"); }
+    get loggerName(): string { return this.get("loggerName"); }
+    get message(): string { return this.get("message"); }
+    get exceptionTraceback(): string { return this.get("exceptionTraceback"); }
 }
 
 

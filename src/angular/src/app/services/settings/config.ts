@@ -128,12 +128,6 @@ const ConfigRecord = Record(DefaultConfig);
 
 
 export class Config extends ConfigRecord implements IConfig {
-    general: IGeneral;
-    lftp: ILftp;
-    controller: IController;
-    web: IWeb;
-    autoqueue: IAutoQueue;
-
     constructor(props) {
         // Create immutable members
         super({
@@ -144,4 +138,11 @@ export class Config extends ConfigRecord implements IConfig {
             autoqueue: AutoQueueRecord(props.autoqueue)
         });
     }
+
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get general(): IGeneral { return this.get("general"); }
+    get lftp(): ILftp { return this.get("lftp"); }
+    get controller(): IController { return this.get("controller"); }
+    get web(): IWeb { return this.get("web"); }
+    get autoqueue(): IAutoQueue { return this.get("autoqueue"); }
 }

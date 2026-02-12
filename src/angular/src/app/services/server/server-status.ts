@@ -30,20 +30,22 @@ const DefaultServerStatus: IServerStatus = {
 };
 const ServerStatusRecord = Record(DefaultServerStatus);
 export class ServerStatus extends ServerStatusRecord implements IServerStatus {
-    server: {
-        up: boolean;
-        errorMessage: string;
-    };
+    constructor(props) {
+        super(props);
+    }
 
-    controller: {
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get server(): { up: boolean; errorMessage: string } {
+        return this.get("server");
+    }
+
+    get controller(): {
         latestLocalScanTime: Date;
         latestRemoteScanTime: Date;
         latestRemoteScanFailed: boolean;
         latestRemoteScanError: string;
-    };
-
-    constructor(props) {
-        super(props);
+    } {
+        return this.get("controller");
     }
 }
 

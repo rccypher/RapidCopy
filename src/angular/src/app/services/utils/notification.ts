@@ -16,15 +16,26 @@ const NotificationRecord = Record(DefaultNotification);
 
 
 export class Notification extends NotificationRecord implements INotification {
-    level: Notification.Level;
-    text: string;
-    timestamp: number;
-    dismissible: boolean;
-
     constructor(props) {
         props.timestamp = Date.now();
-
         super(props);
+    }
+
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get level(): Notification.Level {
+        return this.get("level");
+    }
+
+    get text(): string {
+        return this.get("text");
+    }
+
+    get timestamp(): number {
+        return this.get("timestamp");
+    }
+
+    get dismissible(): boolean {
+        return this.get("dismissible");
     }
 }
 

@@ -10,10 +10,13 @@ const AutoQueuePatternRecord = Record(DefaultAutoQueuePattern);
 
 
 export class AutoQueuePattern extends AutoQueuePatternRecord implements IAutoQueuePattern {
-    pattern: string;
-
     constructor(props) {
         super(props);
+    }
+
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get pattern(): string {
+        return this.get("pattern");
     }
 }
 

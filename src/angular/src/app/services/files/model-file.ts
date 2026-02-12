@@ -45,26 +45,28 @@ const ModelFileRecord = Record(DefaultModelFile);
  * Pattern inspired by: http://blog.angular-university.io/angular-2-application
  *                      -architecture-building-flux-like-apps-using-redux-and
  *                      -immutable-js-js
+ * Note: Using getters to properly access Record values in Immutable.js 4.x
  */
 export class ModelFile extends ModelFileRecord implements IModelFile {
-    name: string;
-    is_dir: boolean;
-    local_size: number;
-    remote_size: number;
-    state: ModelFile.State;
-    downloading_speed: number;
-    eta: number;
-    full_path: string;
-    is_extractable: boolean;
-    local_created_timestamp: Date;
-    local_modified_timestamp: Date;
-    remote_created_timestamp: Date;
-    remote_modified_timestamp: Date;
-    children: Set<ModelFile>;
-
     constructor(props) {
         super(props);
     }
+
+    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
+    get name(): string { return this.get("name"); }
+    get is_dir(): boolean { return this.get("is_dir"); }
+    get local_size(): number { return this.get("local_size"); }
+    get remote_size(): number { return this.get("remote_size"); }
+    get state(): ModelFile.State { return this.get("state"); }
+    get downloading_speed(): number { return this.get("downloading_speed"); }
+    get eta(): number { return this.get("eta"); }
+    get full_path(): string { return this.get("full_path"); }
+    get is_extractable(): boolean { return this.get("is_extractable"); }
+    get local_created_timestamp(): Date { return this.get("local_created_timestamp"); }
+    get local_modified_timestamp(): Date { return this.get("local_modified_timestamp"); }
+    get remote_created_timestamp(): Date { return this.get("remote_created_timestamp"); }
+    get remote_modified_timestamp(): Date { return this.get("remote_modified_timestamp"); }
+    get children(): Set<ModelFile> { return this.get("children"); }
 }
 
 // Additional types
