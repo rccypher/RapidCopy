@@ -22,6 +22,7 @@ interface IViewFile {
     isExtractable: boolean;
     isLocallyDeletable: boolean;
     isRemotelyDeletable: boolean;
+    isValidatable: boolean;
     // timestamps
     localCreatedTimestamp: Date;
     localModifiedTimestamp: Date;
@@ -30,6 +31,10 @@ interface IViewFile {
     // path pair info
     pathPairId: string;
     pathPairName: string;
+    // validation info
+    validationProgress: number;
+    validationError: string;
+    corruptChunks: number[];
 }
 
 // Boiler plate code to set up an immutable class
@@ -50,12 +55,17 @@ const DefaultViewFile: IViewFile = {
     isExtractable: null,
     isLocallyDeletable: null,
     isRemotelyDeletable: null,
+    isValidatable: null,
     localCreatedTimestamp: null,
     localModifiedTimestamp: null,
     remoteCreatedTimestamp: null,
     remoteModifiedTimestamp: null,
     pathPairId: null,
-    pathPairName: null
+    pathPairName: null,
+    // validation info
+    validationProgress: null,
+    validationError: null,
+    corruptChunks: null
 };
 const ViewFileRecord = Record(DefaultViewFile);
 
@@ -85,12 +95,17 @@ export class ViewFile extends ViewFileRecord implements IViewFile {
     get isExtractable(): boolean { return this.get("isExtractable"); }
     get isLocallyDeletable(): boolean { return this.get("isLocallyDeletable"); }
     get isRemotelyDeletable(): boolean { return this.get("isRemotelyDeletable"); }
+    get isValidatable(): boolean { return this.get("isValidatable"); }
     get localCreatedTimestamp(): Date { return this.get("localCreatedTimestamp"); }
     get localModifiedTimestamp(): Date { return this.get("localModifiedTimestamp"); }
     get remoteCreatedTimestamp(): Date { return this.get("remoteCreatedTimestamp"); }
     get remoteModifiedTimestamp(): Date { return this.get("remoteModifiedTimestamp"); }
     get pathPairId(): string { return this.get("pathPairId"); }
     get pathPairName(): string { return this.get("pathPairName"); }
+    // Validation getters
+    get validationProgress(): number { return this.get("validationProgress"); }
+    get validationError(): string { return this.get("validationError"); }
+    get corruptChunks(): number[] { return this.get("corruptChunks"); }
 }
 
 export module ViewFile {
@@ -102,6 +117,9 @@ export module ViewFile {
         STOPPED         = <any> "stopped",
         DELETED         = <any> "deleted",
         EXTRACTING      = <any> "extracting",
-        EXTRACTED       = <any> "extracted"
+        EXTRACTED       = <any> "extracted",
+        VALIDATING      = <any> "validating",
+        VALIDATED       = <any> "validated",
+        CORRUPT         = <any> "corrupt"
     }
 }

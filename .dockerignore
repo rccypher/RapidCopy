@@ -1,0 +1,27 @@
+# Node modules - these are installed fresh in Docker
+src/angular/node_modules
+src/angular/dist
+
+# Python cache and virtual environments
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.venv
+**/venv
+
+# Build artifacts
+build/
+
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

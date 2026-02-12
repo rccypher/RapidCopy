@@ -76,4 +76,10 @@ export class FileListComponent {
             this._logger.info(data);
         });
     }
+
+    onValidate(file: ViewFile) {
+        this.viewFileService.validate(file).subscribe(data => {
+            this._logger.info(data);
+        });
+    }
 }

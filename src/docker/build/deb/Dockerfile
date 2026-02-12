@@ -1,11 +1,13 @@
 # Creates environment to build python binaries
-FROM python:3.11-slim as rapidcopy_build_pyinstaller_env
+FROM python:3.11-slim AS rapidcopy_build_pyinstaller_env
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     binutils \
     curl \
     zlib1g-dev \
+    gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry via pipx for isolation
@@ -29,7 +31,7 @@ RUN poetry install --only main --no-root && \
 
 # Builds rapidcopy with pyinstaller
 # Output is in /build/dist/rapidcopy/
-FROM rapidcopy_build_pyinstaller_env as rapidcopy_build_pyinstaller
+FROM rapidcopy_build_pyinstaller_env AS rapidcopy_build_pyinstaller
 COPY src/python /python
 COPY src/pyinstaller_hooks /pyinstaller_hooks
 RUN mkdir -p /build
@@ -46,7 +48,7 @@ RUN pyinstaller /python/rapidcopy.py \
 
 # Builds scanfs with pyinstaller
 # Output is in /build/dist/
-FROM rapidcopy_build_pyinstaller_env as rapidcopy_build_scanfs
+FROM rapidcopy_build_pyinstaller_env AS rapidcopy_build_scanfs
 COPY src/python /python
 RUN mkdir -p /build
 RUN	pyinstaller /python/scan_fs.py \
@@ -61,22 +63,26 @@ RUN	pyinstaller /python/scan_fs.py \
 
 # Creates environment for angular
 # Note: Using Node 18 for Angular 18 compatibility
-FROM node:18-slim as rapidcopy_build_angular_env
+FROM node:18-slim AS rapidcopy_build_angular_env
 COPY src/angular/package*.json /app/
 WORKDIR /app
 RUN npm install
 
 # Builds angular app into html
 # Output is in /build/dist/
-FROM rapidcopy_build_angular_env as rapidcopy_build_angular
-COPY src/angular /app
+FROM rapidcopy_build_angular_env AS rapidcopy_build_angular
+# Copy source files but preserve node_modules from previous stage
+COPY src/angular/src /app/src
+COPY src/angular/public /app/public
+COPY src/angular/angular.json /app/
+COPY src/angular/tsconfig*.json /app/
 WORKDIR /app
-RUN node_modules/@angular/cli/bin/ng build --configuration production --output-path /build/dist/
+RUN npx ng build --configuration production --output-path /build/dist/
 
 
 # Creates environment to build deb packages
 # Using Ubuntu 22.04 LTS for deb packaging
-FROM ubuntu:22.04 as rapidcopy_build_deb_env
+FROM ubuntu:22.04 AS rapidcopy_build_deb_env
 RUN apt-get update && apt-get install -y \
     build-essential \
     debhelper \
@@ -86,7 +92,7 @@ RUN apt-get update && apt-get install -y \
 
 # Builds debian package
 # Output is in /build/dist/
-FROM rapidcopy_build_deb_env as rapidcopy_build_deb
+FROM rapidcopy_build_deb_env AS rapidcopy_build_deb
 RUN mkdir -p /build/work
 COPY src/debian /build/work/debian
 COPY --from=rapidcopy_build_pyinstaller /build/dist/rapidcopy /build/work/rapidcopy

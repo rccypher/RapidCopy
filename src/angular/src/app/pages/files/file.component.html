@@ -17,6 +17,12 @@
                  *ngIf="file.status === ViewFile.Status.EXTRACTING" />
             <img src="assets/icons/extracted.svg" id="extracted"
                  *ngIf="file.status === ViewFile.Status.EXTRACTED" />
+            <img src="assets/icons/validating.svg" id="validating"
+                 *ngIf="file.status === ViewFile.Status.VALIDATING" />
+            <img src="assets/icons/validated.svg" id="validated"
+                 *ngIf="file.status === ViewFile.Status.VALIDATED" />
+            <img src="assets/icons/corrupt.svg" id="corrupt"
+                 *ngIf="file.status === ViewFile.Status.CORRUPT" />
             <!-- don't show text for default status -->
             <span *ngIf="file.status != ViewFile.Status.DEFAULT"
                   class="text">{{file.status | capitalize}}</span>
@@ -127,6 +133,14 @@
             <div class="loader"></div>
             <img src="assets/icons/delete-remote.svg" />
             <div class="text"><span>Delete Remote</span></div>
+        </div>
+        <div class="button" appClickStopPropagation
+             [attr.disabled]="isValidatable() ? null : true"
+             (click)="!isValidatable() || onValidate(file)"
+             [class.loading]="activeAction == FileAction.VALIDATE">
+            <div class="loader"></div>
+            <img src="assets/icons/validate.svg" />
+            <div class="text"><span>Validate</span></div>
         </div>
     </div>
 </div>

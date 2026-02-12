@@ -21,6 +21,10 @@ interface IModelFile {
     path_pair_id: string;
     path_pair_name: string;
     children: Set<ModelFile>;
+    // Validation properties
+    validation_progress: number;
+    validation_error: string;
+    corrupt_chunks: number[];
 }
 
 // Boiler plate code to set up an immutable class
@@ -40,7 +44,11 @@ const DefaultModelFile: IModelFile = {
     remote_modified_timestamp: null,
     path_pair_id: null,
     path_pair_name: null,
-    children: null
+    children: null,
+    // Validation properties
+    validation_progress: null,
+    validation_error: null,
+    corrupt_chunks: null
 };
 const ModelFileRecord = Record(DefaultModelFile);
 
@@ -73,6 +81,10 @@ export class ModelFile extends ModelFileRecord implements IModelFile {
     get path_pair_id(): string { return this.get("path_pair_id"); }
     get path_pair_name(): string { return this.get("path_pair_name"); }
     get children(): Set<ModelFile> { return this.get("children"); }
+    // Validation getters
+    get validation_progress(): number { return this.get("validation_progress"); }
+    get validation_error(): string { return this.get("validation_error"); }
+    get corrupt_chunks(): number[] { return this.get("corrupt_chunks"); }
 }
 
 // Additional types
@@ -112,6 +124,9 @@ export module ModelFile {
         DOWNLOADED      = <any> "downloaded",
         DELETED         = <any> "deleted",
         EXTRACTING      = <any> "extracting",
-        EXTRACTED       = <any> "extracted"
+        EXTRACTED       = <any> "extracted",
+        VALIDATING      = <any> "validating",
+        VALIDATED       = <any> "validated",
+        CORRUPT         = <any> "corrupt"
     }
 }

@@ -305,6 +305,16 @@ export class ViewFileService {
     }
 
     /**
+     * Validate a file
+     * @param {ViewFile} file
+     * @returns {Observable<WebReaction>}
+     */
+    public validate(file: ViewFile): Observable<WebReaction> {
+        this._logger.debug("Validate view file: " + file.name);
+        return this.createAction(file, (f) => this.modelFileService.validate(f));
+    }
+
+    /**
      * Set a new filter criteria
      * @param {ViewFileFilterCriteria} criteria
      */
@@ -387,30 +397,55 @@ export class ViewFileService {
                 status = ViewFile.Status.EXTRACTED;
                 break;
             }
+            case ModelFile.State.VALIDATING: {
+                status = ViewFile.Status.VALIDATING;
+                break;
+            }
+            case ModelFile.State.VALIDATED: {
+                status = ViewFile.Status.VALIDATED;
+                break;
+            }
+            case ModelFile.State.CORRUPT: {
+                status = ViewFile.Status.CORRUPT;
+                break;
+            }
         }
 
         const isQueueable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
-                                    ViewFile.Status.DELETED].includes(status)
+                                    ViewFile.Status.DELETED,
+                                    ViewFile.Status.CORRUPT].includes(status)
                                     && remoteSize > 0;
         const isStoppable: boolean = [ViewFile.Status.QUEUED,
                                     ViewFile.Status.DOWNLOADING].includes(status);
         const isExtractable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
-                                    ViewFile.Status.EXTRACTED].includes(status)
+                                    ViewFile.Status.EXTRACTED,
+                                    ViewFile.Status.VALIDATED].includes(status)
                                     && localSize > 0;
         const isLocallyDeletable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
-                                    ViewFile.Status.EXTRACTED].includes(status)
+                                    ViewFile.Status.EXTRACTED,
+                                    ViewFile.Status.VALIDATED,
+                                    ViewFile.Status.CORRUPT].includes(status)
                                     && localSize > 0;
         const isRemotelyDeletable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
                                     ViewFile.Status.EXTRACTED,
-                                    ViewFile.Status.DELETED].includes(status)
+                                    ViewFile.Status.DELETED,
+                                    ViewFile.Status.VALIDATED,
+                                    ViewFile.Status.CORRUPT].includes(status)
                                     && remoteSize > 0;
+        const isValidatable: boolean = [ViewFile.Status.DEFAULT,
+                                    ViewFile.Status.STOPPED,
+                                    ViewFile.Status.DOWNLOADED,
+                                    ViewFile.Status.EXTRACTED,
+                                    ViewFile.Status.VALIDATED,
+                                    ViewFile.Status.CORRUPT].includes(status)
+                                    && localSize > 0 && remoteSize > 0;
 
         return new ViewFile({
             name: modelFile.name,
@@ -429,12 +464,16 @@ export class ViewFileService {
             isExtractable: isExtractable,
             isLocallyDeletable: isLocallyDeletable,
             isRemotelyDeletable: isRemotelyDeletable,
+            isValidatable: isValidatable,
             localCreatedTimestamp: modelFile.local_created_timestamp,
             localModifiedTimestamp: modelFile.local_modified_timestamp,
             remoteCreatedTimestamp: modelFile.remote_created_timestamp,
             remoteModifiedTimestamp: modelFile.remote_modified_timestamp,
             pathPairId: modelFile.path_pair_id,
-            pathPairName: modelFile.path_pair_name
+            pathPairName: modelFile.path_pair_name,
+            validationProgress: modelFile.validation_progress,
+            validationError: modelFile.validation_error,
+            corruptChunks: modelFile.corrupt_chunks
         });
     }
 

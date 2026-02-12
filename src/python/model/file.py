@@ -24,6 +24,9 @@ class ModelFile:
         DELETED = 4
         EXTRACTING = 5
         EXTRACTED = 6
+        VALIDATING = 7  # Currently verifying file integrity
+        VALIDATED = 8  # File integrity confirmed
+        CORRUPT = 9  # Validation failed, needs re-download
 
     def __init__(self, name: str, is_dir: bool):
         self.__name = name  # file or folder name
@@ -47,6 +50,10 @@ class ModelFile:
         # Path pair tracking for multi-path support
         self.__path_pair_id: str | None = None  # ID of the path pair this file belongs to
         self.__path_pair_name: str | None = None  # Human-readable name of the path pair
+        # Validation tracking
+        self.__validation_progress: float | None = None  # 0.0 to 1.0, None if not validating
+        self.__validation_error: str | None = None  # Error message if validation failed
+        self.__corrupt_chunks: list[int] | None = None  # List of corrupt chunk indices
 
     def __eq__(self, other):
         # disregard in comparisons:
@@ -269,3 +276,35 @@ class ModelFile:
     @path_pair_name.setter
     def path_pair_name(self, path_pair_name: str | None):
         self.__path_pair_name = path_pair_name
+
+    @property
+    def validation_progress(self) -> float | None:
+        """Validation progress from 0.0 to 1.0, None if not validating."""
+        return self.__validation_progress
+
+    @validation_progress.setter
+    def validation_progress(self, validation_progress: float | None):
+        if validation_progress is not None:
+            if not isinstance(validation_progress, (int, float)):
+                raise TypeError
+            if validation_progress < 0.0 or validation_progress > 1.0:
+                raise ValueError("validation_progress must be between 0.0 and 1.0")
+        self.__validation_progress = validation_progress
+
+    @property
+    def validation_error(self) -> str | None:
+        """Error message if validation failed."""
+        return self.__validation_error
+
+    @validation_error.setter
+    def validation_error(self, validation_error: str | None):
+        self.__validation_error = validation_error
+
+    @property
+    def corrupt_chunks(self) -> list[int] | None:
+        """List of corrupt chunk indices."""
+        return self.__corrupt_chunks
+
+    @corrupt_chunks.setter
+    def corrupt_chunks(self, corrupt_chunks: list[int] | None):
+        self.__corrupt_chunks = corrupt_chunks

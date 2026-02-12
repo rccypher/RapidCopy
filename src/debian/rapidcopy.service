@@ -1,0 +1,19 @@
+# Service unit for rapidcopy
+# Note: User should be overridden in
+#       /etc/systemd/system/rapidcopy.service.d/override.conf
+
+[Unit]
+Description=Job that runs the RapidCopy daemon
+Requires=local-fs.target network-online.target
+After=local-fs.target network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment="HOME=/root"
+ExecStartPre=/bin/mkdir -p ${HOME}/.rapidcopy
+ExecStartPre=/bin/mkdir -p ${HOME}/.rapidcopy/log
+ExecStart=/usr/lib/rapidcopy/rapidcopy --logdir ${HOME}/.rapidcopy/log -c ${HOME}/.rapidcopy
+
+[Install]
+WantedBy=multi-user.target

@@ -17,8 +17,17 @@ from .scan import (
     MultiPathRemoteScanner,
 )
 from .extract import ExtractProcess, ExtractStatus
+from .validate import ValidationProcess
 from .model_builder import ModelBuilder
-from common import Context, AppError, MultiprocessingLogger, AppOneShotProcess, Constants
+from common import (
+    Context,
+    AppError,
+    MultiprocessingLogger,
+    AppOneShotProcess,
+    Constants,
+    ValidationConfig,
+    ValidationAlgorithm,
+)
 from model import ModelError, ModelFile, Model, ModelDiff, ModelDiffUtil, IModelListener
 from lftp import Lftp, LftpError, LftpJobStatus
 from .controller_persist import ControllerPersist
@@ -52,6 +61,7 @@ class Controller:
             EXTRACT = 2
             DELETE_LOCAL = 3
             DELETE_REMOTE = 4
+            VALIDATE = 5
 
         class ICallback(ABC):
             """Command callback interface"""
@@ -219,16 +229,46 @@ class Controller:
             out_dir_path=out_dir_path, local_path=self.__context.config.lftp.local_path
         )
 
+        # Setup validation process
+        validation_cfg = self.__context.config.validation
+        self.__validation_config = ValidationConfig(
+            enabled=validation_cfg.enabled or False,
+            algorithm=ValidationAlgorithm(validation_cfg.algorithm or "md5"),
+            default_chunk_size=validation_cfg.default_chunk_size or 10485760,
+            min_chunk_size=validation_cfg.min_chunk_size or 1048576,
+            max_chunk_size=validation_cfg.max_chunk_size or 104857600,
+            validate_after_chunk=validation_cfg.validate_after_chunk or False,
+            validate_after_file=validation_cfg.validate_after_file
+            if validation_cfg.validate_after_file is not None
+            else True,
+            max_retries=validation_cfg.max_retries or 3,
+            retry_delay_ms=validation_cfg.retry_delay_ms or 1000,
+            enable_adaptive_sizing=validation_cfg.enable_adaptive_sizing
+            if validation_cfg.enable_adaptive_sizing is not None
+            else True,
+        )
+        self.__validation_process = ValidationProcess(
+            config=self.__validation_config,
+            ssh_host=self.__context.config.lftp.remote_address,
+            ssh_port=self.__context.config.lftp.remote_port,
+            ssh_user=self.__context.config.lftp.remote_username,
+            ssh_password=self.__password,
+            local_base_path=self.__context.config.lftp.local_path,
+            remote_base_path=self.__context.config.lftp.remote_path,
+        )
+
         # Setup multiprocess logging
         self.__mp_logger = MultiprocessingLogger(self.logger)
         self.__active_scan_process.set_multiprocessing_logger(self.__mp_logger)
         self.__local_scan_process.set_multiprocessing_logger(self.__mp_logger)
         self.__remote_scan_process.set_multiprocessing_logger(self.__mp_logger)
         self.__extract_process.set_multiprocessing_logger(self.__mp_logger)
+        self.__validation_process.set_multiprocessing_logger(self.__mp_logger)
 
         # Keep track of active files
         self.__active_downloading_file_names: list[str] = []
         self.__active_extracting_file_names: list[str] = []
+        self.__active_validating_file_names: list[str] = []
 
         # Keep track of active command processes
         self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
@@ -246,6 +286,8 @@ class Controller:
         self.__local_scan_process.start()
         self.__remote_scan_process.start()
         self.__extract_process.start()
+        if self.__validation_config.enabled:
+            self.__validation_process.start()
         self.__mp_logger.start()
         self.__started = True
 
@@ -270,10 +312,14 @@ class Controller:
             self.__local_scan_process.terminate()
             self.__remote_scan_process.terminate()
             self.__extract_process.terminate()
+            if self.__validation_config.enabled:
+                self.__validation_process.terminate()
             self.__active_scan_process.join()
             self.__local_scan_process.join()
             self.__remote_scan_process.join()
             self.__extract_process.join()
+            if self.__validation_config.enabled:
+                self.__validation_process.join()
             self.__mp_logger.stop()
             self.__started = False
             self.logger.info("Exited controller")
@@ -418,6 +464,23 @@ class Controller:
                         self.__persist.downloaded_file_names.add(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
+                        # Auto-trigger validation if enabled
+                        if (
+                            self.__validation_config.enabled
+                            and self.__validation_config.validate_after_file
+                            and diff.new_file.local_size is not None
+                            and diff.new_file.remote_size is not None
+                        ):
+                            self.__validation_process.validate(
+                                file=diff.new_file,
+                                local_path=diff.new_file.name,
+                                remote_path=diff.new_file.name,
+                                file_size=diff.new_file.local_size,
+                            )
+                            self.logger.info(
+                                "Auto-queued '{}' for validation after download".format(diff.new_file.name)
+                            )
+
                 # Prune the extracted files list of any files that were deleted locally
                 # This prevents these files from going to EXTRACTED state if they are re-downloaded
                 remove_extracted_file_names = set()
@@ -444,6 +507,10 @@ class Controller:
             self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
         if latest_local_scan is not None:
             self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+
+        # Process validation results (if validation is enabled)
+        if self.__validation_config.enabled:
+            self.__process_validation_results()
 
     def __process_commands(self):
         def _notify_failure(_command: Controller.Command, _msg: str):
@@ -556,6 +623,46 @@ class Controller:
                     self.__active_command_processes.append(command_wrapper)
                     command_wrapper.process.start()
 
+            elif command.action == Controller.Command.Action.VALIDATE:
+                if not self.__validation_config.enabled:
+                    _notify_failure(command, "Validation is not enabled in configuration")
+                    continue
+                if file.state not in (
+                    ModelFile.State.DEFAULT,
+                    ModelFile.State.DOWNLOADED,
+                    ModelFile.State.EXTRACTED,
+                    ModelFile.State.VALIDATED,
+                    ModelFile.State.CORRUPT,
+                ):
+                    _notify_failure(
+                        command,
+                        "File '{}' in state {} cannot be validated".format(command.filename, str(file.state)),
+                    )
+                    continue
+                elif file.local_size is None:
+                    _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
+                    continue
+                elif file.remote_size is None:
+                    _notify_failure(
+                        command,
+                        "File '{}' does not exist remotely (needed for checksum comparison)".format(command.filename),
+                    )
+                    continue
+                else:
+                    # Determine local and remote paths
+                    local_path = file.name
+                    remote_path = file.name
+                    file_size = file.local_size
+
+                    # Queue for validation
+                    self.__validation_process.validate(
+                        file=file,
+                        local_path=local_path,
+                        remote_path=remote_path,
+                        file_size=file_size,
+                    )
+                    self.logger.info("Queued '{}' for validation".format(file.name))
+
             # If we get here, it was a success
             for callback in command.callbacks:
                 callback.on_success()
@@ -571,6 +678,8 @@ class Controller:
         self.__remote_scan_process.propagate_exception()
         self.__mp_logger.propagate_exception()
         self.__extract_process.propagate_exception()
+        if self.__validation_config.enabled:
+            self.__validation_process.propagate_exception()
 
     def __cleanup_commands(self):
         """
@@ -587,3 +696,88 @@ class Controller:
                 # Propagate the exception
                 command_process.process.propagate_exception()
         self.__active_command_processes = still_active_processes
+
+    def __process_validation_results(self):
+        """
+        Process validation results from the validation process.
+        Updates model file states based on validation outcomes.
+        """
+        # Get latest validation statuses for progress updates
+        latest_validation_statuses = self.__validation_process.pop_latest_statuses()
+
+        # Get completed validations
+        completed_validations = self.__validation_process.pop_completed()
+
+        # Update list of active validating file names from statuses
+        if latest_validation_statuses is not None:
+            self.__active_validating_file_names = list(latest_validation_statuses.file_statuses.keys())
+
+            # Update validation progress on model files
+            with self.__model_lock:
+                for file_path, validation_info in latest_validation_statuses.file_statuses.items():
+                    # Extract filename from full path
+                    file_name = self.__extract_filename_from_path(file_path)
+                    if file_name and file_name in self.__model.get_file_names():
+                        file = self.__model.get_file(file_name)
+                        # Calculate progress from chunks
+                        if validation_info.chunks:
+                            validated_chunks = sum(
+                                1 for chunk in validation_info.chunks if chunk.status.name in ("VALID", "CORRUPT")
+                            )
+                            progress = validated_chunks / len(validation_info.chunks)
+                            # Update file state and progress
+                            if file.state == ModelFile.State.DOWNLOADED:
+                                file.state = ModelFile.State.VALIDATING
+                            file.validation_progress = progress
+                            self.__model.update_file(file)
+
+        # Process completed validations
+        if completed_validations:
+            with self.__model_lock:
+                for result in completed_validations:
+                    file_name = result.name
+                    self.logger.info(
+                        "Validation completed for '{}': {}".format(file_name, "VALID" if result.is_valid else "CORRUPT")
+                    )
+
+                    if file_name in self.__model.get_file_names():
+                        file = self.__model.get_file(file_name)
+
+                        if result.is_valid:
+                            # File passed validation
+                            file.state = ModelFile.State.VALIDATED
+                            file.validation_progress = 1.0
+                            file.validation_error = None
+                            file.corrupt_chunks = None
+                        else:
+                            # File failed validation
+                            file.state = ModelFile.State.CORRUPT
+                            file.validation_progress = None
+                            file.corrupt_chunks = result.corrupt_chunks if result.corrupt_chunks else None
+                            if result.corrupt_chunks:
+                                file.validation_error = "Corrupt chunks: {}".format(result.corrupt_chunks)
+                            else:
+                                file.validation_error = "Validation failed"
+
+                        self.__model.update_file(file)
+
+                        # Remove from active validating list
+                        if file_name in self.__active_validating_file_names:
+                            self.__active_validating_file_names.remove(file_name)
+
+    def __extract_filename_from_path(self, file_path: str) -> str | None:
+        """
+        Extract the root filename from a full file path.
+        Handles paths relative to local_base_path.
+        """
+        import os
+
+        local_base = self.__context.config.lftp.local_path
+        if file_path.startswith(local_base):
+            rel_path = file_path[len(local_base) :].lstrip(os.sep)
+            # Get the root component (first part of the relative path)
+            parts = rel_path.split(os.sep)
+            if parts:
+                return parts[0]
+        # Fallback: just use the basename
+        return os.path.basename(file_path)

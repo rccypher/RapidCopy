@@ -12,6 +12,7 @@ from .handler.auto_queue import AutoQueueHandler
 from .handler.stream_log import LogStreamHandler
 from .handler.status import StatusHandler
 from .handler.path_pairs import PathPairsHandler
+from .handler.validation import ValidationHandler
 
 
 class WebAppBuilder:
@@ -28,6 +29,7 @@ class WebAppBuilder:
         self.config_handler = ConfigHandler(context.config)
         self.auto_queue_handler = AutoQueueHandler(auto_queue_persist)
         self.status_handler = StatusHandler(context.status)
+        self.validation_handler = ValidationHandler(controller)
         # Path pairs handler for multi-path support
         self.path_pairs_handler = None
         if context.path_pair_manager:
@@ -47,6 +49,7 @@ class WebAppBuilder:
         self.config_handler.add_routes(web_app)
         self.auto_queue_handler.add_routes(web_app)
         self.status_handler.add_routes(web_app)
+        self.validation_handler.add_routes(web_app)
 
         # Add path pairs routes if available
         if self.path_pairs_handler:

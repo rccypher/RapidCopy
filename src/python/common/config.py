@@ -311,12 +311,48 @@ class Config(Persist):
             self.patterns_only = None
             self.auto_extract = None
 
+    class Validation(InnerConfig):
+        # Enable/disable download validation
+        enabled = PROP("enabled", Checkers.null, Converters.bool)
+        # Checksum algorithm: md5, sha256, sha1
+        algorithm = PROP("algorithm", Checkers.string_nonempty, Converters.null)
+        # Default chunk size in bytes (default: 10485760 = 10MB)
+        default_chunk_size = PROP("default_chunk_size", Checkers.int_positive, Converters.int)
+        # Minimum chunk size in bytes (default: 1048576 = 1MB)
+        min_chunk_size = PROP("min_chunk_size", Checkers.int_positive, Converters.int)
+        # Maximum chunk size in bytes (default: 104857600 = 100MB)
+        max_chunk_size = PROP("max_chunk_size", Checkers.int_positive, Converters.int)
+        # Validate after each chunk downloads
+        validate_after_chunk = PROP("validate_after_chunk", Checkers.null, Converters.bool)
+        # Validate after complete file download
+        validate_after_file = PROP("validate_after_file", Checkers.null, Converters.bool)
+        # Maximum retry attempts for corrupt chunks
+        max_retries = PROP("max_retries", Checkers.int_non_negative, Converters.int)
+        # Delay between retries in milliseconds
+        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_non_negative, Converters.int)
+        # Enable adaptive chunk sizing based on network conditions
+        enable_adaptive_sizing = PROP("enable_adaptive_sizing", Checkers.null, Converters.bool)
+
+        def __init__(self):
+            super().__init__()
+            self.enabled = None
+            self.algorithm = None
+            self.default_chunk_size = None
+            self.min_chunk_size = None
+            self.max_chunk_size = None
+            self.validate_after_chunk = None
+            self.validate_after_file = None
+            self.max_retries = None
+            self.retry_delay_ms = None
+            self.enable_adaptive_sizing = None
+
     def __init__(self):
         self.general = Config.General()
         self.lftp = Config.Lftp()
         self.controller = Config.Controller()
         self.web = Config.Web()
         self.autoqueue = Config.AutoQueue()
+        self.validation = Config.Validation()
 
     @staticmethod
     def _check_section(dct: OuterConfigType, name: str) -> InnerConfigType:
@@ -370,6 +406,25 @@ class Config(Persist):
         config.controller = Config.Controller.from_dict(Config._check_section(config_dict, "Controller"))
         config.web = Config.Web.from_dict(Config._check_section(config_dict, "Web"))
         config.autoqueue = Config.AutoQueue.from_dict(Config._check_section(config_dict, "AutoQueue"))
+        # Validation section is optional for backwards compatibility
+        if "Validation" in config_dict:
+            config.validation = Config.Validation.from_dict(Config._check_section(config_dict, "Validation"))
+        else:
+            # Use default validation config
+            config.validation = Config.Validation.from_dict(
+                {
+                    "enabled": "True",
+                    "algorithm": "md5",
+                    "default_chunk_size": "10485760",
+                    "min_chunk_size": "1048576",
+                    "max_chunk_size": "104857600",
+                    "validate_after_chunk": "False",
+                    "validate_after_file": "True",
+                    "max_retries": "3",
+                    "retry_delay_ms": "1000",
+                    "enable_adaptive_sizing": "True",
+                }
+            )
 
         Config._check_empty_outer_dict(config_dict)
         return config
@@ -383,6 +438,7 @@ class Config(Persist):
         config_dict["Controller"] = self.controller.as_dict()
         config_dict["Web"] = self.web.as_dict()
         config_dict["AutoQueue"] = self.autoqueue.as_dict()
+        config_dict["Validation"] = self.validation.as_dict()
         return config_dict
 
     def has_section(self, name: str) -> bool:

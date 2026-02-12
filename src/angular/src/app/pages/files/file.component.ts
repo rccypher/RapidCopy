@@ -38,6 +38,7 @@ export class FileComponent implements OnChanges {
     @Output() extractEvent = new EventEmitter<ViewFile>();
     @Output() deleteLocalEvent = new EventEmitter<ViewFile>();
     @Output() deleteRemoteEvent = new EventEmitter<ViewFile>();
+    @Output() validateEvent = new EventEmitter<ViewFile>();
 
     // Indicates an active action on-going
     activeAction: FileAction = null;
@@ -87,6 +88,10 @@ export class FileComponent implements OnChanges {
         return this.activeAction == null && this.file.isRemotelyDeletable;
     }
 
+    isValidatable() {
+        return this.activeAction == null && this.file.isValidatable;
+    }
+
     onQueue(file: ViewFile) {
         this.activeAction = FileAction.QUEUE;
         // Pass to parent component
@@ -129,6 +134,12 @@ export class FileComponent implements OnChanges {
         );
     }
 
+    onValidate(file: ViewFile) {
+        this.activeAction = FileAction.VALIDATE;
+        // Pass to parent component
+        this.validateEvent.emit(file);
+    }
+
     // Source: https://stackoverflow.com/a/7557433
     private static isElementInViewport (el) {
         const rect = el.getBoundingClientRect();
@@ -146,5 +157,6 @@ export enum FileAction {
     STOP,
     EXTRACT,
     DELETE_LOCAL,
-    DELETE_REMOTE
+    DELETE_REMOTE,
+    VALIDATE
 }
