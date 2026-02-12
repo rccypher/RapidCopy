@@ -42,7 +42,7 @@ describe("Testing base stream service", () => {
         spyOn(EventSourceFactory, 'createEventSource').and.callFake(
             (url: string) => {
                 mockEventSource = createMockEventSource(url);
-                return mockEventSource;
+                return mockEventSource as unknown as EventSource;
             }
         );
 

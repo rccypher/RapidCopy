@@ -112,6 +112,14 @@ export const OPTIONS_CONTEXT_CONNECTIONS: IOptionsContext = {
         },
         {
             type: OptionType.Text,
+            label: "Download Rate Limit",
+            valuePath: ["lftp", "rate_limit"],
+            description: "Limit download speed. Use '0' for unlimited, " +
+                         "or specify like '1M' (1 MB/s), '500K' (500 KB/s), '10M' (10 MB/s).\n" +
+                         "(net:limit-rate)"
+        },
+        {
+            type: OptionType.Text,
             label: "Max Connections Per File (Single-File)",
             valuePath: ["lftp", "num_max_connections_per_root_file"],
             description: "Number of connections for single-file download.\n" +

@@ -236,6 +236,8 @@ class Config(Persist):
         )
         num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative, Converters.int)
         use_temp_file = PROP("use_temp_file", Checkers.null, Converters.bool)
+        # Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
+        rate_limit = PROP("rate_limit", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
@@ -253,6 +255,7 @@ class Config(Persist):
             self.num_max_connections_per_dir_file = None
             self.num_max_total_connections = None
             self.use_temp_file = None
+            self.rate_limit = None
 
     class Controller(IC):
         interval_ms_remote_scan = PROP("interval_ms_remote_scan", Checkers.int_positive, Converters.int)

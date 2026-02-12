@@ -60,8 +60,8 @@ RUN	pyinstaller /python/scan_fs.py \
 
 
 # Creates environment for angular
-# Note: Using Node 12 as Angular 4 requires Node <= 12
-FROM node:12.22-slim as rapidcopy_build_angular_env
+# Note: Using Node 18 for Angular 18 compatibility
+FROM node:18-slim as rapidcopy_build_angular_env
 COPY src/angular/package*.json /app/
 WORKDIR /app
 RUN npm install
@@ -71,7 +71,7 @@ RUN npm install
 FROM rapidcopy_build_angular_env as rapidcopy_build_angular
 COPY src/angular /app
 WORKDIR /app
-RUN node_modules/@angular/cli/bin/ng build -prod --output-path /build/dist/
+RUN node_modules/@angular/cli/bin/ng build --configuration production --output-path /build/dist/
 
 
 # Creates environment to build deb packages

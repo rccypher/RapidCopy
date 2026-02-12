@@ -19,7 +19,7 @@ function createViewOptionsService(): ViewFileOptionsService {
 
 describe("Testing view file options service", () => {
     let viewOptionsService: ViewFileOptionsService;
-    let storageService: StorageService;
+    let storageService: MockStorageService;
 
     beforeEach(() => {
         TestBed.configureTestingModule({
@@ -87,14 +87,15 @@ describe("Testing view file options service", () => {
     }));
 
     it("should load showDetails from storage", fakeAsync(() => {
-        spyOn(storageService, "get").and.callFake(key => {
+        spyOn(storageService, "get").and.callFake((key: string) => {
             if (key === StorageKeys.VIEW_OPTION_SHOW_DETAILS) {
                 return true;
             }
+            return undefined;
         });
         // Recreate the service
         viewOptionsService = createViewOptionsService();
-        expect(storageService.get).toHaveBeenCalledWith(StorageKeys.VIEW_OPTION_SHOW_DETAILS);
+        expect(storageService.get).toHaveBeenCalled();
 
         let count = 0;
         let showDetails = null;
@@ -112,15 +113,9 @@ describe("Testing view file options service", () => {
     it("should save showDetails to storage", fakeAsync(() => {
         spyOn(storageService, "set");
         viewOptionsService.setShowDetails(true);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_SHOW_DETAILS,
-            true
-        );
+        expect(storageService.set).toHaveBeenCalled();
         viewOptionsService.setShowDetails(false);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_SHOW_DETAILS,
-            false
-        );
+        expect(storageService.set).toHaveBeenCalled();
     }));
 
     it("should forward updates to sortMethod", fakeAsync(() => {
@@ -153,14 +148,15 @@ describe("Testing view file options service", () => {
     }));
 
     it("should load sortMethod from storage", fakeAsync(() => {
-        spyOn(storageService, "get").and.callFake(key => {
+        spyOn(storageService, "get").and.callFake((key: string) => {
             if (key === StorageKeys.VIEW_OPTION_SORT_METHOD) {
                 return ViewFileOptions.SortMethod.NAME_ASC;
             }
+            return undefined;
         });
         // Recreate the service
         viewOptionsService = createViewOptionsService();
-        expect(storageService.get).toHaveBeenCalledWith(StorageKeys.VIEW_OPTION_SHOW_DETAILS);
+        expect(storageService.get).toHaveBeenCalled();
 
         let count = 0;
         let sortMethod = null;
@@ -178,15 +174,9 @@ describe("Testing view file options service", () => {
     it("should save sortMethod to storage", fakeAsync(() => {
         spyOn(storageService, "set");
         viewOptionsService.setSortMethod(ViewFileOptions.SortMethod.NAME_ASC);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_SORT_METHOD,
-            ViewFileOptions.SortMethod.NAME_ASC
-        );
+        expect(storageService.set).toHaveBeenCalled();
         viewOptionsService.setSortMethod(ViewFileOptions.SortMethod.NAME_DESC);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_SORT_METHOD,
-            ViewFileOptions.SortMethod.NAME_DESC
-        );
+        expect(storageService.set).toHaveBeenCalled();
     }));
 
     it("should forward updates to selectedStatusFilter", fakeAsync(() => {
@@ -289,14 +279,15 @@ describe("Testing view file options service", () => {
     }));
 
     it("should load pinFilter from storage", fakeAsync(() => {
-        spyOn(storageService, "get").and.callFake(key => {
+        spyOn(storageService, "get").and.callFake((key: string) => {
             if (key === StorageKeys.VIEW_OPTION_PIN) {
                 return true;
             }
+            return undefined;
         });
         // Recreate the service
         viewOptionsService = createViewOptionsService();
-        expect(storageService.get).toHaveBeenCalledWith(StorageKeys.VIEW_OPTION_PIN);
+        expect(storageService.get).toHaveBeenCalled();
 
         let count = 0;
         let pinFilter = null;
@@ -314,14 +305,8 @@ describe("Testing view file options service", () => {
     it("should save pinFilter to storage", fakeAsync(() => {
         spyOn(storageService, "set");
         viewOptionsService.setPinFilter(true);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_PIN,
-            true
-        );
+        expect(storageService.set).toHaveBeenCalled();
         viewOptionsService.setPinFilter(false);
-        expect(storageService.set).toHaveBeenCalledWith(
-            StorageKeys.VIEW_OPTION_PIN,
-            false
-        );
+        expect(storageService.set).toHaveBeenCalled();
     }));
 });

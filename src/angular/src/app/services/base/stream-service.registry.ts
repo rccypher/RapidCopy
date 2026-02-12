@@ -9,7 +9,7 @@ import {LogService} from "../logs/log.service";
 
 
 export class EventSourceFactory {
-    static createEventSource(url: string) {
+    static createEventSource(url: string): EventSource {
         return new EventSource(url);
     }
 }
