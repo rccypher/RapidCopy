@@ -16,6 +16,7 @@ class ModelFile:
     an Lftp status provides local sizes for a downloading directory but not its
     children.
     """
+
     class State(Enum):
         DEFAULT = 0
         DOWNLOADING = 1
@@ -50,16 +51,12 @@ class ModelFile:
         #   timestamp: we don't care about it
         #   parent: semantics are to check self and children only
         #   children: check these manually for easier debugging
-        ka = set(self.__dict__).difference({
-            "_ModelFile__update_timestamp",
-            "_ModelFile__parent",
-            "_ModelFile__children"
-        })
-        kb = set(other.__dict__).difference({
-            "_ModelFile__update_timestamp",
-            "_ModelFile__parent",
-            "_ModelFile__children"
-        })
+        ka = set(self.__dict__).difference(
+            {"_ModelFile__update_timestamp", "_ModelFile__parent", "_ModelFile__children"}
+        )
+        kb = set(other.__dict__).difference(
+            {"_ModelFile__update_timestamp", "_ModelFile__parent", "_ModelFile__children"}
+        )
         # Check self properties
         if ka != kb:
             return False
@@ -83,26 +80,30 @@ class ModelFile:
         return str(self.__dict__)
 
     @property
-    def name(self) -> str: return self.__name
+    def name(self) -> str:
+        return self.__name
 
     @property
-    def is_dir(self) -> bool: return self.__is_dir
+    def is_dir(self) -> bool:
+        return self.__is_dir
 
     @property
-    def state(self) -> State: return self.__state
+    def state(self) -> State:
+        return self.__state
 
     @state.setter
     def state(self, state: State):
-        if type(state) != ModelFile.State:
+        if not isinstance(state, ModelFile.State):
             raise TypeError
         self.__state = state
 
     @property
-    def remote_size(self) -> int | None: return self.__remote_size
+    def remote_size(self) -> int | None:
+        return self.__remote_size
 
     @remote_size.setter
     def remote_size(self, remote_size: int | None):
-        if type(remote_size) == int:
+        if isinstance(remote_size, int):
             if remote_size < 0:
                 raise ValueError
             self.__remote_size = remote_size
@@ -112,11 +113,12 @@ class ModelFile:
             raise TypeError
 
     @property
-    def local_size(self) -> int | None: return self.__local_size
+    def local_size(self) -> int | None:
+        return self.__local_size
 
     @local_size.setter
     def local_size(self, local_size: int | None):
-        if type(local_size) == int:
+        if isinstance(local_size, int):
             if local_size < 0:
                 raise ValueError
             self.__local_size = local_size
@@ -126,11 +128,12 @@ class ModelFile:
             raise TypeError
 
     @property
-    def transferred_size(self) -> int | None: return self.__transferred_size
+    def transferred_size(self) -> int | None:
+        return self.__transferred_size
 
     @transferred_size.setter
     def transferred_size(self, transferred_size: int | None):
-        if type(transferred_size) == int:
+        if isinstance(transferred_size, int):
             if transferred_size < 0:
                 raise ValueError
             self.__transferred_size = transferred_size
@@ -140,11 +143,12 @@ class ModelFile:
             raise TypeError
 
     @property
-    def downloading_speed(self) -> int | None: return self.__downloading_speed
+    def downloading_speed(self) -> int | None:
+        return self.__downloading_speed
 
     @downloading_speed.setter
     def downloading_speed(self, downloading_speed: int | None):
-        if type(downloading_speed) == int:
+        if isinstance(downloading_speed, int):
             if downloading_speed < 0:
                 raise ValueError
             self.__downloading_speed = downloading_speed
@@ -154,20 +158,22 @@ class ModelFile:
             raise TypeError
 
     @property
-    def update_timestamp(self) -> datetime: return self.__update_timestamp
+    def update_timestamp(self) -> datetime:
+        return self.__update_timestamp
 
     @update_timestamp.setter
     def update_timestamp(self, update_timestamp: datetime):
-        if type(update_timestamp) != datetime:
+        if not isinstance(update_timestamp, datetime):
             raise TypeError
         self.__update_timestamp = update_timestamp
 
     @property
-    def eta(self) -> int | None: return self.__eta
+    def eta(self) -> int | None:
+        return self.__eta
 
     @eta.setter
     def eta(self, eta: int | None):
-        if type(eta) == int:
+        if isinstance(eta, int):
             if eta < 0:
                 raise ValueError
             self.__eta = eta
@@ -177,45 +183,50 @@ class ModelFile:
             raise TypeError
 
     @property
-    def is_extractable(self) -> bool: return self.__is_extractable
+    def is_extractable(self) -> bool:
+        return self.__is_extractable
 
     @is_extractable.setter
     def is_extractable(self, is_extractable: bool):
         self.__is_extractable = is_extractable
 
     @property
-    def local_created_timestamp(self) -> datetime: return self.__local_created_timestamp
+    def local_created_timestamp(self) -> datetime:
+        return self.__local_created_timestamp
 
     @local_created_timestamp.setter
     def local_created_timestamp(self, local_created_timestamp: datetime):
-        if type(local_created_timestamp) != datetime:
+        if not isinstance(local_created_timestamp, datetime):
             raise TypeError
         self.__local_created_timestamp = local_created_timestamp
 
     @property
-    def local_modified_timestamp(self) -> datetime: return self.__local_modified_timestamp
+    def local_modified_timestamp(self) -> datetime:
+        return self.__local_modified_timestamp
 
     @local_modified_timestamp.setter
     def local_modified_timestamp(self, local_modified_timestamp: datetime):
-        if type(local_modified_timestamp) != datetime:
+        if not isinstance(local_modified_timestamp, datetime):
             raise TypeError
         self.__local_modified_timestamp = local_modified_timestamp
 
     @property
-    def remote_created_timestamp(self) -> datetime: return self.__remote_created_timestamp
+    def remote_created_timestamp(self) -> datetime:
+        return self.__remote_created_timestamp
 
     @remote_created_timestamp.setter
     def remote_created_timestamp(self, remote_created_timestamp: datetime):
-        if type(remote_created_timestamp) != datetime:
+        if not isinstance(remote_created_timestamp, datetime):
             raise TypeError
         self.__remote_created_timestamp = remote_created_timestamp
 
     @property
-    def remote_modified_timestamp(self) -> datetime: return self.__remote_modified_timestamp
+    def remote_modified_timestamp(self) -> datetime:
+        return self.__remote_modified_timestamp
 
     @remote_modified_timestamp.setter
     def remote_modified_timestamp(self, remote_modified_timestamp: datetime):
-        if type(remote_modified_timestamp) != datetime:
+        if not isinstance(remote_modified_timestamp, datetime):
             raise TypeError
         self.__remote_modified_timestamp = remote_modified_timestamp
 

@@ -22,6 +22,7 @@ class ControllerError(AppError):
     """
     Exception indicating a controller error
     """
+
     pass
 
 
@@ -29,6 +30,7 @@ class Controller:
     """
     Top-level class that controls the behaviour of the app
     """
+
     class Command:
         """
         Class by which clients of Controller can request Actions to be executed
@@ -36,6 +38,7 @@ class Controller:
         Note: callbacks will be executed in Controller thread, so any heavy computation
               should be moved out of the callback
         """
+
         class Action(Enum):
             QUEUE = 0
             STOP = 1
@@ -45,6 +48,7 @@ class Controller:
 
         class ICallback(ABC):
             """Command callback interface"""
+
             @abstractmethod
             def on_success(self):
                 """Called on successful completion of action"""
@@ -67,13 +71,12 @@ class Controller:
         """
         Wraps any one-shot command processes launched by the controller
         """
+
         def __init__(self, process: AppOneShotProcess, post_callback: Callable):
             self.process = process
             self.post_callback = post_callback
 
-    def __init__(self,
-                 context: Context,
-                 persist: ControllerPersist):
+    def __init__(self, context: Context, persist: ControllerPersist):
         self.__context = context
         self.__persist = persist
         self.logger = context.logger.getChild("Controller")
@@ -101,10 +104,12 @@ class Controller:
         self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
         # Lftp
-        self.__lftp = Lftp(address=self.__context.config.lftp.remote_address,
-                           port=self.__context.config.lftp.remote_port,
-                           user=self.__context.config.lftp.remote_username,
-                           password=self.__password)
+        self.__lftp = Lftp(
+            address=self.__context.config.lftp.remote_address,
+            port=self.__context.config.lftp.remote_port,
+            user=self.__context.config.lftp.remote_username,
+            password=self.__password,
+        )
         self.__lftp.set_base_logger(self.logger)
         self.__lftp.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
         self.__lftp.set_base_local_dir_path(self.__context.config.lftp.local_path)
@@ -121,8 +126,7 @@ class Controller:
         # Setup the scanners and scanner processes
         self.__active_scanner = ActiveScanner(self.__context.config.lftp.local_path)
         self.__local_scanner = LocalScanner(
-            local_path=self.__context.config.lftp.local_path,
-            use_temp_file=self.__context.config.lftp.use_temp_file
+            local_path=self.__context.config.lftp.local_path, use_temp_file=self.__context.config.lftp.use_temp_file
         )
         self.__remote_scanner = RemoteScanner(
             remote_address=self.__context.config.lftp.remote_address,
@@ -131,13 +135,13 @@ class Controller:
             remote_port=self.__context.config.lftp.remote_port,
             remote_path_to_scan=self.__context.config.lftp.remote_path,
             local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
-            remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script
+            remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
         )
 
         self.__active_scan_process = ScannerProcess(
             scanner=self.__active_scanner,
             interval_in_ms=self.__context.config.controller.interval_ms_downloading_scan,
-            verbose=False
+            verbose=False,
         )
         self.__local_scan_process = ScannerProcess(
             scanner=self.__local_scanner,
@@ -154,8 +158,7 @@ class Controller:
         else:
             out_dir_path = self.__context.config.controller.extract_path
         self.__extract_process = ExtractProcess(
-            out_dir_path=out_dir_path,
-            local_path=self.__context.config.lftp.local_path
+            out_dir_path=out_dir_path, local_path=self.__context.config.lftp.local_path
         )
 
         # Setup multiprocess logging
@@ -359,10 +362,13 @@ class Controller:
                 # Note: This step is done after the new model is build because
                 #       model_builder is the one that discovers when a file is Downloaded
                 downloaded = False
-                if diff.change == ModelDiff.Change.ADDED and \
-                        diff.new_file.state == ModelFile.State.DOWNLOADED or diff.change == ModelDiff.Change.UPDATED and \
-                        diff.new_file.state == ModelFile.State.DOWNLOADED and \
-                        diff.old_file.state != ModelFile.State.DOWNLOADED:
+                if (
+                    diff.change == ModelDiff.Change.ADDED
+                    and diff.new_file.state == ModelFile.State.DOWNLOADED
+                    or diff.change == ModelDiff.Change.UPDATED
+                    and diff.new_file.state == ModelFile.State.DOWNLOADED
+                    and diff.old_file.state != ModelFile.State.DOWNLOADED
+                ):
                     downloaded = True
                 if downloaded:
                     self.__persist.downloaded_file_names.add(diff.new_file.name)
@@ -420,7 +426,7 @@ class Controller:
                 try:
                     self.__lftp.queue(file.name, file.is_dir)
                 except LftpError as e:
-                    _notify_failure(command, "Lftp error: ".format(str(e)))
+                    _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
 
             elif command.action == Controller.Command.Action.STOP:
@@ -430,19 +436,15 @@ class Controller:
                 try:
                     self.__lftp.kill(file.name)
                 except LftpError as e:
-                    _notify_failure(command, "Lftp error: ".format(str(e)))
+                    _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
 
             elif command.action == Controller.Command.Action.EXTRACT:
                 # Note: We don't check the is_extractable flag because it's just a guess
-                if file.state not in (
-                        ModelFile.State.DEFAULT,
-                        ModelFile.State.DOWNLOADED,
-                        ModelFile.State.EXTRACTED
-                ):
-                    _notify_failure(command, "File '{}' in state {} cannot be extracted".format(
-                        command.filename, str(file.state)
-                    ))
+                if file.state not in (ModelFile.State.DEFAULT, ModelFile.State.DOWNLOADED, ModelFile.State.EXTRACTED):
+                    _notify_failure(
+                        command, "File '{}' in state {} cannot be extracted".format(command.filename, str(file.state))
+                    )
                     continue
                 elif file.local_size is None:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
@@ -451,29 +453,20 @@ class Controller:
                     self.__extract_process.extract(file)
 
             elif command.action == Controller.Command.Action.DELETE_LOCAL:
-                if file.state not in (
-                    ModelFile.State.DEFAULT,
-                    ModelFile.State.DOWNLOADED,
-                    ModelFile.State.EXTRACTED
-                ):
-                    _notify_failure(command, "Local file '{}' cannot be deleted in state {}".format(
-                        command.filename, str(file.state)
-                    ))
+                if file.state not in (ModelFile.State.DEFAULT, ModelFile.State.DOWNLOADED, ModelFile.State.EXTRACTED):
+                    _notify_failure(
+                        command,
+                        "Local file '{}' cannot be deleted in state {}".format(command.filename, str(file.state)),
+                    )
                     continue
                 elif file.local_size is None:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
                     continue
                 else:
-                    process = DeleteLocalProcess(
-                        local_path=self.__context.config.lftp.local_path,
-                        file_name=file.name
-                    )
+                    process = DeleteLocalProcess(local_path=self.__context.config.lftp.local_path, file_name=file.name)
                     process.set_multiprocessing_logger(self.__mp_logger)
                     post_callback = self.__local_scan_process.force_scan
-                    command_wrapper = Controller.CommandProcessWrapper(
-                        process=process,
-                        post_callback=post_callback
-                    )
+                    command_wrapper = Controller.CommandProcessWrapper(process=process, post_callback=post_callback)
                     self.__active_command_processes.append(command_wrapper)
                     command_wrapper.process.start()
 
@@ -482,11 +475,12 @@ class Controller:
                     ModelFile.State.DEFAULT,
                     ModelFile.State.DOWNLOADED,
                     ModelFile.State.EXTRACTED,
-                    ModelFile.State.DELETED
+                    ModelFile.State.DELETED,
                 ):
-                    _notify_failure(command, "Remote file '{}' cannot be deleted in state {}".format(
-                        command.filename, str(file.state)
-                    ))
+                    _notify_failure(
+                        command,
+                        "Remote file '{}' cannot be deleted in state {}".format(command.filename, str(file.state)),
+                    )
                     continue
                 elif file.remote_size is None:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
@@ -498,14 +492,11 @@ class Controller:
                         remote_password=self.__password,
                         remote_port=self.__context.config.lftp.remote_port,
                         remote_path=self.__context.config.lftp.remote_path,
-                        file_name=file.name
+                        file_name=file.name,
                     )
                     process.set_multiprocessing_logger(self.__mp_logger)
                     post_callback = self.__remote_scan_process.force_scan
-                    command_wrapper = Controller.CommandProcessWrapper(
-                        process=process,
-                        post_callback=post_callback
-                    )
+                    command_wrapper = Controller.CommandProcessWrapper(process=process, post_callback=post_callback)
                     self.__active_command_processes.append(command_wrapper)
                     command_wrapper.process.start()
 
