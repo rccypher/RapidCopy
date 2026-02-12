@@ -20,7 +20,7 @@ class RemoteScanner(IScanner):
     def __init__(self,
                  remote_address: str,
                  remote_username: str,
-                 remote_password: Optional[str],
+                 remote_password: str | None,
                  remote_port: int,
                  remote_path_to_scan: str,
                  local_path_to_scan_script: str,

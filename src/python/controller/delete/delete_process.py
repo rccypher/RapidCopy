@@ -30,7 +30,7 @@ class DeleteRemoteProcess(AppOneShotProcess):
     def __init__(self,
                  remote_address: str,
                  remote_username: str,
-                 remote_password: Optional[str],
+                 remote_password: str | None,
                  remote_port: int,
                  remote_path: str,
                  file_name: str):

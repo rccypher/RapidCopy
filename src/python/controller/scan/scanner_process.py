@@ -110,7 +110,7 @@ class ScannerProcess(AppProcess):
             self.__wake_event.wait(timeout=wait_time_in_s)
             self.__wake_event.clear()
 
-    def pop_latest_result(self) -> Optional[ScannerResult]:
+    def pop_latest_result(self) -> ScannerResult | None:
         """
         Process-safe method to retrieve latest scan result
         Returns None if no new scan result was generated since the last time

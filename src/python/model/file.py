@@ -73,7 +73,7 @@ class ModelFile:
         other_children_dict = {f.name: f for f in other.__children}
         if my_children_dict.keys() != other_children_dict.keys():
             return False
-        for name in my_children_dict.keys():
+        for name in my_children_dict:
             if my_children_dict[name] != other_children_dict[name]:
                 return False
 
@@ -98,10 +98,10 @@ class ModelFile:
         self.__state = state
 
     @property
-    def remote_size(self) -> Optional[int]: return self.__remote_size
+    def remote_size(self) -> int | None: return self.__remote_size
 
     @remote_size.setter
-    def remote_size(self, remote_size: Optional[int]):
+    def remote_size(self, remote_size: int | None):
         if type(remote_size) == int:
             if remote_size < 0:
                 raise ValueError
@@ -112,10 +112,10 @@ class ModelFile:
             raise TypeError
 
     @property
-    def local_size(self) -> Optional[int]: return self.__local_size
+    def local_size(self) -> int | None: return self.__local_size
 
     @local_size.setter
-    def local_size(self, local_size: Optional[int]):
+    def local_size(self, local_size: int | None):
         if type(local_size) == int:
             if local_size < 0:
                 raise ValueError
@@ -126,10 +126,10 @@ class ModelFile:
             raise TypeError
 
     @property
-    def transferred_size(self) -> Optional[int]: return self.__transferred_size
+    def transferred_size(self) -> int | None: return self.__transferred_size
 
     @transferred_size.setter
-    def transferred_size(self, transferred_size: Optional[int]):
+    def transferred_size(self, transferred_size: int | None):
         if type(transferred_size) == int:
             if transferred_size < 0:
                 raise ValueError
@@ -140,10 +140,10 @@ class ModelFile:
             raise TypeError
 
     @property
-    def downloading_speed(self) -> Optional[int]: return self.__downloading_speed
+    def downloading_speed(self) -> int | None: return self.__downloading_speed
 
     @downloading_speed.setter
-    def downloading_speed(self, downloading_speed: Optional[int]):
+    def downloading_speed(self, downloading_speed: int | None):
         if type(downloading_speed) == int:
             if downloading_speed < 0:
                 raise ValueError
@@ -163,10 +163,10 @@ class ModelFile:
         self.__update_timestamp = update_timestamp
 
     @property
-    def eta(self) -> Optional[int]: return self.__eta
+    def eta(self) -> int | None: return self.__eta
 
     @eta.setter
-    def eta(self, eta: Optional[int]):
+    def eta(self, eta: int | None):
         if type(eta) == int:
             if eta < 0:
                 raise ValueError

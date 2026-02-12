@@ -92,7 +92,7 @@ class TestExtract(unittest.TestCase):
     def _assert_extracted_files(self, dir_path):
         path = os.path.join(dir_path, "file")
         self.assertTrue(os.path.isfile(path))
-        with open(path, "r") as f:
+        with open(path) as f:
             self.assertEqual(TestExtract.__FILE_CONTENT, f.read())
 
     def test_is_archive_fast(self):

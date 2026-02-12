@@ -20,7 +20,7 @@ class SerializeModel(Serialize):
             REMOVED = 1
             UPDATED = 2
 
-        def __init__(self, change: Change, old_file: Optional[ModelFile], new_file: Optional[ModelFile]):
+        def __init__(self, change: Change, old_file: ModelFile | None, new_file: ModelFile | None):
             self.change = change
             self.old_file = old_file
             self.new_file = new_file

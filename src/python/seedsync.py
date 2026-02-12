@@ -251,7 +251,7 @@ class Seedsync:
         return parser.parse_args(args)
 
     @staticmethod
-    def _create_logger(name: str, debug: bool, logdir: Optional[str]) -> logging.Logger:
+    def _create_logger(name: str, debug: bool, logdir: str | None) -> logging.Logger:
         logger = logging.getLogger(name)
 
         # Remove any existing handlers (needed when restarting)
@@ -322,7 +322,7 @@ class Seedsync:
         config_dict = config.as_dict()
         for sec_name in config_dict:
             for key in config_dict[sec_name]:
-                if Seedsync.__CONFIG_DUMMY_VALUE == config_dict[sec_name][key]:
+                if config_dict[sec_name][key] == Seedsync.__CONFIG_DUMMY_VALUE:
                     return True
         return False
 
@@ -382,7 +382,7 @@ if __name__ == "__main__":
         except ServiceRestart:
             Seedsync.logger.info("Restarting...")
             continue
-        except Exception as e:
+        except Exception:
             Seedsync.logger.exception("Caught exception")
             raise
 

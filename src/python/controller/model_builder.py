@@ -126,9 +126,9 @@ class ModelBuilder:
                 raise ModelError("Mismatch in is_dir between sources")
 
             def __fill_model_file(_model_file: ModelFile,
-                                  _remote: Optional[SystemFile],
-                                  _local: Optional[SystemFile],
-                                  _transfer_state: Optional[LftpJobStatus.TransferState]):
+                                  _remote: SystemFile | None,
+                                  _local: SystemFile | None,
+                                  _transfer_state: LftpJobStatus.TransferState | None):
                 # set local and remote sizes
                 if _remote:
                     _model_file.remote_size = _remote.size
@@ -208,8 +208,8 @@ class ModelBuilder:
                 _local_children = {sf.name: sf for sf in _local.children} if _local else {}
                 _all_children_names = set().union(_remote_children.keys(), _local_children.keys())
                 for _child_name in _all_children_names:
-                    _remote_child = _remote_children.get(_child_name, None)
-                    _local_child = _local_children.get(_child_name, None)
+                    _remote_child = _remote_children.get(_child_name)
+                    _local_child = _local_children.get(_child_name)
                     _is_dir = _remote_child.is_dir if _remote_child else _local_child.is_dir
                     # sanity check is_dir
                     if (_remote_child and _is_dir != _remote_child.is_dir) or \

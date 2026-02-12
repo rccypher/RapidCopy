@@ -57,7 +57,7 @@ class LftpJobStatusParser:
         number = float(result.group("number"))
         unit = (result.group("units") or "b")[0].lower()
         multipliers = {"b": 1, "k": 1024, "m": 1024 * 1024, "g": 1024 * 1024 * 1024}
-        if unit not in multipliers.keys():
+        if unit not in multipliers:
             raise ValueError(
                 "Unrecognized unit {} in size string '{}'".format(unit, size)
             )

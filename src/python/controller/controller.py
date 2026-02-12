@@ -360,9 +360,7 @@ class Controller:
                 #       model_builder is the one that discovers when a file is Downloaded
                 downloaded = False
                 if diff.change == ModelDiff.Change.ADDED and \
-                        diff.new_file.state == ModelFile.State.DOWNLOADED:
-                    downloaded = True
-                elif diff.change == ModelDiff.Change.UPDATED and \
+                        diff.new_file.state == ModelFile.State.DOWNLOADED or diff.change == ModelDiff.Change.UPDATED and \
                         diff.new_file.state == ModelFile.State.DOWNLOADED and \
                         diff.old_file.state != ModelFile.State.DOWNLOADED:
                     downloaded = True

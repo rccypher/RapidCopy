@@ -33,7 +33,7 @@ class StatusStreamHandler(IStreamHandler):
         self.status.add_listener(self.status_listener)
 
     @overrides(IStreamHandler)
-    def get_value(self) -> Optional[str]:
+    def get_value(self) -> str | None:
         if self.first_run:
             self.first_run = False
             status = self.status.copy()

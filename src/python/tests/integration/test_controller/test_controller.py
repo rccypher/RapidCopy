@@ -1310,7 +1310,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "re.rar.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path, "r") as f:
+        with open(re_txt_path) as f:
             self.assertEqual("re.rar", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1369,7 +1369,7 @@ class TestController(unittest.TestCase):
         # Verify
         rd_txt_path = os.path.join(TestController.temp_dir, "local", "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(rd_txt_path))
-        with open(rd_txt_path, "r") as f:
+        with open(rd_txt_path) as f:
             self.assertEqual("rd.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1428,11 +1428,11 @@ class TestController(unittest.TestCase):
         # Verify
         rfa_txt_path = os.path.join(TestController.temp_dir, "local", "rf", "rfa", "rfa.zip.txt")
         self.assertTrue(os.path.isfile(rfa_txt_path))
-        with open(rfa_txt_path, "r") as f:
+        with open(rfa_txt_path) as f:
             self.assertEqual("rfa.zip", f.read())
         rfb_txt_path = os.path.join(TestController.temp_dir, "local", "rf", "rfb", "rfb.zip.txt")
         self.assertTrue(os.path.isfile(rfb_txt_path))
-        with open(rfb_txt_path, "r") as f:
+        with open(rfb_txt_path) as f:
             self.assertEqual("rfb.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1472,9 +1472,9 @@ class TestController(unittest.TestCase):
         callback.on_failure.assert_not_called()
 
         # Verify
-        with open(lca_txt_path, "r") as f:
+        with open(lca_txt_path) as f:
             self.assertEqual("lca.rar", f.read())
-        with open(lcb_txt_path, "r") as f:
+        with open(lcb_txt_path) as f:
             self.assertEqual("lcb.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1534,7 +1534,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "re.rar.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path, "r") as f:
+        with open(re_txt_path) as f:
             self.assertEqual("re.rar", f.read())
 
         # Delete the extracted file
@@ -1555,7 +1555,7 @@ class TestController(unittest.TestCase):
 
         # Verify again
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path, "r") as f:
+        with open(re_txt_path) as f:
             self.assertEqual("re.rar", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1663,7 +1663,7 @@ class TestController(unittest.TestCase):
         # Verify
         rd_txt_path = os.path.join(extract_path, "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(rd_txt_path))
-        with open(rd_txt_path, "r") as f:
+        with open(rd_txt_path) as f:
             self.assertEqual("rd.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1727,7 +1727,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path, "r") as f:
+        with open(re_txt_path) as f:
             self.assertEqual("rd.zip", f.read())
 
         # Delete the whole thing

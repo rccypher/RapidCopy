@@ -107,7 +107,7 @@ class LogStreamHandler(IStreamHandler):
         self.logger.addHandler(self.handler)
 
     @overrides(IStreamHandler)
-    def get_value(self) -> Optional[str]:
+    def get_value(self) -> str | None:
         record = self.handler.get_next_event()
         if record is not None:
             return self.serialize.record(record)

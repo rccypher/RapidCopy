@@ -20,7 +20,7 @@ class StreamQueue(Generic[T]):
     def put(self, event: T):
         self.__queue.put(event)
 
-    def get_next_event(self) -> Optional[T]:
+    def get_next_event(self) -> T | None:
         """
         Returns the next event if there is one, otherwise returns None
         :return:

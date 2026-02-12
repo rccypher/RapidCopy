@@ -291,7 +291,7 @@ class AutoQueue:
                     if accept(file) and self.__match(new_pattern, file):
                         files_matched[file.name] = new_pattern
 
-        return list(zip(files_matched.keys(), files_matched.values()))
+        return list(files_matched.items())
 
     @staticmethod
     def __match(pattern: AutoQueuePattern, file: ModelFile) -> bool:

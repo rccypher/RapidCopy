@@ -50,7 +50,7 @@ class ModelStreamHandler(IStreamHandler):
         self.initial_model_files = self.controller.get_model_files_and_add_listener(self.model_listener)
 
     @overrides(IStreamHandler)
-    def get_value(self) -> Optional[str]:
+    def get_value(self) -> str | None:
         if self.first_run:
             self.first_run = False
             return self.serialize.model(self.initial_model_files)

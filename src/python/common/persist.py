@@ -46,7 +46,7 @@ class Persist(Serializable):
     def from_file(cls: Type[T_Persist], file_path: str) -> T_Persist:
         if not os.path.isfile(file_path):
             raise AppError(Localization.Error.MISSING_FILE.format(file_path))
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             return cls.from_str(f.read())
 
     def to_file(self, file_path: str):

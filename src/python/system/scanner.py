@@ -154,7 +154,7 @@ class SystemScanner:
             # status to get the real file size
             lftp_status_file_path = entry.path + SystemScanner.__LFTP_STATUS_FILE_SUFFIX
             if os.path.isfile(lftp_status_file_path):
-                with open(lftp_status_file_path, "r") as f:
+                with open(lftp_status_file_path) as f:
                     file_size = SystemScanner._lftp_status_file_size(f.read())
             # Check to see if this is a lftp temp file, and if so, use the real name
             file_name = entry.name.encode("utf-8", "surrogateescape").decode(

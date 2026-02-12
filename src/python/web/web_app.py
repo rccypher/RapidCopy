@@ -34,7 +34,7 @@ class IStreamHandler(ABC):
         pass
 
     @abstractmethod
-    def get_value(self) -> Optional[str]:
+    def get_value(self) -> str | None:
         pass
 
     @abstractmethod

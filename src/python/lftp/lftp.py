@@ -46,7 +46,7 @@ class Lftp:
                  address: str,
                  port: int,
                  user: str,
-                 password: Optional[str]):
+                 password: str | None):
         self.__user = user
         self.__password = password
         self.__address = address
@@ -251,7 +251,7 @@ class Lftp:
         return self.__get(Lftp.__SET_RATE_LIMIT)
 
     @rate_limit.setter
-    def rate_limit(self, rate_limit: Union[int, str]):
+    def rate_limit(self, rate_limit: int | str):
         self.__set(Lftp.__SET_RATE_LIMIT, str(rate_limit))
 
     @property
@@ -259,7 +259,7 @@ class Lftp:
         return self.__get(Lftp.__SET_MIN_CHUNK_SIZE)
 
     @min_chunk_size.setter
-    def min_chunk_size(self, min_chunk_size: Union[int, str]):
+    def min_chunk_size(self, min_chunk_size: int | str):
         self.__set(Lftp.__SET_MIN_CHUNK_SIZE, str(min_chunk_size))
 
     @property

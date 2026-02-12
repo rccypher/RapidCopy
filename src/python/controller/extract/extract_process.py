@@ -101,7 +101,7 @@ class ExtractProcess(AppProcess):
         """
         self.__command_queue.put(file)
 
-    def pop_latest_statuses(self) -> Optional[ExtractStatusResult]:
+    def pop_latest_statuses(self) -> ExtractStatusResult | None:
         """
         Process-safe method to retrieve latest extract status
         Returns none if no new status is available since the last time

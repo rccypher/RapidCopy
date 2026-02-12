@@ -87,7 +87,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return "".encode()
+                return b""
             else:
                 # later tries
                 return pickle.dumps([])
@@ -122,7 +122,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return "".encode()
+                return b""
             else:
                 # later tries
                 return pickle.dumps([])
@@ -153,7 +153,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return "".encode()
+                return b""
             else:
                 # later tries
                 return pickle.dumps([])
@@ -184,7 +184,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return "d41d8cd98f00b204e9800998ecf8427e".encode()
+                return b"d41d8cd98f00b204e9800998ecf8427e"
             else:
                 # later tries
                 return pickle.dumps([])
@@ -216,7 +216,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return "some output from md5sum".encode()
+                return b"some output from md5sum"
             else:
                 # later tries
                 return pickle.dumps([])
@@ -428,7 +428,7 @@ class TestRemoteScanner(unittest.TestCase):
         )
 
         def ssh_shell(*args):
-            return "mangled data".encode()
+            return b"mangled data"
         self.mock_ssh.shell.side_effect = ssh_shell
 
         with self.assertRaises(ScannerError) as ctx:

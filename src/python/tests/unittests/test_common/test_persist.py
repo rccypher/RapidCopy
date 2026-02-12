@@ -54,7 +54,7 @@ class TestPersist(unittest.TestCase):
         persist.my_content = "write out some content"
         persist.to_file(file_path)
         self.assertTrue(os.path.isfile(file_path))
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             self.assertEqual("write out some content", f.read())
 
     def test_to_file_overwrite(self):
@@ -66,5 +66,5 @@ class TestPersist(unittest.TestCase):
         persist.my_content = "write out some new content"
         persist.to_file(file_path)
         self.assertTrue(os.path.isfile(file_path))
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             self.assertEqual("write out some new content", f.read())

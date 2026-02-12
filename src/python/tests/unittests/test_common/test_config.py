@@ -474,7 +474,7 @@ class TestConfig(unittest.TestCase):
         config.autoqueue.patterns_only = True
         config.autoqueue.auto_extract = False
         config.to_file(config_file_path)
-        with open(config_file_path, "r") as f:
+        with open(config_file_path) as f:
             actual_str = f.read()
         print(actual_str)
 

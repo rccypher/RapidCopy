@@ -173,7 +173,7 @@ class InnerConfig(ABC):
         # Prop map contains all properties of all config classes, so filtering is required
         all_properties = InnerConfig.__prop_addon_map.keys()
         for prop in all_properties:
-            if prop in my_property_to_name_map.keys():
+            if prop in my_property_to_name_map:
                 name = my_property_to_name_map[prop]
                 config_dict[name] = getattr(self, name)
         return config_dict
