@@ -1,9 +1,9 @@
 ARG STAGING_REGISTRY=localhost:5000
 ARG STAGING_VERSION=latest
 
-# Creates environment to run Seedsync python code
+# Creates environment to run RapidCopy python code
 # Installs all python dependencies
-FROM python:3.11-slim AS seedsync_run_python_env
+FROM python:3.11-slim AS rapidcopy_run_python_env
 
 # Install dependencies
 # Handle both old (sources.list) and new (sources.list.d/*.sources) Debian formats
@@ -54,22 +54,22 @@ RUN cd /app/python && poetry install --only main --no-root
 
 
 # Creates environment for Python dev
-FROM seedsync_run_python_env AS seedsync_run_python_devenv
+FROM rapidcopy_run_python_env AS rapidcopy_run_python_devenv
 RUN cd /app/python && poetry install --no-root
 
 
-# Installs Seedsync python code
-FROM seedsync_run_python_env AS seedsync_run_python
+# Installs RapidCopy python code
+FROM rapidcopy_run_python_env AS rapidcopy_run_python
 RUN mkdir -p /app
 COPY src/python /app/python
 
 
-# Full Seedsync docker image
-FROM ${STAGING_REGISTRY}/seedsync/build/angular/export:${STAGING_VERSION} AS seedsync_build_angular_export
-FROM ${STAGING_REGISTRY}/seedsync/build/scanfs/export:${STAGING_VERSION} AS seedsync_build_scanfs_export
-FROM seedsync_run_python AS seedsync_run
-COPY --from=seedsync_build_angular_export /html /app/html
-COPY --from=seedsync_build_scanfs_export /scanfs /app/scanfs
+# Full RapidCopy docker image
+FROM ${STAGING_REGISTRY}/rapidcopy/build/angular/export:${STAGING_VERSION} AS rapidcopy_build_angular_export
+FROM ${STAGING_REGISTRY}/rapidcopy/build/scanfs/export:${STAGING_VERSION} AS rapidcopy_build_scanfs_export
+FROM rapidcopy_run_python AS rapidcopy_run
+COPY --from=rapidcopy_build_angular_export /html /app/html
+COPY --from=rapidcopy_build_scanfs_export /scanfs /app/scanfs
 COPY src/docker/build/docker-image/setup_default_config.sh /scripts/
 
 # Disable the known hosts prompt
@@ -86,15 +86,15 @@ RUN chmod a+x /usr/local/sbin/scp
 
 
 # Create non-root user and directories under that user
-RUN groupadd -g 1000 seedsync && \
-    useradd -r -u 1000 -g seedsync seedsync
+RUN groupadd -g 1000 rapidcopy && \
+    useradd -r -u 1000 -g rapidcopy rapidcopy
 RUN mkdir /config && \
     mkdir /downloads && \
-    chown seedsync:seedsync /config && \
-    chown seedsync:seedsync /downloads
+    chown rapidcopy:rapidcopy /config && \
+    chown rapidcopy:rapidcopy /downloads
 
 # Switch to non-root user
-USER seedsync
+USER rapidcopy
 
 # First time config setup and replacement
 RUN /scripts/setup_default_config.sh
@@ -103,7 +103,7 @@ RUN /scripts/setup_default_config.sh
 # Otherwise the container crashes as soon as a child process exits
 CMD [ \
     "python", \
-    "/app/python/seedsync.py", \
+    "/app/python/rapidcopy.py", \
     "-c", "/config", \
     "--html", "/app/html", \
     "--scanfs", "/app/scanfs" \

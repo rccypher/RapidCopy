@@ -1,4 +1,4 @@
-FROM seedsync/build/angular/env as seedsync_test_angular
+FROM rapidcopy/build/angular/env as rapidcopy_test_angular
 
 RUN apt-get update
 RUN wget -nv -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
