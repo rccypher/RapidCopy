@@ -50,6 +50,7 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "E731",   # do not assign a lambda expression
     "B008",   # do not perform function calls in argument defaults
+    "B024",   # abstract base class without abstract methods (design choice)
     "SIM108", # use ternary operator instead of if-else block
     "UP032",  # use f-string instead of format call
     "UP006",  # use dict instead of Dict for type annotations
@@ -60,7 +61,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "E402"]  # Allow unused imports and late imports in __init__.py
-"tests/*" = ["B008", "E402"]      # Allow fixtures and late imports in tests
+"tests/*" = ["B008", "E402", "SIM102", "SIM115"]  # Allow fixtures, late imports, nested ifs, and manual file handling in tests
 
 [tool.mypy]
 python_version = "3.11"
