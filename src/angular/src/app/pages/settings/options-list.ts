@@ -38,7 +38,8 @@ export const OPTIONS_CONTEXT_SERVER: IOptionsContext = {
             type: OptionType.Checkbox,
             label: "Use password-less key-based authentication",
             valuePath: ["lftp", "use_ssh_key"],
-            description: null
+            description: "Mount your SSH private key to /root/.ssh/id_rsa in the container. " +
+                         "The key must not have a passphrase."
         },
         {
             type: OptionType.Text,
