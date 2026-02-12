@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 
-import * as compareVersions from "compare-versions";
+import {compare} from "compare-versions";
 
 import {RestService} from "./rest.service";
 import {LoggerService} from "./logger.service";
@@ -64,6 +64,6 @@ export class VersionCheckService {
         version = version.replace(/^v/, "");
         // Replace - with .
         version = version.replace(/-/g, ".");
-        return compareVersions(version, appVersion) > 0;
+        return compare(version, appVersion, ">");
     }
 }

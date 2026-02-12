@@ -1,11 +1,10 @@
 import {BrowserModule} from "@angular/platform-browser";
 import {APP_INITIALIZER, NgModule} from "@angular/core";
-import {HttpClientModule} from "@angular/common/http";
+import {provideHttpClient, withInterceptorsFromDi} from "@angular/common/http";
 import {FormsModule} from "@angular/forms";
 import {RouteReuseStrategy, RouterModule} from "@angular/router";
 
-import {ModalModule} from "ngx-modialog";
-import {bootstrap4Mode, BootstrapModalModule} from "ngx-modialog/plugins/bootstrap";
+import {NgbModule} from "@ng-bootstrap/ng-bootstrap";
 
 import {AppComponent} from "./pages/main/app.component";
 import {environment} from "../environments/environment";
@@ -42,7 +41,7 @@ import {ROUTES} from "./routes";
 import {ViewFileOptionsService} from "./services/files/view-file-options.service";
 import {ViewFileSortService} from "./services/files/view-file-sort.service";
 import {DomService} from "./services/utils/dom.service";
-import {StorageServiceModule} from "angular-webstorage-service";
+import {StorageServiceModule} from "ngx-webstorage-service";
 import {VersionCheckService} from "./services/utils/version-check.service";
 
 @NgModule({
@@ -66,15 +65,13 @@ import {VersionCheckService} from "./services/utils/version-check.service";
     ],
     imports: [
         BrowserModule,
-        HttpClientModule,
         FormsModule,
         RouterModule.forRoot(ROUTES),
-
-        ModalModule.forRoot(),
-        BootstrapModalModule,
+        NgbModule,
         StorageServiceModule
     ],
     providers: [
+        provideHttpClient(withInterceptorsFromDi()),
         {provide: RouteReuseStrategy, useClass: CachedReuseStrategy},
         LoggerService,
         NotificationService,
@@ -127,9 +124,6 @@ export class AppModule {
 }
 
 // noinspection JSUnusedLocalSymbols
-export function dummyFactory(s) {
+export function dummyFactory(s: unknown): () => null {
     return () => null;
 }
-
-// Run the ngx-modialog plugin to work with version 4 of bootstrap
-bootstrap4Mode();

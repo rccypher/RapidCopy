@@ -1,11 +1,11 @@
 import {Inject, Injectable} from "@angular/core";
-import {Observable} from "rxjs/Observable";
-import {BehaviorSubject} from "rxjs/Rx";
+import {Observable} from "rxjs";
+import {BehaviorSubject} from "rxjs";
 
 import {LoggerService} from "../utils/logger.service";
 import {ViewFileOptions} from "./view-file-options";
 import {ViewFile} from "./view-file";
-import {LOCAL_STORAGE, StorageService} from "angular-webstorage-service";
+import {LOCAL_STORAGE, StorageService} from "ngx-webstorage-service";
 import {StorageKeys} from "../../common/storage-keys";
 
 

@@ -3,7 +3,7 @@ import {
     EventEmitter, OnChanges, SimpleChanges, ViewChild
 } from "@angular/core";
 
-import {Modal} from "ngx-modialog/plugins/bootstrap";
+import {NgbModal} from "@ng-bootstrap/ng-bootstrap";
 
 import {ViewFile} from "../../services/files/view-file";
 import {Localization} from "../../common/localization";
@@ -42,7 +42,7 @@ export class FileComponent implements OnChanges {
     // Indicates an active action on-going
     activeAction: FileAction = null;
 
-    constructor(private modal: Modal) {}
+    constructor(private modalService: NgbModal) {}
 
     ngOnChanges(changes: SimpleChanges): void {
         // Check for status changes
@@ -60,23 +60,11 @@ export class FileComponent implements OnChanges {
     }
 
     showDeleteConfirmation(title: string, message: string, callback: () => void) {
-        const dialogRef = this.modal.confirm()
-            .title(title)
-            .okBtn("Delete")
-            .okBtnClass("btn btn-danger")
-            .cancelBtn("Cancel")
-            .cancelBtnClass("btn btn-secondary")
-            .isBlocking(false)
-            .showClose(false)
-            .body(message)
-            .open();
-
-        dialogRef.then( dRef => {
-           dRef.result.then(
-               () => { callback(); },
-               () => { return; }
-           );
-        });
+        // Simple confirmation using native browser dialog
+        // Can be enhanced with NgbModal for a styled modal if needed
+        if (confirm(`${title}\n\n${message}`)) {
+            callback();
+        }
     }
 
     isQueueable() {

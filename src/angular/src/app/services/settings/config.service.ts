@@ -1,6 +1,5 @@
 import {Injectable} from "@angular/core";
-import {Observable} from "rxjs/Observable";
-import {BehaviorSubject} from "rxjs/Rx";
+import {Observable, of, BehaviorSubject} from "rxjs";
 
 import {Config, IConfig} from "./config";
 import {LoggerService} from "../utils/logger.service";
@@ -47,16 +46,13 @@ export class ConfigService extends BaseWebService {
     public set(section: string, option: string, value: any): Observable<WebReaction> {
         const valueStr: string = value;
         const currentConfig = this._config.getValue();
-        if (!currentConfig.has(section) || !currentConfig.get(section).has(option)) {
-            return Observable.create(observer => {
-                observer.next(new WebReaction(false, null, `Config has no option named ${section}.${option}`));
-            });
+        const sectionRecord = currentConfig?.get(section as any);
+        if (!currentConfig?.has(section as any) || !sectionRecord || !(option in sectionRecord)) {
+            return of(new WebReaction(false, null, `Config has no option named ${section}.${option}`));
         } else if (valueStr.length === 0) {
-            return Observable.create(observer => {
-                observer.next(new WebReaction(
-                    false, null, Localization.Notification.CONFIG_VALUE_BLANK(section, option))
-                );
-            });
+            return of(new WebReaction(
+                false, null, Localization.Notification.CONFIG_VALUE_BLANK(section, option))
+            );
         } else {
             // Double-encode the value
             const valueEncoded = encodeURIComponent(encodeURIComponent(valueStr));

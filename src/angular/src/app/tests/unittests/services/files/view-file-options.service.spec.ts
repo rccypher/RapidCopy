@@ -5,7 +5,7 @@ import {ViewFileOptions} from "../../../../services/files/view-file-options";
 import {ViewFile} from "../../../../services/files/view-file";
 import {LoggerService} from "../../../../services/utils/logger.service";
 import {MockStorageService} from "../../../mocks/mock-storage.service";
-import {LOCAL_STORAGE, StorageService} from "angular-webstorage-service";
+import {LOCAL_STORAGE, StorageService} from "ngx-webstorage-service";
 import {StorageKeys} from "../../../../common/storage-keys";
 
 
