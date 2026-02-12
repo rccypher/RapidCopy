@@ -9,7 +9,7 @@ describe('Testing top-level app', () => {
     });
 
     it('should have right title', () => {
-        expect(app.getTitle()).toEqual("SeedSync");
+        expect(app.getTitle()).toEqual("RapidCopy");
     });
 
     it('should have all the sidebar items', () => {

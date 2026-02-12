@@ -5,7 +5,7 @@ set -e
 
 CONFIG_DIR="/config"
 SETTINGS_FILE="${CONFIG_DIR}/settings.cfg"
-SCRIPT_PATH="/app/python/seedsync.py"
+SCRIPT_PATH="/app/python/rapidcopy.py"
 
 replace_setting() {
     NAME=$1
@@ -32,5 +32,5 @@ replace_setting 'local_path' '<replace me>' '\/downloads\/'
 
 echo
 echo
-echo "Done configuring seedsync"
+echo "Done configuring rapidcopy"
 cat ${SETTINGS_FILE}

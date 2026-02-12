@@ -5,10 +5,10 @@ import sys
 import copy
 
 from common import overrides, Config
-from seedsync import Seedsync
+from rapidcopy import Rapidcopy
 
 
-class TestSeedsync(unittest.TestCase):
+class TestRapidcopy(unittest.TestCase):
     def test_args_config(self):
         argv = []
         argv.append("-c")
@@ -17,7 +17,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertEqual("/path/to/config", args.config_dir)
 
@@ -28,13 +28,13 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertEqual("/path/to/config", args.config_dir)
 
         argv = []
         with self.assertRaises(SystemExit):
-            Seedsync._parse_args(argv)
+            Rapidcopy._parse_args(argv)
 
     def test_args_html(self):
         argv = []
@@ -44,7 +44,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/scanfs")
         argv.append("--html")
         argv.append("/path/to/html")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertEqual("/path/to/html", args.html)
 
@@ -56,7 +56,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertEqual("/path/to/scanfs", args.scanfs)
 
@@ -70,7 +70,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertEqual("/path/to/logdir", args.logdir)
 
@@ -81,7 +81,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertIsNone(args.logdir)
 
@@ -94,7 +94,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
         argv.append("-d")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertTrue(args.debug)
 
@@ -106,7 +106,7 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertTrue(args.debug)
 
@@ -117,18 +117,17 @@ class TestSeedsync(unittest.TestCase):
         argv.append("/path/to/html")
         argv.append("--scanfs")
         argv.append("/path/to/scanfs")
-        args = Seedsync._parse_args(argv)
+        args = Rapidcopy._parse_args(argv)
         self.assertIsNotNone(args)
         self.assertFalse(args.debug)
 
     def test_default_config(self):
-        config = Seedsync._create_default_config()
+        config = Rapidcopy._create_default_config()
         # Test that default config doesn't have any uninitialized values
         config_dict = config.as_dict()
         for section, inner_config in config_dict.items():
             for key in inner_config:
-                self.assertIsNotNone(inner_config[key],
-                                     msg="{}.{} is uninitialized".format(section, key))
+                self.assertIsNotNone(inner_config[key], msg="{}.{} is uninitialized".format(section, key))
 
         # Test that default config is a valid config
         config_dict = config.as_dict()
@@ -138,7 +137,7 @@ class TestSeedsync(unittest.TestCase):
 
     def test_detect_incomplete_config(self):
         # Test a complete config
-        config = Seedsync._create_default_config()
+        config = Rapidcopy._create_default_config()
         incomplete_value = config.lftp.remote_address
         config.lftp.remote_address = "value"
         config.lftp.remote_password = "value"
@@ -146,25 +145,25 @@ class TestSeedsync(unittest.TestCase):
         config.lftp.remote_path = "value"
         config.lftp.local_path = "value"
         config.lftp.remote_path_to_scan_script = "value"
-        self.assertFalse(Seedsync._detect_incomplete_config(config))
+        self.assertFalse(Rapidcopy._detect_incomplete_config(config))
 
         # Test incomplete configs
         config.lftp.remote_address = incomplete_value
-        self.assertTrue(Seedsync._detect_incomplete_config(config))
+        self.assertTrue(Rapidcopy._detect_incomplete_config(config))
         config.lftp.remote_address = "value"
 
         config.lftp.remote_username = incomplete_value
-        self.assertTrue(Seedsync._detect_incomplete_config(config))
+        self.assertTrue(Rapidcopy._detect_incomplete_config(config))
         config.lftp.remote_username = "value"
 
         config.lftp.remote_path = incomplete_value
-        self.assertTrue(Seedsync._detect_incomplete_config(config))
+        self.assertTrue(Rapidcopy._detect_incomplete_config(config))
         config.lftp.remote_path = "value"
 
         config.lftp.local_path = incomplete_value
-        self.assertTrue(Seedsync._detect_incomplete_config(config))
+        self.assertTrue(Rapidcopy._detect_incomplete_config(config))
         config.lftp.local_path = "value"
 
         config.lftp.remote_path_to_scan_script = incomplete_value
-        self.assertTrue(Seedsync._detect_incomplete_config(config))
+        self.assertTrue(Rapidcopy._detect_incomplete_config(config))
         config.lftp.remote_path_to_scan_script = "value"

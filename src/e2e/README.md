@@ -12,13 +12,13 @@
     - deb install
 
         ```bash
-        make run-tests-e2e SEEDSYNC_VERSION=latest SEEDSYNC_ARCH=<arch code> DEV=1
+        make run-tests-e2e RAPIDCOPY_VERSION=latest RAPIDCOPY_ARCH=<arch code> DEV=1
         ```
 
     - docker image
 
         ```bash
-        make run-tests-e2e SEEDSYNC_DEB=`readlink -f build/*.deb` SEEDSYNC_OS=<os code> DEV=1
+        make run-tests-e2e RAPIDCOPY_DEB=`readlink -f build/*.deb` RAPIDCOPY_OS=<os code> DEV=1
         ```
 
         
@@ -37,7 +37,7 @@
 ### About
 
 The dev end-to-end tests use the following docker images:
-1. myapp: Installs and runs the seedsync deb package
+1. myapp: Installs and runs the rapidcopy deb package
 2. chrome: Runs the selenium server
 3. remote: Runs a remote SSH server
 

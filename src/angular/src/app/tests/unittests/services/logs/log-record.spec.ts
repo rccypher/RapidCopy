@@ -11,7 +11,7 @@ describe("Testing log record initialization", () => {
         baseJson = {
             level_name: "DEBUG",
             time: "1514776875.9439101",
-            logger_name: "seedsync.Controller.Model",
+            logger_name: "rapidcopy.Controller.Model",
             message: "LftpModel: Adding a listener",
             exc_tb: "Exception Traceback"
         };
@@ -23,7 +23,7 @@ describe("Testing log record initialization", () => {
     });
 
     it("should correctly initialize logger name", () => {
-        expect(baseLogRecord.loggerName).toBe("seedsync.Controller.Model");
+        expect(baseLogRecord.loggerName).toBe("rapidcopy.Controller.Model");
     });
 
     it("should correctly initialize message", () => {

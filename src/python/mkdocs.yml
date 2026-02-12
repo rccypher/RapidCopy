@@ -1,4 +1,4 @@
-site_name: SeedSync
+site_name: RapidCopy
 theme:
   name: material
   language: en
@@ -15,8 +15,8 @@ markdown_extensions:
       guess_lang: false
   - toc:
       permalink: true
-repo_name: ipsingh06/seedsync
-repo_url: https://github.com/ipsingh06/seedsync
+repo_name: ipsingh06/rapidcopy
+repo_url: https://github.com/ipsingh06/rapidcopy
 nav:
   - Home: index.md
   - Installation: install.md

@@ -1,4 +1,4 @@
-FROM seedsync/run/python/devenv AS seedsync_test_python
+FROM rapidcopy/run/python/devenv AS rapidcopy_test_python
 
 RUN ls -l /app/python
 

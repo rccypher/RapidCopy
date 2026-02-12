@@ -1,6 +1,6 @@
 import { AppPage } from './app.po';
 
-describe('seedsync App', () => {
+describe('rapidcopy App', () => {
   let page: AppPage;
 
   beforeEach(() => {

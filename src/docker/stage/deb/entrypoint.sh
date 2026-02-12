@@ -5,8 +5,8 @@ set -e
 
 echo "Running entrypoint"
 
-echo "Installing SeedSync"
-./expect_seedsync.exp
+echo "Installing RapidCopy"
+./expect_rapidcopy.exp
 
 echo "Continuing docker CMD"
 echo "$@"

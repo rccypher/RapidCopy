@@ -23,9 +23,9 @@ from web import WebAppJob, WebAppBuilder
 T_Persist = TypeVar("T_Persist", bound=Persist)
 
 
-class Seedsync:
+class Rapidcopy:
     """
-    Implements the service for seedsync
+    Implements the service for RapidCopy
     It is run in the main thread (no daemonization)
     """
 
@@ -43,13 +43,13 @@ class Seedsync:
 
         # Create/load config
         config = None
-        self.config_path = os.path.join(args.config_dir, Seedsync.__FILE_CONFIG)
+        self.config_path = os.path.join(args.config_dir, Rapidcopy.__FILE_CONFIG)
         create_default_config = False
         if os.path.isfile(self.config_path):
             try:
                 config = Config.from_file(self.config_path)
             except (ConfigError, PersistError):
-                Seedsync.__backup_file(self.config_path)
+                Rapidcopy.__backup_file(self.config_path)
                 # set config to default
                 create_default_config = True
         else:
@@ -57,7 +57,7 @@ class Seedsync:
 
         if create_default_config:
             # Create default config
-            config = Seedsync._create_default_config()
+            config = Rapidcopy._create_default_config()
             config.to_file(self.config_path)
 
         # Determine the true value of debug
@@ -73,7 +73,7 @@ class Seedsync:
         # Logger setup
         # We separate the main log from the web-access log
         logger = self._create_logger(name=Constants.SERVICE_NAME, debug=is_debug, logdir=args.logdir)
-        Seedsync.logger = logger
+        Rapidcopy.logger = logger
         web_access_logger = self._create_logger(name=Constants.WEB_ACCESS_LOG_NAME, debug=is_debug, logdir=args.logdir)
         logger.info("Debug mode is {}.".format("enabled" if is_debug else "disabled"))
 
@@ -93,14 +93,14 @@ class Seedsync:
         self.context.print_to_log()
 
         # Load the persists
-        self.controller_persist_path = os.path.join(args.config_dir, Seedsync.__FILE_CONTROLLER_PERSIST)
+        self.controller_persist_path = os.path.join(args.config_dir, Rapidcopy.__FILE_CONTROLLER_PERSIST)
         self.controller_persist = self._load_persist(ControllerPersist, self.controller_persist_path)
 
-        self.auto_queue_persist_path = os.path.join(args.config_dir, Seedsync.__FILE_AUTO_QUEUE_PERSIST)
+        self.auto_queue_persist_path = os.path.join(args.config_dir, Rapidcopy.__FILE_AUTO_QUEUE_PERSIST)
         self.auto_queue_persist = self._load_persist(AutoQueuePersist, self.auto_queue_persist_path)
 
     def run(self):
-        self.context.logger.info("Starting SeedSync")
+        self.context.logger.info("Starting RapidCopy")
         self.context.logger.info("Platform: {}".format(platform.machine()))
 
         # Create controller
@@ -124,7 +124,7 @@ class Seedsync:
         do_start_controller = True
 
         # Initial checks to see if we should bother starting the controller
-        if Seedsync._detect_incomplete_config(self.context.config):
+        if Rapidcopy._detect_incomplete_config(self.context.config):
             if not self.context.args.exit:
                 do_start_controller = False
                 self.context.logger.error("Config is incomplete")
@@ -158,7 +158,7 @@ class Seedsync:
                     if not self.context.args.exit:
                         self.context.status.server.up = False
                         self.context.status.server.error_msg = str(exc)
-                        Seedsync.logger.exception("Caught exception")
+                        Rapidcopy.logger.exception("Caught exception")
                     else:
                         raise
 
@@ -170,7 +170,7 @@ class Seedsync:
                 time.sleep(Constants.MAIN_THREAD_SLEEP_INTERVAL_IN_SECS)
 
         except Exception:
-            self.context.logger.info("Exiting Seedsync")
+            self.context.logger.info("Exiting Rapidcopy")
 
             # This sleep is important to allow the jobs to finish setup before we terminate them
             # If we kill too early, the jobs may leave lingering threads around
@@ -211,7 +211,7 @@ class Seedsync:
 
     @staticmethod
     def _parse_args(args):
-        parser = argparse.ArgumentParser(description="Seedsync daemon")
+        parser = argparse.ArgumentParser(description="Rapidcopy daemon")
         parser.add_argument("-c", "--config_dir", required=True, help="Path to config directory")
         parser.add_argument("--logdir", help="Directory for log files")
         parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logs")
@@ -281,12 +281,12 @@ class Seedsync:
         config.general.debug = False
         config.general.verbose = False
 
-        config.lftp.remote_address = Seedsync.__CONFIG_DUMMY_VALUE
-        config.lftp.remote_username = Seedsync.__CONFIG_DUMMY_VALUE
-        config.lftp.remote_password = Seedsync.__CONFIG_DUMMY_VALUE
+        config.lftp.remote_address = Rapidcopy.__CONFIG_DUMMY_VALUE
+        config.lftp.remote_username = Rapidcopy.__CONFIG_DUMMY_VALUE
+        config.lftp.remote_password = Rapidcopy.__CONFIG_DUMMY_VALUE
         config.lftp.remote_port = 22
-        config.lftp.remote_path = Seedsync.__CONFIG_DUMMY_VALUE
-        config.lftp.local_path = Seedsync.__CONFIG_DUMMY_VALUE
+        config.lftp.remote_path = Rapidcopy.__CONFIG_DUMMY_VALUE
+        config.lftp.local_path = Rapidcopy.__CONFIG_DUMMY_VALUE
         config.lftp.remote_path_to_scan_script = "/tmp"
         config.lftp.use_ssh_key = False
         config.lftp.num_max_parallel_downloads = 2
@@ -315,7 +315,7 @@ class Seedsync:
         config_dict = config.as_dict()
         for sec_name in config_dict:
             for key in config_dict[sec_name]:
-                if config_dict[sec_name][key] == Seedsync.__CONFIG_DUMMY_VALUE:
+                if config_dict[sec_name][key] == Rapidcopy.__CONFIG_DUMMY_VALUE:
                     return True
         return False
 
@@ -333,11 +333,11 @@ class Seedsync:
             try:
                 return cls.from_file(file_path)
             except PersistError:
-                if Seedsync.logger:
-                    Seedsync.logger.exception("Caught exception")
+                if Rapidcopy.logger:
+                    Rapidcopy.logger.exception("Caught exception")
 
                 # backup file
-                Seedsync.__backup_file(file_path)
+                Rapidcopy.__backup_file(file_path)
 
                 # noinspection PyCallingNonCallable
                 return cls()
@@ -355,8 +355,8 @@ class Seedsync:
             if not os.path.exists(backup_path):
                 break
             i += 1
-        if Seedsync.logger:
-            Seedsync.logger.info("Backing up {} to {}".format(file_path, backup_path))
+        if Rapidcopy.logger:
+            Rapidcopy.logger.info("Backing up {} to {}".format(file_path, backup_path))
         shutil.copy(file_path, backup_path)
 
 
@@ -366,18 +366,18 @@ if __name__ == "__main__":
 
     while True:
         try:
-            seedsync = Seedsync()
-            seedsync.run()
+            rapidcopy = Rapidcopy()
+            rapidcopy.run()
         except ServiceExit:
             break
         except ServiceRestart:
-            if Seedsync.logger:
-                Seedsync.logger.info("Restarting...")
+            if Rapidcopy.logger:
+                Rapidcopy.logger.info("Restarting...")
             continue
         except Exception:
-            if Seedsync.logger:
-                Seedsync.logger.exception("Caught exception")
+            if Rapidcopy.logger:
+                Rapidcopy.logger.exception("Caught exception")
             raise
 
-        if Seedsync.logger:
-            Seedsync.logger.info("Exited successfully")
+        if Rapidcopy.logger:
+            Rapidcopy.logger.info("Exited successfully")

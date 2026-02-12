@@ -118,7 +118,7 @@ All Python code must pass:
 ```bash
 cd src/python
 mkdir -p build/config
-poetry run python seedsync.py -c build/config --html ../angular/dist --scanfs build/scanfs
+poetry run python rapidcopy.py -c build/config --html ../angular/dist --scanfs build/scanfs
 ```
 
 ### Build scanfs
@@ -178,10 +178,10 @@ node_modules/@angular/cli/bin/ng test
 ## E2E Tests
 ```bash
 # Docker image
-make run-tests-e2e STAGING_VERSION=latest SEEDSYNC_ARCH=amd64
+make run-tests-e2e STAGING_VERSION=latest RAPIDCOPY_ARCH=amd64
 
 # Debian package
-make run-tests-e2e SEEDSYNC_DEB=`readlink -f build/*.deb` SEEDSYNC_OS=ubu2004
+make run-tests-e2e RAPIDCOPY_DEB=`readlink -f build/*.deb` RAPIDCOPY_OS=ubu2004
 ```
 
 ## Full Test Suite (Docker)
@@ -259,7 +259,7 @@ make
 4. Verify:
 ```bash
 curl -X GET http://localhost:5000/v2/_catalog
-docker buildx imagetools inspect localhost:5000/seedsync:latest
+docker buildx imagetools inspect localhost:5000/rapidcopy:latest
 ```
 
 ## Custom Registry/Version
@@ -281,7 +281,7 @@ make STAGING_REGISTRY=myregistry:5000 STAGING_VERSION=0.0.1
 | Config | Value |
 |--------|-------|
 | Name | rapidcopy |
-| Script path | seedsync.py |
+| Script path | rapidcopy.py |
 | Parameters | `-c ./build/config --html ../angular/dist --scanfs ./build/scanfs` |
 
 ## VS Code

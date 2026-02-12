@@ -1,12 +1,12 @@
 version: "3.4"
 services:
   tests:
-    image: seedsync/test/python
-    container_name: seedsync_test_python
+    image: rapidcopy/test/python
+    container_name: rapidcopy_test_python
     build:
       context: ../../../../
       dockerfile: src/docker/test/python/Dockerfile
-      target: seedsync_test_python
+      target: rapidcopy_test_python
     volumes:
       - type: bind
         source: ../../../python
