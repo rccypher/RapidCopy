@@ -1,0 +1,67 @@
+<div class="path-pair-stats-container" *ngIf="hasMultiplePathPairs && stats.length > 0">
+    <div class="header" (click)="toggleExpanded()">
+        <div class="title">
+            <img src="assets/icons/states.svg" class="icon" />
+            <span>Path Pair Statistics</span>
+        </div>
+        <button class="expand-btn" [class.expanded]="isExpanded">
+            <span class="arrow">&#9660;</span>
+        </button>
+    </div>
+
+    <div class="stats-grid" *ngIf="isExpanded">
+        <div class="path-pair-card" 
+             *ngFor="let stat of stats"
+             [class.active]="hasActiveTransfers(stat)">
+            <div class="card-header">
+                <span class="pair-name">{{ stat.pathPairName }}</span>
+                <span class="file-count">{{ stat.totalFiles }} file{{ stat.totalFiles !== 1 ? 's' : '' }}</span>
+            </div>
+
+            <div class="card-body">
+                <!-- Progress bar -->
+                <div class="progress-section">
+                    <div class="progress">
+                        <div class="progress-bar"
+                             [class.progress-bar-animated]="stat.downloadingCount > 0"
+                             [class.progress-bar-striped]="stat.downloadingCount > 0"
+                             [style.width.%]="stat.overallProgress">
+                        </div>
+                    </div>
+                    <span class="progress-text">{{ stat.overallProgress }}%</span>
+                </div>
+
+                <!-- Stats row -->
+                <div class="stats-row">
+                    <div class="stat" *ngIf="stat.downloadingCount > 0">
+                        <img src="assets/icons/downloading.svg" class="stat-icon" />
+                        <span class="stat-value">{{ stat.downloadingCount }}</span>
+                        <span class="stat-label">downloading</span>
+                    </div>
+                    <div class="stat" *ngIf="stat.queuedCount > 0">
+                        <img src="assets/icons/queued.svg" class="stat-icon" />
+                        <span class="stat-value">{{ stat.queuedCount }}</span>
+                        <span class="stat-label">queued</span>
+                    </div>
+                    <div class="stat" *ngIf="stat.downloadedCount > 0">
+                        <img src="assets/icons/downloaded.svg" class="stat-icon" />
+                        <span class="stat-value">{{ stat.downloadedCount }}</span>
+                        <span class="stat-label">done</span>
+                    </div>
+                </div>
+
+                <!-- Speed and size -->
+                <div class="info-row">
+                    <div class="size-info">
+                        <span class="local">{{ stat.totalLocalSize | fileSize:2 }}</span>
+                        <span class="separator">/</span>
+                        <span class="remote">{{ stat.totalRemoteSize | fileSize:2 }}</span>
+                    </div>
+                    <div class="speed-info" *ngIf="stat.totalSpeed > 0">
+                        <span class="speed">{{ stat.totalSpeed | fileSize:2 }}/s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

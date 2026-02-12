@@ -44,11 +44,11 @@ import {DomService} from "./services/utils/dom.service";
 import {StorageServiceModule} from "ngx-webstorage-service";
 import {VersionCheckService} from "./services/utils/version-check.service";
 import {PathPairsComponent} from "./pages/settings/path-pairs.component";
+import {PathPairStatsComponent} from "./pages/files/path-pair-stats.component";
 import {PathPairService} from "./services/settings/path-pair.service";
 
 @NgModule({
     declarations: [
-        FileSizePipe,
         EtaPipe,
         CapitalizePipe,
         ClickStopPropagationDirective,
@@ -71,7 +71,9 @@ import {PathPairService} from "./services/settings/path-pair.service";
         RouterModule.forRoot(ROUTES),
         NgbModule,
         StorageServiceModule,
-        PathPairsComponent
+        FileSizePipe,
+        PathPairsComponent,
+        PathPairStatsComponent
     ],
     providers: [
         provideHttpClient(withInterceptorsFromDi()),

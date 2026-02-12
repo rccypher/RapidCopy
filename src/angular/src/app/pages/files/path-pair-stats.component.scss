@@ -1,0 +1,323 @@
+@import '../../common/common';
+
+$card-bg: #fff;
+$card-bg-dark: #2d2d2d;
+$border-color: #e0e0e0;
+$border-color-dark: #444;
+$text-color: #333;
+$text-color-muted: #777;
+$progress-bg: #e9ecef;
+$progress-bar-color: $primary-color;
+$active-border-color: $primary-color;
+
+.path-pair-stats-container {
+    margin: 0 15px 15px 15px;
+    background-color: $card-bg;
+    border: 1px solid $border-color;
+    border-radius: 6px;
+    overflow: hidden;
+
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
+        background-color: rgba(0, 0, 0, 0.02);
+        border-bottom: 1px solid $border-color;
+        cursor: pointer;
+        user-select: none;
+
+        &:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+
+        .title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 0.95em;
+            color: $text-color;
+
+            .icon {
+                width: 18px;
+                height: 18px;
+                opacity: 0.7;
+            }
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            color: $text-color-muted;
+            transition: transform 0.2s ease;
+
+            .arrow {
+                font-size: 0.8em;
+            }
+
+            &.expanded .arrow {
+                display: inline-block;
+            }
+
+            &:not(.expanded) .arrow {
+                display: inline-block;
+                transform: rotate(-90deg);
+            }
+        }
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+        padding: 15px;
+    }
+
+    .path-pair-card {
+        background-color: $card-bg;
+        border: 1px solid $border-color;
+        border-radius: 6px;
+        padding: 12px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+        &.active {
+            border-color: $active-border-color;
+            box-shadow: 0 0 0 1px rgba($primary-color, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+
+            .pair-name {
+                font-weight: 600;
+                font-size: 1em;
+                color: $text-color;
+            }
+
+            .file-count {
+                font-size: 0.8em;
+                color: $text-color-muted;
+                background-color: rgba(0, 0, 0, 0.05);
+                padding: 2px 8px;
+                border-radius: 10px;
+            }
+        }
+
+        .card-body {
+            .progress-section {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+
+                .progress {
+                    flex: 1;
+                    height: 8px;
+                    background-color: $progress-bg;
+                    border-radius: 4px;
+                    overflow: hidden;
+
+                    .progress-bar {
+                        height: 100%;
+                        background-color: $progress-bar-color;
+                        transition: width 0.3s ease;
+
+                        &.progress-bar-striped {
+                            background-image: linear-gradient(
+                                45deg,
+                                rgba(255, 255, 255, 0.15) 25%,
+                                transparent 25%,
+                                transparent 50%,
+                                rgba(255, 255, 255, 0.15) 50%,
+                                rgba(255, 255, 255, 0.15) 75%,
+                                transparent 75%,
+                                transparent
+                            );
+                            background-size: 1rem 1rem;
+                        }
+
+                        &.progress-bar-animated {
+                            animation: progress-bar-stripes 1s linear infinite;
+                        }
+                    }
+                }
+
+                .progress-text {
+                    font-size: 0.85em;
+                    font-weight: 500;
+                    color: $text-color;
+                    min-width: 40px;
+                    text-align: right;
+                }
+            }
+
+            .stats-row {
+                display: flex;
+                gap: 15px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+
+                .stat {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+
+                    .stat-icon {
+                        width: 14px;
+                        height: 14px;
+                    }
+
+                    .stat-value {
+                        font-weight: 600;
+                        font-size: 0.9em;
+                        color: $text-color;
+                    }
+
+                    .stat-label {
+                        font-size: 0.8em;
+                        color: $text-color-muted;
+                    }
+                }
+            }
+
+            .info-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.85em;
+
+                .size-info {
+                    color: $text-color-muted;
+
+                    .local {
+                        color: $text-color;
+                        font-weight: 500;
+                    }
+
+                    .separator {
+                        margin: 0 4px;
+                    }
+
+                    .remote {
+                        color: $text-color-muted;
+                    }
+                }
+
+                .speed-info {
+                    .speed {
+                        color: $primary-color;
+                        font-weight: 500;
+                    }
+                }
+            }
+        }
+    }
+}
+
+@keyframes progress-bar-stripes {
+    0% {
+        background-position-x: 1rem;
+    }
+}
+
+/* Responsive adjustments */
+@media only screen and (max-width: $small-max-width) {
+    .path-pair-stats-container {
+        margin: 0 10px 10px 10px;
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+            padding: 10px;
+        }
+    }
+}
+
+/* Dark mode support */
+:host-context(.dark-mode) {
+    .path-pair-stats-container {
+        background-color: $card-bg-dark;
+        border-color: $border-color-dark;
+
+        .header {
+            background-color: rgba(255, 255, 255, 0.02);
+            border-bottom-color: $border-color-dark;
+
+            &:hover {
+                background-color: rgba(255, 255, 255, 0.04);
+            }
+
+            .title {
+                color: #e0e0e0;
+
+                .icon {
+                    filter: invert(1);
+                }
+            }
+
+            .expand-btn {
+                color: #999;
+            }
+        }
+
+        .path-pair-card {
+            background-color: $card-bg-dark;
+            border-color: $border-color-dark;
+
+            .card-header {
+                .pair-name {
+                    color: #e0e0e0;
+                }
+
+                .file-count {
+                    background-color: rgba(255, 255, 255, 0.1);
+                    color: #999;
+                }
+            }
+
+            .card-body {
+                .progress-section {
+                    .progress {
+                        background-color: #444;
+                    }
+
+                    .progress-text {
+                        color: #e0e0e0;
+                    }
+                }
+
+                .stats-row .stat {
+                    .stat-icon {
+                        filter: invert(1);
+                    }
+
+                    .stat-value {
+                        color: #e0e0e0;
+                    }
+
+                    .stat-label {
+                        color: #999;
+                    }
+                }
+
+                .info-row {
+                    .size-info {
+                        .local {
+                            color: #e0e0e0;
+                        }
+
+                        .separator,
+                        .remote {
+                            color: #999;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
