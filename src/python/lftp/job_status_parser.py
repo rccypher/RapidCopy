@@ -81,11 +81,12 @@ class LftpJobStatusParser:
         # remove any remaining 'jobs -v' lines
         lines = list(filter(lambda s: s != "jobs -v", lines))
         # remove any remaining log line
-        lines = filter(
-            lambda s: not re.match(r"^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}.*\s->\s.*$", s),
-            lines,
+        lines = list(
+            filter(
+                lambda s: not re.match(r"^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}.*\s->\s.*$", s),
+                lines,
+            )
         )
-        lines = list(lines)
         try:
             statuses += self.__parse_queue(lines)
             statuses += self.__parse_jobs(lines)
@@ -360,6 +361,8 @@ class LftpJobStatusParser:
                 name = result.group("name")
                 if not lines:
                     raise ValueError("Missing chunk data for filename '{}'".format(name))
+                if prev_job is None:
+                    raise ValueError("Found filename '{}' but no previous job context".format(name))
                 line = lines.pop(0)
                 result_at = chunk_at_m.search(line)
                 result_at2 = chunk_at2_m.search(line)

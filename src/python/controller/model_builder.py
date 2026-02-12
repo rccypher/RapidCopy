@@ -21,6 +21,7 @@ class ModelBuilder:
       * remote file system as a Dict[name, SystemFile]
       * lftp status as Dict[name, LftpJobStatus]
     """
+
     def __init__(self):
         self.logger = logging.getLogger("ModelBuilder")
         self.__local_files = dict()
@@ -106,9 +107,7 @@ class ModelBuilder:
 
         model = Model()
         model.set_base_logger(logging.getLogger("dummy"))  # ignore the logs for this temp model
-        all_file_names = set().union(self.__local_files.keys(),
-                                     self.__remote_files.keys(),
-                                     self.__lftp_statuses.keys())
+        all_file_names = set().union(self.__local_files.keys(), self.__remote_files.keys(), self.__lftp_statuses.keys())
         for name in all_file_names:
             remote = self.__remote_files.get(name, None)
             local = self.__local_files.get(name, None)
@@ -120,15 +119,19 @@ class ModelBuilder:
 
             # sanity check between the sources
             is_dir = remote.is_dir if remote else local.is_dir if local else status.type == LftpJobStatus.Type.MIRROR
-            if (remote and is_dir != remote.is_dir) or \
-               (local and is_dir != local.is_dir) or \
-               (status and is_dir != (status.type == LftpJobStatus.Type.MIRROR)):
+            if (
+                (remote and is_dir != remote.is_dir)
+                or (local and is_dir != local.is_dir)
+                or (status and is_dir != (status.type == LftpJobStatus.Type.MIRROR))
+            ):
                 raise ModelError("Mismatch in is_dir between sources")
 
-            def __fill_model_file(_model_file: ModelFile,
-                                  _remote: SystemFile | None,
-                                  _local: SystemFile | None,
-                                  _transfer_state: LftpJobStatus.TransferState | None):
+            def __fill_model_file(
+                _model_file: ModelFile,
+                _remote: SystemFile | None,
+                _local: SystemFile | None,
+                _transfer_state: LftpJobStatus.TransferState | None,
+            ):
                 # set local and remote sizes
                 if _remote:
                     _model_file.remote_size = _remote.size
@@ -154,7 +157,8 @@ class ModelBuilder:
                         # also update all parent directories
                         _parent_file = _model_file.parent
                         while _parent_file is not None:
-                            _parent_file.transferred_size += _model_file.transferred_size
+                            current_transferred = _parent_file.transferred_size or 0
+                            _parent_file.transferred_size = current_transferred + _model_file.transferred_size
                             _parent_file = _parent_file.parent
 
                 # set the is_extractable flag
@@ -183,14 +187,18 @@ class ModelBuilder:
             # for now we only set to Queued or Downloading
             # later after all children are built, we can set to Downloaded after performing a check
             if status:
-                model_file.state = ModelFile.State.QUEUED if status.state == LftpJobStatus.State.QUEUED \
-                                   else ModelFile.State.DOWNLOADING
+                model_file.state = (
+                    ModelFile.State.QUEUED
+                    if status.state == LftpJobStatus.State.QUEUED
+                    else ModelFile.State.DOWNLOADING
+                )
             # fill the rest
-            __fill_model_file(model_file,
-                              remote,
-                              local,
-                              status.total_transfer_state if status and status.state == LftpJobStatus.State.RUNNING
-                              else None)
+            __fill_model_file(
+                model_file,
+                remote,
+                local,
+                status.total_transfer_state if status and status.state == LftpJobStatus.State.RUNNING else None,
+            )
 
             # Traverse SystemFile children tree in BFS order
             # Store (remote, local, status, model_file) tuple in traversal frontier where remote and local
@@ -210,10 +218,19 @@ class ModelBuilder:
                 for _child_name in _all_children_names:
                     _remote_child = _remote_children.get(_child_name)
                     _local_child = _local_children.get(_child_name)
-                    _is_dir = _remote_child.is_dir if _remote_child else _local_child.is_dir
+                    # At least one of remote or local child must exist since the name is in the union
+                    _is_dir: bool
+                    if _remote_child:
+                        _is_dir = _remote_child.is_dir
+                    elif _local_child:
+                        _is_dir = _local_child.is_dir
+                    else:
+                        # This should never happen, but satisfy the type checker
+                        raise ModelError("Neither remote nor local child exists for name")
                     # sanity check is_dir
-                    if (_remote_child and _is_dir != _remote_child.is_dir) or \
-                       (_local_child and _is_dir != _local_child.is_dir):
+                    if (_remote_child and _is_dir != _remote_child.is_dir) or (
+                        _local_child and _is_dir != _local_child.is_dir
+                    ):
                         raise ModelError("Mismatch in is_dir between child sources")
                     _child_model_file = ModelFile(_child_name, _is_dir)
 
@@ -226,8 +243,9 @@ class ModelBuilder:
                     _child_status_path = os.path.join(*(_child_model_file.full_path.split(os.sep)[1:]))
                     _child_transfer_state = None
                     if _status:
-                        _child_transfer_state = next((ts for n, ts in _status.get_active_file_transfer_states()
-                                                     if n == _child_status_path), None)
+                        _child_transfer_state = next(
+                            (ts for n, ts in _status.get_active_file_transfer_states() if n == _child_status_path), None
+                        )
                     # Set the state, first matching criteria below decides state
                     #   child is a directory: Default
                     #   child is active: Downloading
@@ -252,19 +270,19 @@ class ModelBuilder:
                         _child_model_file.state = ModelFile.State.DEFAULT
 
                     # fill the rest
-                    __fill_model_file(_child_model_file,
-                                      _remote_child,
-                                      _local_child,
-                                      _child_transfer_state)
+                    __fill_model_file(_child_model_file, _remote_child, _local_child, _child_transfer_state)
                     # add child to frontier
                     frontier.append((_remote_child, _local_child, _status, _child_model_file))
 
             # estimate the ETA for the root if it's not available
-            if model_file.state == ModelFile.State.DOWNLOADING and \
-                    model_file.eta is None and \
-                    model_file.downloading_speed is not None and \
-                    model_file.downloading_speed > 0 and \
-                    model_file.transferred_size is not None:
+            if (
+                model_file.state == ModelFile.State.DOWNLOADING
+                and model_file.eta is None
+                and model_file.downloading_speed is not None
+                and model_file.downloading_speed > 0
+                and model_file.transferred_size is not None
+                and model_file.remote_size is not None
+            ):
                 # First-order estimate
                 remaining_size = max(model_file.remote_size - model_file.transferred_size, 0)
                 model_file.eta = int(math.ceil(remaining_size / model_file.downloading_speed))
@@ -273,34 +291,40 @@ class ModelBuilder:
             # root is Downloaded if all child remote files are Downloaded
             # again we use BFS to traverse
             if model_file.state == ModelFile.State.DEFAULT:
-                if not model_file.is_dir and \
-                        model_file.local_size is not None and \
-                        model_file.remote_size is not None and \
-                        model_file.local_size >= model_file.remote_size:
+                if (
+                    not model_file.is_dir
+                    and model_file.local_size is not None
+                    and model_file.remote_size is not None
+                    and model_file.local_size >= model_file.remote_size
+                ):
                     # root is a finished single file
                     model_file.state = ModelFile.State.DOWNLOADED
                 elif model_file.is_dir and model_file.remote_size is not None:
                     # root is a directory that also exists remotely
                     # check all the children
                     all_downloaded = True
-                    frontier = []
-                    frontier += model_file.get_children()
-                    while frontier:
-                        _child_file = frontier.pop(0)
-                        if not _child_file.is_dir and \
-                                _child_file.remote_size is not None and \
-                                _child_file.state != ModelFile.State.DOWNLOADED:
+                    child_frontier: list[ModelFile] = []
+                    child_frontier += model_file.get_children()
+                    while child_frontier:
+                        _child_file = child_frontier.pop(0)
+                        if (
+                            not _child_file.is_dir
+                            and _child_file.remote_size is not None
+                            and _child_file.state != ModelFile.State.DOWNLOADED
+                        ):
                             all_downloaded = False
                             break
-                        frontier += _child_file.get_children()
+                        child_frontier += _child_file.get_children()
                     if all_downloaded:
                         model_file.state = ModelFile.State.DOWNLOADED
 
             # next we determine if root was Deleted
             # root is Deleted if it does not exist locally, but was downloaded in the past
-            if model_file.state == ModelFile.State.DEFAULT and \
-                    model_file.local_size is None and \
-                    model_file.name in self.__downloaded_files:
+            if (
+                model_file.state == ModelFile.State.DEFAULT
+                and model_file.local_size is None
+                and model_file.name in self.__downloaded_files
+            ):
                 model_file.state = ModelFile.State.DELETED
 
             # next we check if root is Extracting
@@ -312,21 +336,22 @@ class ModelBuilder:
                 extract_status = self.__extract_statuses[model_file.name]
                 if model_file.is_dir != extract_status.is_dir:
                     raise ModelError("Mismatch in is_dir between file and extract status")
-                if model_file.state in (
-                    ModelFile.State.DEFAULT,
-                    ModelFile.State.DOWNLOADED
-                ) and model_file.local_size is not None:
+                if (
+                    model_file.state in (ModelFile.State.DEFAULT, ModelFile.State.DOWNLOADED)
+                    and model_file.local_size is not None
+                ):
                     model_file.state = ModelFile.State.EXTRACTING
                 else:
                     if model_file.local_size is None:
-                        self.logger.warning("File {} has extract status but doesn't exist locally!".format(
-                            model_file.name
-                        ))
+                        self.logger.warning(
+                            "File {} has extract status but doesn't exist locally!".format(model_file.name)
+                        )
                     else:
-                        self.logger.warning("File {} has extract status but is in state {}".format(
-                            model_file.name,
-                            str(model_file.state)
-                        ))
+                        self.logger.warning(
+                            "File {} has extract status but is in state {}".format(
+                                model_file.name, str(model_file.state)
+                            )
+                        )
 
             # next we check if root is Extracted
             # root is Extracted if it is in Downloaded state and in extracted files list
@@ -334,7 +359,7 @@ class ModelBuilder:
             #       for download, and it doesn't make sense to queue after extracting
             #       If a Default file is extracted, it will return back to the Default state
             if model_file.name in self.__extracted_files and model_file.state == ModelFile.State.DOWNLOADED:
-                    model_file.state = ModelFile.State.EXTRACTED
+                model_file.state = ModelFile.State.EXTRACTED
 
             model.add_file(model_file)
 

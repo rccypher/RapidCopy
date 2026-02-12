@@ -20,7 +20,7 @@ from controller import Controller, ControllerJob, ControllerPersist, AutoQueue, 
 from web import WebAppJob, WebAppBuilder
 
 
-T_Persist = TypeVar('T_Persist', bound=Persist)
+T_Persist = TypeVar("T_Persist", bound=Persist)
 
 
 class Seedsync:
@@ -28,13 +28,14 @@ class Seedsync:
     Implements the service for seedsync
     It is run in the main thread (no daemonization)
     """
+
     __FILE_CONFIG = "settings.cfg"
     __FILE_AUTO_QUEUE_PERSIST = "autoqueue.persist"
     __FILE_CONTROLLER_PERSIST = "controller.persist"
     __CONFIG_DUMMY_VALUE = "<replace me>"
 
     # This logger is used to print any exceptions caught at top module
-    logger = None
+    logger: logging.Logger | None = None
 
     def __init__(self):
         # Parse the args
@@ -71,24 +72,18 @@ class Seedsync:
 
         # Logger setup
         # We separate the main log from the web-access log
-        logger = self._create_logger(name=Constants.SERVICE_NAME,
-                                     debug=is_debug,
-                                     logdir=args.logdir)
+        logger = self._create_logger(name=Constants.SERVICE_NAME, debug=is_debug, logdir=args.logdir)
         Seedsync.logger = logger
-        web_access_logger = self._create_logger(name=Constants.WEB_ACCESS_LOG_NAME,
-                                                debug=is_debug,
-                                                logdir=args.logdir)
+        web_access_logger = self._create_logger(name=Constants.WEB_ACCESS_LOG_NAME, debug=is_debug, logdir=args.logdir)
         logger.info("Debug mode is {}.".format("enabled" if is_debug else "disabled"))
 
         # Create status
         status = Status()
 
         # Create context
-        self.context = Context(logger=logger,
-                               web_access_logger=web_access_logger,
-                               config=config,
-                               args=ctx_args,
-                               status=status)
+        self.context = Context(
+            logger=logger, web_access_logger=web_access_logger, config=config, args=ctx_args, status=status
+        )
 
         # Register the signal handlers
         signal.signal(signal.SIGTERM, self.signal)
@@ -122,12 +117,9 @@ class Seedsync:
         controller_job = ControllerJob(
             context=self.context.create_child_context(ControllerJob.__name__),
             controller=controller,
-            auto_queue=auto_queue
+            auto_queue=auto_queue,
         )
-        webapp_job = WebAppJob(
-            context=self.context.create_child_context(WebAppJob.__name__),
-            web_app=web_app
-        )
+        webapp_job = WebAppJob(context=self.context.create_child_context(WebAppJob.__name__), web_app=web_app)
 
         do_start_controller = True
 
@@ -226,27 +218,28 @@ class Seedsync:
         parser.add_argument("--exit", action="store_true", help="Exit on error")
 
         # Whether package is frozen
-        is_frozen = getattr(sys, 'frozen', False)
+        is_frozen = getattr(sys, "frozen", False)
 
         # Html path is only required if not running a frozen package
         # For a frozen package, set default to root/html
         # noinspection PyUnresolvedReferences
         # noinspection PyProtectedMember
         default_html_path = os.path.join(sys._MEIPASS, "html") if is_frozen else None
-        parser.add_argument("--html",
-                            required=not is_frozen,
-                            default=default_html_path,
-                            help="Path to directory containing html resources")
+        parser.add_argument(
+            "--html",
+            required=not is_frozen,
+            default=default_html_path,
+            help="Path to directory containing html resources",
+        )
 
         # Scanfs path is only required if not running a frozen package
         # For a frozen package, set default to root/scanfs
         # noinspection PyUnresolvedReferences
         # noinspection PyProtectedMember
         default_scanfs_path = os.path.join(sys._MEIPASS, "scanfs") if is_frozen else None
-        parser.add_argument("--scanfs",
-                            required=not is_frozen,
-                            default=default_scanfs_path,
-                            help="Path to scanfs executable")
+        parser.add_argument(
+            "--scanfs", required=not is_frozen, default=default_scanfs_path, help="Path to scanfs executable"
+        )
 
         return parser.parse_args(args)
 
@@ -264,10 +257,10 @@ class Seedsync:
         if logdir is not None:
             # Output logs to a file in the given directory
             handler = RotatingFileHandler(
-                        "{}/{}.log".format(logdir, name),
-                        maxBytes=Constants.MAX_LOG_SIZE_IN_BYTES,
-                        backupCount=Constants.LOG_BACKUP_COUNT
-                      )
+                "{}/{}.log".format(logdir, name),
+                maxBytes=Constants.MAX_LOG_SIZE_IN_BYTES,
+                backupCount=Constants.LOG_BACKUP_COUNT,
+            )
         else:
             handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
@@ -358,9 +351,7 @@ class Seedsync:
         file_dir = os.path.dirname(file_path)
         i = 1
         while True:
-            backup_path = os.path.join(
-                file_dir, "{}.{}.bak".format(file_name, i)
-            )
+            backup_path = os.path.join(file_dir, "{}.{}.bak".format(file_name, i))
             if not os.path.exists(backup_path):
                 break
             i += 1
@@ -380,10 +371,13 @@ if __name__ == "__main__":
         except ServiceExit:
             break
         except ServiceRestart:
-            Seedsync.logger.info("Restarting...")
+            if Seedsync.logger:
+                Seedsync.logger.info("Restarting...")
             continue
         except Exception:
-            Seedsync.logger.exception("Caught exception")
+            if Seedsync.logger:
+                Seedsync.logger.exception("Caught exception")
             raise
 
-        Seedsync.logger.info("Exited successfully")
+        if Seedsync.logger:
+            Seedsync.logger.info("Exited successfully")

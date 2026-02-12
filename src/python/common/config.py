@@ -1,7 +1,6 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import configparser
-from typing import Dict
 from io import StringIO
 import collections
 from distutils.util import strtobool
@@ -21,8 +20,8 @@ class ConfigError(AppError):
     pass
 
 
-InnerConfigType = Dict[str, str]
-OuterConfigType = Dict[str, InnerConfigType]
+InnerConfigType = dict[str, str]
+OuterConfigType = dict[str, InnerConfigType]
 
 
 # Source: https://stackoverflow.com/a/39205612/8571324
@@ -31,11 +30,11 @@ T = TypeVar("T", bound="InnerConfig")
 
 class Converters:
     @staticmethod
-    def null(_: T, __: str, value: str) -> str:
+    def null(_: type[T], __: str, value: str) -> str:
         return value
 
     @staticmethod
-    def int(cls: T, name: str, value: str) -> int:
+    def int(cls: type[T], name: str, value: str) -> int:
         if not value:
             raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         try:
@@ -47,7 +46,7 @@ class Converters:
         return val
 
     @staticmethod
-    def bool(cls: T, name: str, value: str) -> bool:
+    def bool(cls: type[T], name: str, value: str) -> bool:
         if not value:
             raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         try:
@@ -59,23 +58,23 @@ class Converters:
 
 class Checkers:
     @staticmethod
-    def null(_: T, __: str, value: Any) -> Any:
+    def null(_: type[T], __: str, value: Any) -> Any:
         return value
 
     @staticmethod
-    def string_nonempty(cls: T, name: str, value: str) -> str:
+    def string_nonempty(cls: type[T], name: str, value: str) -> str:
         if not value or not value.strip():
             raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         return value
 
     @staticmethod
-    def int_non_negative(cls: T, name: str, value: int) -> int:
+    def int_non_negative(cls: type[T], name: str, value: int) -> int:
         if value < 0:
             raise ConfigError("Bad config: {}.{} ({}) must be zero or greater".format(cls.__name__, name, value))
         return value
 
     @staticmethod
-    def int_positive(cls: T, name: str, value: int) -> int:
+    def int_positive(cls: type[T], name: str, value: int) -> int:
         if value < 1:
             raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(cls.__name__, name, value))
         return value
@@ -103,7 +102,7 @@ class InnerConfig(ABC):
 
     # Global map to map a property to its metadata
     # Is there a way for each concrete class to do this separately?
-    __prop_addon_map = collections.OrderedDict()
+    __prop_addon_map: collections.OrderedDict[property, "InnerConfig.PropMetadata"] = collections.OrderedDict()
 
     @classmethod
     def _create_property(cls, name: str, checker: Callable, converter: Callable) -> property:
@@ -311,13 +310,13 @@ class Config(Persist):
 
     @classmethod
     @overrides(Persist)
-    def from_str(cls: "Config", content: str) -> "Config":
+    def from_str(cls, content: str) -> "Config":
         config_parser = configparser.ConfigParser()
         try:
             config_parser.read_string(content)
         except (configparser.MissingSectionHeaderError, configparser.ParsingError) as e:
             raise PersistError("Error parsing Config - {}: {}".format(type(e).__name__, str(e))) from e
-        config_dict = {}
+        config_dict: dict[str, dict[str, str]] = {}
         for section in config_parser.sections():
             config_dict[section] = {}
             for option in config_parser.options(section):

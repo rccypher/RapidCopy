@@ -15,6 +15,7 @@ class IHandler(ABC):
     """
     Abstract class that defines a web handler
     """
+
     @abstractmethod
     def add_routes(self, web_app: "WebApp"):
         """
@@ -29,6 +30,7 @@ class IStreamHandler(ABC):
     """
     Abstract class that defines a streaming data provider
     """
+
     @abstractmethod
     def setup(self):
         pass
@@ -56,6 +58,7 @@ class WebApp(bottle.Bottle):
     """
     Web app implementation
     """
+
     _STREAM_POLL_INTERVAL_IN_MS = 100
 
     def __init__(self, context: Context, controller: Controller):
@@ -66,7 +69,7 @@ class WebApp(bottle.Bottle):
         self.__status = context.status
         self.logger.info("Html path set to: {}".format(self.__html_path))
         self.__stop = False
-        self.__streaming_handlers = []  # list of (handler, kwargs) pairs
+        self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
 
     def add_default_routes(self):
         """
@@ -103,7 +106,7 @@ class WebApp(bottle.Bottle):
     def stop(self):
         """
         Exit gracefully, kill any connections and clean up any state
-        :return: 
+        :return:
         """
         self.__stop = True
 
@@ -150,9 +153,7 @@ class WebApp(bottle.Bottle):
                 time.sleep(WebApp._STREAM_POLL_INTERVAL_IN_MS / 1000)
 
         finally:
-            self.logger.debug("Stream connection stopped by {}".format(
-                "server" if self.__stop else "client"
-            ))
+            self.logger.debug("Stream connection stopped by {}".format("server" if self.__stop else "client"))
 
             # Cleanup all handlers
             for handler in handlers:

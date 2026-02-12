@@ -46,9 +46,9 @@ class SystemScanner:
         :param path_to_scan: path to file or directory to scan
         """
         self.path_to_scan = path_to_scan
-        self.exclude_prefixes = []
+        self.exclude_prefixes: list[str] = []
         self.exclude_suffixes = [SystemScanner.__LFTP_STATUS_FILE_SUFFIX]
-        self.__lftp_temp_file_suffix = None
+        self.__lftp_temp_file_suffix: str | None = None
 
     def add_exclude_prefix(self, prefix: str):
         """

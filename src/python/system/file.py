@@ -1,6 +1,5 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
-from typing import List
 from datetime import datetime
 
 
@@ -8,12 +7,15 @@ class SystemFile:
     """
     Represents a system file or directory
     """
-    def __init__(self,
-                 name: str,
-                 size: int,
-                 is_dir: bool = False,
-                 time_created: datetime = None,
-                 time_modified: datetime = None):
+
+    def __init__(
+        self,
+        name: str,
+        size: int,
+        is_dir: bool = False,
+        time_created: datetime | None = None,
+        time_modified: datetime | None = None,
+    ):
         if size < 0:
             raise ValueError("File size must be greater than zero")
         self.__name = name
@@ -21,7 +23,7 @@ class SystemFile:
         self.__is_dir = is_dir
         self.__timestamp_created = time_created
         self.__timestamp_modified = time_modified
-        self.__children = []
+        self.__children: list[SystemFile] = []
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
@@ -30,22 +32,28 @@ class SystemFile:
         return str(self.__dict__)
 
     @property
-    def name(self) -> str: return self.__name
+    def name(self) -> str:
+        return self.__name
 
     @property
-    def size(self) -> int: return self.__size
+    def size(self) -> int:
+        return self.__size
 
     @property
-    def is_dir(self) -> bool: return self.__is_dir
+    def is_dir(self) -> bool:
+        return self.__is_dir
 
     @property
-    def timestamp_created(self) -> datetime: return self.__timestamp_created
+    def timestamp_created(self) -> datetime | None:
+        return self.__timestamp_created
 
     @property
-    def timestamp_modified(self) -> datetime: return self.__timestamp_modified
+    def timestamp_modified(self) -> datetime | None:
+        return self.__timestamp_modified
 
     @property
-    def children(self) -> List["SystemFile"]: return self.__children
+    def children(self) -> list["SystemFile"]:
+        return self.__children
 
     def add_child(self, file: "SystemFile"):
         if not self.__is_dir:

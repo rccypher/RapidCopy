@@ -21,7 +21,9 @@ class AutoQueuePattern(Serializable):
     def pattern(self) -> str:
         return self.__pattern
 
-    def __eq__(self, other: "AutoQueuePattern") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AutoQueuePattern):
+            return NotImplemented
         return self.__pattern == other.__pattern
 
     def __hash__(self) -> int:
@@ -256,7 +258,7 @@ class AutoQueue:
 
     def __filter_candidates(
         self, candidates: List[ModelFile], accept: Callable[[ModelFile], bool]
-    ) -> List[Tuple[str, AutoQueuePattern]]:
+    ) -> List[Tuple[str, AutoQueuePattern | None]]:
         """
         Given a list of candidate files, filter out those that match the accept criteria
         Also takes into consideration new patterns that were added
@@ -268,7 +270,7 @@ class AutoQueue:
         """
         # Files accepted and matched, filename -> pattern map
         # Filename key prevents a file from being accepted twice
-        files_matched = dict()
+        files_matched: dict[str, AutoQueuePattern | None] = dict()
 
         # Step 1: run candidates through all the patterns if they are enabled
         #         otherwise accept all files
@@ -300,8 +302,8 @@ class AutoQueue:
         :return:
         """
         # make the search case insensitive
-        pattern = pattern.pattern.lower()
+        pattern_str = pattern.pattern.lower()
         filename = file.name.lower()
         # 1. pattern match
         # 2. wildcard match
-        return pattern in filename or fnmatch.fnmatch(filename, pattern)
+        return pattern_str in filename or fnmatch.fnmatch(filename, pattern_str)

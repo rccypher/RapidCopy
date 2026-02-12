@@ -22,9 +22,10 @@ class ExceptionWrapper:
     An exception wrapper that works across processes
     Source: https://stackoverflow.com/a/26096355/8571324
     """
+
     def __init__(self, ee):
         self.ee = ee
-        __,  __, self.tb = sys.exc_info()
+        __, __, self.tb = sys.exc_info()
 
     def re_raise(self):
         raise self.ee.with_traceback(self.tb)
@@ -46,9 +47,9 @@ class AppProcess(Process):
         self.__name = name
         super().__init__(name=self.__name)
 
-        self.mp_logger = None
+        self.mp_logger: MultiprocessingLogger | None = None
         self.logger = logging.getLogger(self.__name)
-        self.__exception_queue = Queue()
+        self.__exception_queue: Queue[ExceptionWrapper] = Queue()
         self._terminate = Event()
 
     def set_multiprocessing_logger(self, mp_logger: MultiprocessingLogger):
@@ -108,8 +109,7 @@ class AppProcess(Process):
             return delta_in_ms
 
         timestamp_start = datetime.now()
-        while self.is_alive() and \
-                elapsed_ms(timestamp_start) < AppProcess.__DEFAULT_TERMINATE_TIMEOUT_MS:
+        while self.is_alive() and elapsed_ms(timestamp_start) < AppProcess.__DEFAULT_TERMINATE_TIMEOUT_MS:
             pass
 
         super().terminate()
@@ -157,6 +157,7 @@ class AppOneShotProcess(AppProcess):
     """
     App process that runs only once and then exits
     """
+
     def run_loop(self):
         self.run_once()
         self._terminate.set()

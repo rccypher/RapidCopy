@@ -11,6 +11,7 @@ class SerializeLogRecord(Serialize):
     This class defines the serialization interface between python backend
     and the EventSource client frontend for the log stream.
     """
+
     # Event keys
     __EVENT_RECORD = "log-record"
 
@@ -27,12 +28,12 @@ class SerializeLogRecord(Serialize):
         self.__log_formatter = logging.Formatter()
 
     def record(self, record: logging.LogRecord) -> str:
-        json_dict = dict()
+        json_dict: dict[str, str | None] = dict()
         json_dict[SerializeLogRecord.__KEY_TIME] = str(record.created)
         json_dict[SerializeLogRecord.__KEY_LEVEL_NAME] = record.levelname
         json_dict[SerializeLogRecord.__KEY_LOGGER_NAME] = record.name
         json_dict[SerializeLogRecord.__KEY_MESSAGE] = record.msg
-        exc_text = None
+        exc_text: str | None = None
         if record.exc_text:
             exc_text = record.exc_text
         elif record.exc_info:

@@ -24,7 +24,7 @@ class Sshcp:
 
     __TIMEOUT_SECS = 180
 
-    def __init__(self, host: str, port: int, user: str = None, password: str = None):
+    def __init__(self, host: str, port: int, user: str | None = None, password: str | None = None):
         if host is None:
             raise ValueError("Hostname not specified.")
         self.__host = host

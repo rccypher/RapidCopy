@@ -62,7 +62,7 @@ class Controller:
         def __init__(self, action: Action, filename: str):
             self.action = action
             self.filename = filename
-            self.callbacks = []
+            self.callbacks: list[Controller.Command.ICallback] = []
 
         def add_callback(self, callback: ICallback):
             self.callbacks.append(callback)
@@ -85,7 +85,7 @@ class Controller:
         self.__password = context.config.lftp.remote_password if not context.config.lftp.use_ssh_key else None
 
         # The command queue
-        self.__command_queue = Queue()
+        self.__command_queue: Queue[Controller.Command] = Queue()
 
         # The model
         self.__model = Model()
@@ -169,11 +169,11 @@ class Controller:
         self.__extract_process.set_multiprocessing_logger(self.__mp_logger)
 
         # Keep track of active files
-        self.__active_downloading_file_names = []
-        self.__active_extracting_file_names = []
+        self.__active_downloading_file_names: list[str] = []
+        self.__active_extracting_file_names: list[str] = []
 
         # Keep track of active command processes
-        self.__active_command_processes = []
+        self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
 
         self.__started = False
 

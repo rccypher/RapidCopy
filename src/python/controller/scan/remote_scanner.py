@@ -69,7 +69,7 @@ class RemoteScanner(IScanner):
         try:
             remote_files = pickle.loads(out)
         except pickle.UnpicklingError as err:
-            self.logger.error("Unpickling error: {}\n{}".format(str(err), out))
+            self.logger.error("Unpickling error: {}\n{}".format(str(err), out.decode("utf-8", "replace")))
             raise ScannerError(
                 Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"), recoverable=False
             ) from err

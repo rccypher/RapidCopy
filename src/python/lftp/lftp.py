@@ -83,7 +83,7 @@ class Lftp:
         # Auto-add server to known host file
         self.sftp_auto_confirm = True
 
-    def with_check_process(method: Callable):
+    def with_check_process(method: Callable) -> Callable:  # type: ignore[misc]
         """
         Decorator that checks for a valid process before executing
         the decorated method
@@ -124,7 +124,7 @@ class Lftp:
     @with_check_process
     def __run_command(self, command: str):
         if self.__log_command_output:
-            self.logger.debug("command: {}".format(command.encode("utf8", "surrogateescape")))
+            self.logger.debug("command: {}".format(command.encode("utf8", "surrogateescape").decode("utf8", "replace")))
         self.__process.sendline(command)
         try:
             self.__process.expect(self.__expect_pattern, timeout=self.__timeout)
@@ -197,7 +197,7 @@ class Lftp:
         """
         out = self.__run_command("set -a | grep {}".format(setting))
         m = re.search("set {} (.*)".format(setting), out)
-        if not m or not m.group or not m.group(1):
+        if not m or not m.group(1):
             raise LftpError("Failed to get setting '{}'. Output: '{}'".format(setting, out))
         return m.group(1).strip()
 

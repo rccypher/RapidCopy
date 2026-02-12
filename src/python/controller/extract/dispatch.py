@@ -65,7 +65,7 @@ class ExtractDispatch:
         def __init__(self, root_name: str, root_is_dir: bool):
             self.root_name = root_name
             self.root_is_dir = root_is_dir
-            self.archive_paths = []  # list of (archive path, out path) pairs
+            self.archive_paths: list[tuple[str, str]] = []  # list of (archive path, out path) pairs
 
         def add_archive(self, archive_path: str, out_dir_path: str):
             self.archive_paths.append((archive_path, out_dir_path))
@@ -74,11 +74,11 @@ class ExtractDispatch:
         self.__out_dir_path = out_dir_path
         self.__local_path = local_path
 
-        self.__task_queue = queue.Queue()
-        self.__worker = threading.Thread(name="ExtractWorker", target=self.__worker)
+        self.__task_queue: queue.Queue[ExtractDispatch._Task] = queue.Queue()
+        self.__worker_thread = threading.Thread(name="ExtractWorker", target=self._worker_run)
         self.__worker_shutdown = threading.Event()
 
-        self.__listeners = []
+        self.__listeners: list[ExtractListener] = []
         self.__listeners_lock = threading.Lock()
 
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -87,11 +87,11 @@ class ExtractDispatch:
         self.logger = base_logger.getChild(self.__class__.__name__)
 
     def start(self):
-        self.__worker.start()
+        self.__worker_thread.start()
 
     def stop(self):
         self.__worker_shutdown.set()
-        self.__worker.join()
+        self.__worker_thread.join()
 
     def add_listener(self, listener: ExtractListener):
         self.__listeners_lock.acquire()
@@ -115,9 +115,7 @@ class ExtractDispatch:
 
         for task in self.__task_queue.queue:
             if task.root_name == model_file.name:
-                self.logger.info(
-                    "Ignoring extract for {}, already exists".format(model_file.name)
-                )
+                self.logger.info("Ignoring extract for {}, already exists".format(model_file.name))
                 return
 
         # noinspection PyProtectedMember
@@ -132,20 +130,14 @@ class ExtractDispatch:
                 if curr_file.is_dir:
                     frontier += curr_file.get_children()
                 else:
-                    archive_full_path = os.path.join(
-                        self.__local_path, curr_file.full_path
-                    )
-                    out_dir_path = os.path.join(
-                        self.__out_dir_path, os.path.dirname(curr_file.full_path)
-                    )
+                    archive_full_path = os.path.join(self.__local_path, curr_file.full_path)
+                    out_dir_path = os.path.join(self.__out_dir_path, os.path.dirname(curr_file.full_path))
                     if (
                         curr_file.local_size is not None
                         and curr_file.local_size > 0
                         and Extract.is_archive(archive_full_path)
                     ):
-                        task.add_archive(
-                            archive_path=archive_full_path, out_dir_path=out_dir_path
-                        )
+                        task.add_archive(archive_path=archive_full_path, out_dir_path=out_dir_path)
 
             # Coalesce extractions
             ExtractDispatch.__coalesce_extractions(task)
@@ -154,36 +146,24 @@ class ExtractDispatch:
             if len(task.archive_paths) > 0:
                 self.__task_queue.put(task)
             else:
-                raise ExtractDispatchError(
-                    "Directory does not contain any archives: {}".format(
-                        model_file.name
-                    )
-                )
+                raise ExtractDispatchError("Directory does not contain any archives: {}".format(model_file.name))
         else:
             # For a single file, it must exist locally and must be an archive
             if model_file.local_size in (None, 0):
-                raise ExtractDispatchError(
-                    "File does not exist locally: {}".format(model_file.name)
-                )
+                raise ExtractDispatchError("File does not exist locally: {}".format(model_file.name))
             archive_full_path = os.path.join(self.__local_path, model_file.name)
             if not Extract.is_archive(archive_full_path):
-                raise ExtractDispatchError(
-                    "File is not an archive: {}".format(model_file.name)
-                )
-            task.add_archive(
-                archive_path=archive_full_path, out_dir_path=self.__out_dir_path
-            )
+                raise ExtractDispatchError("File is not an archive: {}".format(model_file.name))
+            task.add_archive(archive_path=archive_full_path, out_dir_path=self.__out_dir_path)
             self.__task_queue.put(task)
 
-    def __worker(self):
+    def _worker_run(self):
         self.logger.debug("Started worker thread")
 
         while not self.__worker_shutdown.is_set():
             # Try to grab next task
             # Do another check for shutdown
-            while (
-                len(self.__task_queue.queue) > 0 and not self.__worker_shutdown.is_set()
-            ):
+            while len(self.__task_queue.queue) > 0 and not self.__worker_shutdown.is_set():
                 # peek the task
                 task = self.__task_queue.queue[0]
 
@@ -199,9 +179,7 @@ class ExtractDispatch:
                             break
 
                         self.logger.debug("Extracting {}".format(archive_path))
-                        Extract.extract_archive(
-                            archive_path=archive_path, out_dir_path=out_dir_path
-                        )
+                        Extract.extract_archive(archive_path=archive_path, out_dir_path=out_dir_path)
 
                 except ExtractError:
                     self.logger.exception("Caught an extraction error")

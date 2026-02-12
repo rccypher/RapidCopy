@@ -1,10 +1,9 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import multiprocessing
-import datetime
+from datetime import datetime
 import time
 import queue
-from typing import Optional, List
 import logging
 
 from .dispatch import ExtractDispatch, ExtractStatus, ExtractListener, ExtractDispatchError
@@ -13,7 +12,7 @@ from model import ModelFile
 
 
 class ExtractStatusResult:
-    def __init__(self, timestamp: datetime, statuses: List[ExtractStatus]):
+    def __init__(self, timestamp: datetime, statuses: list[ExtractStatus]):
         self.timestamp = timestamp
         self.statuses = statuses
 
@@ -35,9 +34,7 @@ class ExtractProcess(AppProcess):
 
         def extract_completed(self, name: str, is_dir: bool):
             self.logger.info("Extraction completed for {}".format(name))
-            completed_result = ExtractCompletedResult(timestamp=datetime.datetime.now(),
-                                                      name=name,
-                                                      is_dir=is_dir)
+            completed_result = ExtractCompletedResult(timestamp=datetime.now(), name=name, is_dir=is_dir)
             self.completed_queue.put(completed_result)
 
         def extract_failed(self, name: str, is_dir: bool):
@@ -47,22 +44,18 @@ class ExtractProcess(AppProcess):
         super().__init__(name=self.__class__.__name__)
         self.__out_dir_path = out_dir_path
         self.__local_path = local_path
-        self.__command_queue = multiprocessing.Queue()
-        self.__status_result_queue = multiprocessing.Queue()
-        self.__completed_result_queue = multiprocessing.Queue()
-        self.__dispatch = None
+        self.__command_queue: multiprocessing.Queue[ModelFile] = multiprocessing.Queue()
+        self.__status_result_queue: multiprocessing.Queue[ExtractStatusResult] = multiprocessing.Queue()
+        self.__completed_result_queue: multiprocessing.Queue[ExtractCompletedResult] = multiprocessing.Queue()
+        self.__dispatch: ExtractDispatch | None = None
 
     @overrides(AppProcess)
     def run_init(self):
         # Create dispatch inside the process
-        self.__dispatch = ExtractDispatch(out_dir_path=self.__out_dir_path,
-                                          local_path=self.__local_path)
+        self.__dispatch = ExtractDispatch(out_dir_path=self.__out_dir_path, local_path=self.__local_path)
 
         # Add extract listener
-        listener = ExtractProcess.__ExtractListener(
-            logger=self.logger,
-            completed_queue=self.__completed_result_queue
-        )
+        listener = ExtractProcess.__ExtractListener(logger=self.logger, completed_queue=self.__completed_result_queue)
         self.__dispatch.add_listener(listener)
 
         # Start dispatch
@@ -87,8 +80,7 @@ class ExtractProcess(AppProcess):
 
         # Queue the latest status
         statuses = self.__dispatch.status()
-        status_result = ExtractStatusResult(timestamp=datetime.datetime.now(),
-                                            statuses=statuses)
+        status_result = ExtractStatusResult(timestamp=datetime.now(), statuses=statuses)
         self.__status_result_queue.put(status_result)
 
         time.sleep(ExtractProcess.__DEFAULT_SLEEP_INTERVAL_IN_SECS)
@@ -116,7 +108,7 @@ class ExtractProcess(AppProcess):
             pass
         return latest_result
 
-    def pop_completed(self) -> List[ExtractCompletedResult]:
+    def pop_completed(self) -> list[ExtractCompletedResult]:
         """
         Process-safe method to retrieve list of newly completed extractions
         Returns an empty list if no new extractions were completed since the
