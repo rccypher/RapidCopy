@@ -6,8 +6,8 @@ description = ""
 authors = []
 
 [tool.poetry.dependencies]
-python = "~3.8"
-bottle = "*"
+python = "^3.11"
+bottle = ">=0.12.25"
 mkdocs = "*"
 mkdocs-material = "*"
 parameterized = "*"
@@ -19,8 +19,8 @@ requests = "*"
 tblib = "*"
 timeout-decorator = "*"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pyinstaller = "*"
 testfixtures = "*"
 webtest = "*"
-pytest = "^6.2.1"
+pytest = "^8.0"
