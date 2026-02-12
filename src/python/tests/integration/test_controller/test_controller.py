@@ -294,7 +294,7 @@ class TestController(unittest.TestCase):
         ctx_args.local_path_to_scanfs = local_exe_path
 
         config_dict = {
-            "General": {"debug": "True", "verbose": "True"},
+            "General": {"debug": "True", "verbose": "True", "log_level": "DEBUG"},
             "Lftp": {
                 "remote_address": "localhost",
                 "remote_username": "seedsynctest",
@@ -310,6 +310,7 @@ class TestController(unittest.TestCase):
                 "num_max_connections_per_dir_file": "4",
                 "num_max_total_connections": "12",
                 "use_temp_file": "False",
+                "rate_limit": "0",
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
