@@ -13,11 +13,32 @@ class LocalScanner(IScanner):
     Scanner implementation to scan the local filesystem
     """
 
-    def __init__(self, local_path: str, use_temp_file: bool):
+    def __init__(
+        self,
+        local_path: str,
+        use_temp_file: bool,
+        path_pair_id: str | None = None,
+        path_pair_name: str | None = None,
+    ):
         self.__scanner = SystemScanner(local_path)
+        self.__local_path = local_path
         if use_temp_file:
             self.__scanner.set_lftp_temp_suffix(Constants.LFTP_TEMP_FILE_SUFFIX)
         self.logger = logging.getLogger("LocalScanner")
+        self.__path_pair_id = path_pair_id
+        self.__path_pair_name = path_pair_name
+
+    @property
+    def path_pair_id(self) -> str | None:
+        return self.__path_pair_id
+
+    @property
+    def path_pair_name(self) -> str | None:
+        return self.__path_pair_name
+
+    @property
+    def local_path(self) -> str:
+        return self.__local_path
 
     @overrides(IScanner)
     def set_base_logger(self, base_logger: logging.Logger):

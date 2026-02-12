@@ -4,3 +4,4 @@ from .scanner_process import IScanner, ScannerResult, ScannerProcess, ScannerErr
 from .active_scanner import ActiveScanner
 from .local_scanner import LocalScanner
 from .remote_scanner import RemoteScanner
+from .multi_path_scanner import MultiPathLocalScanner, MultiPathRemoteScanner

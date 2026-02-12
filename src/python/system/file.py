@@ -24,6 +24,9 @@ class SystemFile:
         self.__timestamp_created = time_created
         self.__timestamp_modified = time_modified
         self.__children: list[SystemFile] = []
+        # Path pair tracking for multi-path support
+        self.__path_pair_id: str | None = None
+        self.__path_pair_name: str | None = None
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
@@ -59,3 +62,21 @@ class SystemFile:
         if not self.__is_dir:
             raise TypeError("Cannot add children to a file")
         self.__children.append(file)
+
+    @property
+    def path_pair_id(self) -> str | None:
+        """ID of the path pair this file belongs to."""
+        return self.__path_pair_id
+
+    @path_pair_id.setter
+    def path_pair_id(self, value: str | None):
+        self.__path_pair_id = value
+
+    @property
+    def path_pair_name(self) -> str | None:
+        """Human-readable name of the path pair this file belongs to."""
+        return self.__path_pair_name
+
+    @path_pair_name.setter
+    def path_pair_name(self, value: str | None):
+        self.__path_pair_name = value

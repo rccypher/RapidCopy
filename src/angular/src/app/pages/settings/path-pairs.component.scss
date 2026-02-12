@@ -1,0 +1,328 @@
+@import '../../common/common';
+
+// Component-specific variables
+$text-color: #333;
+$text-color-muted: #777;
+$card-bg: #fff;
+$border-color: #ddd;
+$input-bg: #fff;
+$success-color: #5cb85c;
+$danger-color: #d9534f;
+$info-color: #5bc0de;
+$btn-secondary-color: #f5f5f5;
+
+.path-pairs-container {
+    padding: 15px;
+    width: 100%;
+
+    .header {
+        margin-bottom: 20px;
+
+        h4 {
+            margin-bottom: 5px;
+            color: $text-color;
+        }
+
+        .description {
+            font-size: 0.9em;
+            color: $text-color-muted;
+            margin-bottom: 15px;
+        }
+
+        .add-btn {
+            @extend %button;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+    }
+
+    .form-card {
+        background-color: $card-bg;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+
+        h5 {
+            margin-bottom: 15px;
+            color: $text-color;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: $text-color;
+
+                .required {
+                    color: $danger-color;
+                }
+            }
+
+            .form-control {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid $border-color;
+                border-radius: 4px;
+                background-color: $input-bg;
+                color: $text-color;
+
+                &:focus {
+                    outline: none;
+                    border-color: $primary-color;
+                }
+            }
+
+            .form-text {
+                font-size: 0.85em;
+                margin-top: 4px;
+            }
+
+            &.form-check {
+                display: flex;
+                align-items: center;
+
+                .form-check-input {
+                    width: auto;
+                    margin-right: 8px;
+                }
+
+                .form-check-label {
+                    margin-bottom: 0;
+                    font-weight: normal;
+                }
+            }
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+
+            .btn {
+                padding: 8px 16px;
+                cursor: pointer;
+            }
+
+            .btn-secondary {
+                background-color: $btn-secondary-color;
+                border: 1px solid $border-color;
+                color: $text-color;
+                border-radius: 4px;
+
+                &:hover {
+                    background-color: darken($btn-secondary-color, 5%);
+                }
+            }
+
+            .btn-primary {
+                @extend %button;
+            }
+        }
+    }
+
+    .path-pairs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .path-pair-item {
+        background-color: $card-bg;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 15px;
+
+        &.disabled {
+            opacity: 0.6;
+        }
+
+        .pair-info {
+            flex: 1;
+            min-width: 0;
+
+            .pair-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+
+                .pair-name {
+                    font-weight: 600;
+                    font-size: 1.1em;
+                    color: $text-color;
+                }
+
+                .pair-status {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    text-transform: uppercase;
+
+                    &.enabled {
+                        background-color: $success-color;
+                        color: white;
+                    }
+
+                    &.disabled {
+                        background-color: $btn-secondary-color;
+                        color: $text-color-muted;
+                    }
+                }
+
+                .auto-queue-badge {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    background-color: $info-color;
+                    color: white;
+                }
+            }
+
+            .pair-paths {
+                .path-row {
+                    display: flex;
+                    font-size: 0.9em;
+                    margin-bottom: 4px;
+
+                    .path-label {
+                        width: 60px;
+                        color: $text-color-muted;
+                        flex-shrink: 0;
+                    }
+
+                    .path-value {
+                        color: $text-color;
+                        word-break: break-all;
+                        font-family: monospace;
+                    }
+                }
+            }
+        }
+
+        .pair-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+
+            .reorder-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+
+                .btn-icon {
+                    padding: 2px 8px;
+                    line-height: 1;
+                    background-color: $btn-secondary-color;
+                    border: 1px solid $border-color;
+                    color: $text-color;
+                    border-radius: 3px;
+                    cursor: pointer;
+
+                    .arrow {
+                        font-size: 0.8em;
+                    }
+
+                    &:hover:not(:disabled) {
+                        background-color: darken($btn-secondary-color, 5%);
+                    }
+
+                    &:disabled {
+                        opacity: 0.3;
+                        cursor: not-allowed;
+                    }
+                }
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.85em;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            .btn-toggle {
+                background-color: $btn-secondary-color;
+                border: 1px solid $border-color;
+                color: $text-color;
+
+                &:hover {
+                    background-color: darken($btn-secondary-color, 5%);
+                }
+            }
+
+            .btn-edit {
+                background-color: $primary-color;
+                border: none;
+                color: white;
+
+                &:hover:not(:disabled) {
+                    background-color: darken($primary-color, 10%);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .btn-danger {
+                background-color: $danger-color;
+                border: none;
+                color: white;
+
+                &:hover:not(:disabled) {
+                    background-color: darken($danger-color, 10%);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        background-color: $card-bg;
+        border: 1px dashed $border-color;
+        border-radius: 4px;
+
+        p {
+            margin-bottom: 10px;
+            color: $text-color-muted;
+        }
+
+        .hint {
+            font-size: 0.9em;
+        }
+    }
+}
+
+/* Responsive adjustments */
+@media only screen and (max-width: $small-max-width) {
+    .path-pairs-container {
+        .path-pair-item {
+            flex-direction: column;
+
+            .pair-actions {
+                width: 100%;
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    }
+}

@@ -44,6 +44,9 @@ class ModelFile:
         self.__update_timestamp = datetime.now()
         self.__children: list[ModelFile] = []  # children files
         self.__parent: ModelFile | None = None  # direct predecessor
+        # Path pair tracking for multi-path support
+        self.__path_pair_id: str | None = None  # ID of the path pair this file belongs to
+        self.__path_pair_name: str | None = None  # Human-readable name of the path pair
 
     def __eq__(self, other):
         # disregard in comparisons:
@@ -248,3 +251,21 @@ class ModelFile:
     @property
     def parent(self) -> "ModelFile | None":
         return self.__parent
+
+    @property
+    def path_pair_id(self) -> str | None:
+        """ID of the path pair this file belongs to."""
+        return self.__path_pair_id
+
+    @path_pair_id.setter
+    def path_pair_id(self, path_pair_id: str | None):
+        self.__path_pair_id = path_pair_id
+
+    @property
+    def path_pair_name(self) -> str | None:
+        """Human-readable name of the path pair this file belongs to."""
+        return self.__path_pair_name
+
+    @path_pair_name.setter
+    def path_pair_name(self, path_pair_name: str | None):
+        self.__path_pair_name = path_pair_name

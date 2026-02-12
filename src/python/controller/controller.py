@@ -8,7 +8,14 @@ from enum import Enum
 import copy
 
 # my libs
-from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
+from .scan import (
+    ScannerProcess,
+    ActiveScanner,
+    LocalScanner,
+    RemoteScanner,
+    MultiPathLocalScanner,
+    MultiPathRemoteScanner,
+)
 from .extract import ExtractProcess, ExtractStatus
 from .model_builder import ModelBuilder
 from common import Context, AppError, MultiprocessingLogger, AppOneShotProcess, Constants
@@ -127,19 +134,67 @@ class Controller:
         self.__lftp.set_verbose_logging(self.__context.config.general.verbose)
 
         # Setup the scanners and scanner processes
-        self.__active_scanner = ActiveScanner(self.__context.config.lftp.local_path)
-        self.__local_scanner = LocalScanner(
-            local_path=self.__context.config.lftp.local_path, use_temp_file=self.__context.config.lftp.use_temp_file
-        )
-        self.__remote_scanner = RemoteScanner(
-            remote_address=self.__context.config.lftp.remote_address,
-            remote_username=self.__context.config.lftp.remote_username,
-            remote_password=self.__password,
-            remote_port=self.__context.config.lftp.remote_port,
-            remote_path_to_scan=self.__context.config.lftp.remote_path,
-            local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
-            remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
-        )
+        # Check if path pairs are available for multi-path support
+        path_pairs = []
+        if self.__context.path_pair_manager:
+            path_pairs = self.__context.path_pair_manager.get_enabled_pairs()
+
+        if path_pairs:
+            # Multi-path mode: create scanners for each path pair
+            local_scanners = []
+            remote_scanners = []
+            active_local_paths = []
+
+            for pair in path_pairs:
+                local_scanners.append(
+                    LocalScanner(
+                        local_path=pair.local_path,
+                        use_temp_file=self.__context.config.lftp.use_temp_file,
+                        path_pair_id=pair.id,
+                        path_pair_name=pair.name,
+                    )
+                )
+                remote_scanners.append(
+                    RemoteScanner(
+                        remote_address=self.__context.config.lftp.remote_address,
+                        remote_username=self.__context.config.lftp.remote_username,
+                        remote_password=self.__password,
+                        remote_port=self.__context.config.lftp.remote_port,
+                        remote_path_to_scan=pair.remote_path,
+                        local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
+                        remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
+                        path_pair_id=pair.id,
+                        path_pair_name=pair.name,
+                    )
+                )
+                active_local_paths.append(pair.local_path)
+
+            self.__local_scanner = MultiPathLocalScanner(local_scanners)
+            self.__remote_scanner = MultiPathRemoteScanner(remote_scanners)
+            # For active scanner, use the first local path (for now)
+            # TODO: Support multi-path active scanning
+            self.__active_scanner = ActiveScanner(
+                active_local_paths[0] if active_local_paths else self.__context.config.lftp.local_path
+            )
+
+            # Store path pairs for later use (e.g., queuing)
+            self.__path_pairs = {pair.id: pair for pair in path_pairs}
+        else:
+            # Legacy single-path mode
+            self.__active_scanner = ActiveScanner(self.__context.config.lftp.local_path)
+            self.__local_scanner = LocalScanner(
+                local_path=self.__context.config.lftp.local_path, use_temp_file=self.__context.config.lftp.use_temp_file
+            )
+            self.__remote_scanner = RemoteScanner(
+                remote_address=self.__context.config.lftp.remote_address,
+                remote_username=self.__context.config.lftp.remote_username,
+                remote_password=self.__password,
+                remote_port=self.__context.config.lftp.remote_port,
+                remote_path_to_scan=self.__context.config.lftp.remote_path,
+                local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
+                remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
+            )
+            self.__path_pairs = {}
 
         self.__active_scan_process = ScannerProcess(
             scanner=self.__active_scanner,
@@ -410,7 +465,14 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 try:
-                    self.__lftp.queue(file.name, file.is_dir)
+                    # Use path pair paths if available
+                    remote_path = None
+                    local_path = None
+                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
+                        pair = self.__path_pairs[file.path_pair_id]
+                        remote_path = pair.remote_path
+                        local_path = pair.local_path
+                    self.__lftp.queue(file.name, file.is_dir, remote_path=remote_path, local_path=local_path)
                 except LftpError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
@@ -449,7 +511,11 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
                     continue
                 else:
-                    process = DeleteLocalProcess(local_path=self.__context.config.lftp.local_path, file_name=file.name)
+                    # Use path pair local_path if available
+                    local_path = self.__context.config.lftp.local_path
+                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
+                        local_path = self.__path_pairs[file.path_pair_id].local_path
+                    process = DeleteLocalProcess(local_path=local_path, file_name=file.name)
                     process.set_multiprocessing_logger(self.__mp_logger)
                     post_callback = self.__local_scan_process.force_scan
                     command_wrapper = Controller.CommandProcessWrapper(process=process, post_callback=post_callback)
@@ -472,12 +538,16 @@ class Controller:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 else:
+                    # Use path pair remote_path if available
+                    remote_path = self.__context.config.lftp.remote_path
+                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
+                        remote_path = self.__path_pairs[file.path_pair_id].remote_path
                     process = DeleteRemoteProcess(
                         remote_address=self.__context.config.lftp.remote_address,
                         remote_username=self.__context.config.lftp.remote_username,
                         remote_password=self.__password,
                         remote_port=self.__context.config.lftp.remote_port,
-                        remote_path=self.__context.config.lftp.remote_path,
+                        remote_path=remote_path,
                         file_name=file.name,
                     )
                     process.set_multiprocessing_logger(self.__mp_logger)

@@ -192,6 +192,15 @@ class ModelBuilder:
                     if status.state == LftpJobStatus.State.QUEUED
                     else ModelFile.State.DOWNLOADING
                 )
+
+            # Set path pair info from remote or local file
+            if remote and hasattr(remote, "path_pair_id") and remote.path_pair_id:
+                model_file.path_pair_id = remote.path_pair_id
+                model_file.path_pair_name = remote.path_pair_name
+            elif local and hasattr(local, "path_pair_id") and local.path_pair_id:
+                model_file.path_pair_id = local.path_pair_id
+                model_file.path_pair_name = local.path_pair_name
+
             # fill the rest
             __fill_model_file(
                 model_file,

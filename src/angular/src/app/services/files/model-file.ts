@@ -18,6 +18,8 @@ interface IModelFile {
     local_modified_timestamp: Date;
     remote_created_timestamp: Date;
     remote_modified_timestamp: Date;
+    path_pair_id: string;
+    path_pair_name: string;
     children: Set<ModelFile>;
 }
 
@@ -36,6 +38,8 @@ const DefaultModelFile: IModelFile = {
     local_modified_timestamp: null,
     remote_created_timestamp: null,
     remote_modified_timestamp: null,
+    path_pair_id: null,
+    path_pair_name: null,
     children: null
 };
 const ModelFileRecord = Record(DefaultModelFile);
@@ -66,6 +70,8 @@ export class ModelFile extends ModelFileRecord implements IModelFile {
     get local_modified_timestamp(): Date { return this.get("local_modified_timestamp"); }
     get remote_created_timestamp(): Date { return this.get("remote_created_timestamp"); }
     get remote_modified_timestamp(): Date { return this.get("remote_modified_timestamp"); }
+    get path_pair_id(): string { return this.get("path_pair_id"); }
+    get path_pair_name(): string { return this.get("path_pair_name"); }
     get children(): Set<ModelFile> { return this.get("children"); }
 }
 

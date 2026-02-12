@@ -27,6 +27,8 @@ class RemoteScanner(IScanner):
         remote_path_to_scan: str,
         local_path_to_scan_script: str,
         remote_path_to_scan_script: str,
+        path_pair_id: str | None = None,
+        path_pair_name: str | None = None,
     ):
         self.logger = logging.getLogger("RemoteScanner")
         self.__remote_path_to_scan = remote_path_to_scan
@@ -34,11 +36,25 @@ class RemoteScanner(IScanner):
         self.__remote_path_to_scan_script = remote_path_to_scan_script
         self.__ssh = Sshcp(host=remote_address, port=remote_port, user=remote_username, password=remote_password)
         self.__first_run = True
+        self.__path_pair_id = path_pair_id
+        self.__path_pair_name = path_pair_name
 
         # Append scan script name to remote path if not there already
         script_name = os.path.basename(self.__local_path_to_scan_script)
         if os.path.basename(self.__remote_path_to_scan_script) != script_name:
             self.__remote_path_to_scan_script = os.path.join(self.__remote_path_to_scan_script, script_name)
+
+    @property
+    def path_pair_id(self) -> str | None:
+        return self.__path_pair_id
+
+    @property
+    def path_pair_name(self) -> str | None:
+        return self.__path_pair_name
+
+    @property
+    def remote_path(self) -> str:
+        return self.__remote_path_to_scan
 
     @overrides(IScanner)
     def set_base_logger(self, base_logger: logging.Logger):

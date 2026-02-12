@@ -1,6 +1,6 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
-from common import Context
+from common import Context, PathPairManager
 from controller import Controller, AutoQueuePersist
 from .web_app import WebApp
 from .handler.stream_model import ModelStreamHandler
@@ -11,16 +11,15 @@ from .handler.config import ConfigHandler
 from .handler.auto_queue import AutoQueueHandler
 from .handler.stream_log import LogStreamHandler
 from .handler.status import StatusHandler
+from .handler.path_pairs import PathPairsHandler
 
 
 class WebAppBuilder:
     """
     Helper class to build WebApp with all the extensions
     """
-    def __init__(self,
-                 context: Context,
-                 controller: Controller,
-                 auto_queue_persist: AutoQueuePersist):
+
+    def __init__(self, context: Context, controller: Controller, auto_queue_persist: AutoQueuePersist):
         self.__context = context
         self.__controller = controller
 
@@ -29,25 +28,29 @@ class WebAppBuilder:
         self.config_handler = ConfigHandler(context.config)
         self.auto_queue_handler = AutoQueueHandler(auto_queue_persist)
         self.status_handler = StatusHandler(context.status)
+        # Path pairs handler for multi-path support
+        self.path_pairs_handler = None
+        if context.path_pair_manager:
+            self.path_pairs_handler = PathPairsHandler(context.path_pair_manager)
 
     def build(self) -> WebApp:
-        web_app = WebApp(context=self.__context,
-                         controller=self.__controller)
+        web_app = WebApp(context=self.__context, controller=self.__controller)
 
-        StatusStreamHandler.register(web_app=web_app,
-                                     status=self.__context.status)
+        StatusStreamHandler.register(web_app=web_app, status=self.__context.status)
 
-        LogStreamHandler.register(web_app=web_app,
-                                  logger=self.__context.logger)
+        LogStreamHandler.register(web_app=web_app, logger=self.__context.logger)
 
-        ModelStreamHandler.register(web_app=web_app,
-                                    controller=self.__controller)
+        ModelStreamHandler.register(web_app=web_app, controller=self.__controller)
 
         self.controller_handler.add_routes(web_app)
         self.server_handler.add_routes(web_app)
         self.config_handler.add_routes(web_app)
         self.auto_queue_handler.add_routes(web_app)
         self.status_handler.add_routes(web_app)
+
+        # Add path pairs routes if available
+        if self.path_pairs_handler:
+            self.path_pairs_handler.add_routes(web_app)
 
         web_app.add_default_routes()
 

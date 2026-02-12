@@ -43,6 +43,8 @@ import {ViewFileSortService} from "./services/files/view-file-sort.service";
 import {DomService} from "./services/utils/dom.service";
 import {StorageServiceModule} from "ngx-webstorage-service";
 import {VersionCheckService} from "./services/utils/version-check.service";
+import {PathPairsComponent} from "./pages/settings/path-pairs.component";
+import {PathPairService} from "./services/settings/path-pair.service";
 
 @NgModule({
     declarations: [
@@ -68,7 +70,8 @@ import {VersionCheckService} from "./services/utils/version-check.service";
         FormsModule,
         RouterModule.forRoot(ROUTES),
         NgbModule,
-        StorageServiceModule
+        StorageServiceModule,
+        PathPairsComponent
     ],
     providers: [
         provideHttpClient(withInterceptorsFromDi()),
@@ -82,6 +85,7 @@ import {VersionCheckService} from "./services/utils/version-check.service";
         ViewFileOptionsService,
         DomService,
         VersionCheckService,
+        PathPairService,
 
         // Stream services
         StreamDispatchService,

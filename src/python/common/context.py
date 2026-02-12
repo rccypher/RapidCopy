@@ -3,10 +3,12 @@
 import logging
 import copy
 import collections
+from typing import Optional
 
 # my libs
 from .config import Config
 from .status import Status
+from .path_pair import PathPairManager
 
 
 class Args:
@@ -37,7 +39,13 @@ class Context:
     """
 
     def __init__(
-        self, logger: logging.Logger, web_access_logger: logging.Logger, config: Config, args: Args, status: Status
+        self,
+        logger: logging.Logger,
+        web_access_logger: logging.Logger,
+        config: Config,
+        args: Args,
+        status: Status,
+        path_pair_manager: Optional[PathPairManager] = None,
     ):
         """
         Primary constructor to construct the top-level context
@@ -48,6 +56,7 @@ class Context:
         self.config = config
         self.args = args
         self.status = status
+        self.path_pair_manager = path_pair_manager
 
     def create_child_context(self, context_name: str) -> "Context":
         child_context = copy.copy(self)
@@ -66,3 +75,13 @@ class Context:
         self.logger.debug("Args:")
         for name, value in self.args.as_dict().items():
             self.logger.debug("  {}: {}".format(name, value))
+
+        # Print path pairs
+        if self.path_pair_manager:
+            self.logger.debug("Path Pairs:")
+            for pair in self.path_pair_manager.get_all_pairs():
+                self.logger.debug(
+                    "  [{}] {} -> {} (enabled={}, auto_queue={})".format(
+                        pair.id[:8], pair.remote_path, pair.local_path, pair.enabled, pair.auto_queue
+                    )
+                )
