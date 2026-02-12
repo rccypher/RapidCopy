@@ -22,15 +22,24 @@
 This fork modernizes the original SeedSync codebase:
 
 - **Python 3.11** - Upgraded from Python 3.8
+- **Angular 18** - Frontend upgraded from Angular 4.x to 18.2
 - **Modern Type Hints** - Full mypy type checking with 0 errors
 - **Code Quality** - Ruff linting with 0 issues
 - **408 Unit Tests** - All passing
 - **Modern Python Syntax** - Using `|` union types, `list[]` instead of `List[]`, etc.
 
+### Recent Additions
+
+- **Download Rate Limiting** - Control bandwidth usage with configurable rate limits
+- **Configurable Log Levels** - Set log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- **JSON Log Format** - Optional structured logging for log aggregation systems
+
 ## Features
 
 * Built on top of [LFTP](http://lftp.tech/), the fastest file transfer program ever
 * Web UI - track and control your transfers from anywhere
+* **Download rate limiting** - control bandwidth usage
+* **Configurable logging** - debug, info, warning, error, or critical levels
 * Automatically extract your files after sync
 * Auto-Queue - only sync the files you want based on pattern matching
 * Delete local and remote files easily
@@ -63,6 +72,29 @@ docker run -d \
 ```
 
 Access the web UI at `http://localhost:8800`
+
+## Configuration
+
+RapidCopy can be configured via the web UI or by editing the config file directly.
+
+### Rate Limiting
+
+Control download bandwidth to prevent saturating your connection:
+
+| Setting | Description | Example |
+|---------|-------------|---------|
+| `rate_limit` | Maximum download speed | `10M` (10 MB/s), `500K` (500 KB/s), `0` (unlimited) |
+
+### Logging
+
+Configure log verbosity and format:
+
+| Setting | Description | Values |
+|---------|-------------|--------|
+| `log_level` | Minimum log level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `log_format` | Log output format | `standard`, `json` |
+
+**JSON log format** is useful for log aggregation systems like ELK stack or Splunk.
 
 ### From Source
 

@@ -9,7 +9,7 @@ This guide covers setting up the development environment for RapidCopy.
 | Component | Technology | Version |
 |-----------|------------|---------|
 | Backend | Python | 3.11+ |
-| Frontend | Angular | 4.x (upgrade to 18 planned) |
+| Frontend | Angular | 18.2 |
 | Linting | Ruff | 0.4+ |
 | Type Checking | Mypy | 1.10+ |
 | Testing | Pytest | 8.0+ |
@@ -171,24 +171,57 @@ docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/
 ```bash
 cd src/angular
 npm test
-# or
-node_modules/@angular/cli/bin/ng test
+# or headless
+npm test -- --no-watch --browsers=ChromeHeadless
 ```
 
-## E2E Tests
-```bash
-# Docker image
-make run-tests-e2e STAGING_VERSION=latest RAPIDCOPY_ARCH=amd64
+---
 
-# Debian package
-make run-tests-e2e RAPIDCOPY_DEB=`readlink -f build/*.deb` RAPIDCOPY_OS=ubu2004
+# Angular 18 Migration Notes
+
+The frontend was upgraded from Angular 4.x to Angular 18.2. Key changes:
+
+## Immutable.js 4.x Compatibility
+
+When extending Immutable.js `Record` classes, **do not declare class fields** - they shadow the Record's getters.
+
+**Wrong (Immutable.js 4.x):**
+```typescript
+class ViewFile extends ViewFileRecord {
+    name: string;  // This shadows the Record getter!
+    status: string;
+}
 ```
 
-## Full Test Suite (Docker)
-```bash
-make run-tests-python   # Python tests
-make run-tests-angular  # Angular tests
-make run-tests-e2e      # End-to-end tests
+**Correct:**
+```typescript
+class ViewFile extends ViewFileRecord {
+    constructor(props) { super(props); }
+    
+    get name(): string {
+        return this.get("name");
+    }
+    
+    get status(): string {
+        return this.get("status");
+    }
+}
+```
+
+## RxJS 7 Compatibility
+
+- Replace `Observable.create()` with `new Observable().pipe()`
+- Use `import { of, throwError } from 'rxjs'` instead of `Observable.of()` / `Observable.throw()`
+
+## Angular DI Changes
+
+Test service classes that extend `@Injectable()` parent classes must also have `@Injectable()`:
+
+```typescript
+@Injectable()
+class TestNotificationService extends NotificationService {
+    // ...
+}
 ```
 
 ---
