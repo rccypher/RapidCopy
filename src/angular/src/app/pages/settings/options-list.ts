@@ -162,7 +162,14 @@ export const OPTIONS_CONTEXT_OTHER: IOptionsContext = {
             type: OptionType.Checkbox,
             label: "Enable Debug",
             valuePath: ["general", "debug"],
-            description: "Enables debug logging."
+            description: "Enables debug logging (overrides Log Level to DEBUG)."
+        },
+        {
+            type: OptionType.Text,
+            label: "Log Level",
+            valuePath: ["general", "log_level"],
+            description: "Set logging verbosity. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL.\n" +
+                         "Default is INFO. Ignored when Debug is enabled."
         },
     ]
 };

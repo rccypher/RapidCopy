@@ -7,7 +7,6 @@ import argparse
 import os
 import logging
 from datetime import datetime
-from logging.handlers import RotatingFileHandler
 from typing import Optional, Type, TypeVar
 import shutil
 import platform
@@ -16,6 +15,7 @@ import platform
 from common import ServiceExit, Context, Constants, Config, Args, AppError
 from common import ServiceRestart
 from common import Localization, Status, ConfigError, Persist, PersistError
+from common.log_manager import LogManager
 from controller import Controller, ControllerJob, ControllerPersist, AutoQueue, AutoQueuePersist
 from web import WebAppJob, WebAppBuilder
 
@@ -70,11 +70,20 @@ class Rapidcopy:
         ctx_args.debug = is_debug
         ctx_args.exit = args.exit
 
-        # Logger setup
-        # We separate the main log from the web-access log
-        logger = self._create_logger(name=Constants.SERVICE_NAME, debug=is_debug, logdir=args.logdir)
+        # Logger setup using LogManager
+        # Determine log level from config (defaults to INFO, ignored if debug=True)
+        log_level = config.general.log_level if config.general.log_level else "INFO"
+
+        LogManager.initialize(
+            log_dir=args.logdir,
+            log_level=log_level,
+            debug=is_debug,
+            use_json=False,  # Can be made configurable in the future
+        )
+
+        logger = LogManager.get_main_logger()
         Rapidcopy.logger = logger
-        web_access_logger = self._create_logger(name=Constants.WEB_ACCESS_LOG_NAME, debug=is_debug, logdir=args.logdir)
+        web_access_logger = LogManager.get_web_access_logger()
         logger.info("Debug mode is {}.".format("enabled" if is_debug else "disabled"))
 
         # Create status
@@ -244,33 +253,6 @@ class Rapidcopy:
         return parser.parse_args(args)
 
     @staticmethod
-    def _create_logger(name: str, debug: bool, logdir: str | None) -> logging.Logger:
-        logger = logging.getLogger(name)
-
-        # Remove any existing handlers (needed when restarting)
-        handlers = logger.handlers[:]
-        for handler in handlers:
-            handler.close()
-            logger.removeHandler(handler)
-
-        logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        if logdir is not None:
-            # Output logs to a file in the given directory
-            handler = RotatingFileHandler(
-                "{}/{}.log".format(logdir, name),
-                maxBytes=Constants.MAX_LOG_SIZE_IN_BYTES,
-                backupCount=Constants.LOG_BACKUP_COUNT,
-            )
-        else:
-            handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(name)s (%(processName)s/%(threadName)s) - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        return logger
-
-    @staticmethod
     def _create_default_config() -> Config:
         """
         Create a config with default values
@@ -280,6 +262,7 @@ class Rapidcopy:
 
         config.general.debug = False
         config.general.verbose = False
+        config.general.log_level = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
 
         config.lftp.remote_address = Rapidcopy.__CONFIG_DUMMY_VALUE
         config.lftp.remote_username = Rapidcopy.__CONFIG_DUMMY_VALUE

@@ -10,9 +10,12 @@ import {Record} from "immutable";
  */
 interface IGeneral {
     debug: boolean;
+    // Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
+    log_level: string;
 }
 const DefaultGeneral: IGeneral = {
-    debug: null
+    debug: null,
+    log_level: null
 };
 const GeneralRecord = Record(DefaultGeneral);
 

@@ -209,11 +209,14 @@ class Config(Persist):
     class General(IC):
         debug = PROP("debug", Checkers.null, Converters.bool)
         verbose = PROP("verbose", Checkers.null, Converters.bool)
+        # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO, ignored if debug=True)
+        log_level = PROP("log_level", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
             self.debug = None
             self.verbose = None
+            self.log_level = None
 
     class Lftp(IC):
         remote_address = PROP("remote_address", Checkers.string_nonempty, Converters.null)
