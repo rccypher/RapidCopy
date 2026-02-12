@@ -30,16 +30,20 @@ This fork modernizes the original SeedSync codebase:
 
 ### Recent Additions
 
+- **Multiple Path Pairs** - Sync multiple remote/local directory pairs in a single instance
 - **Download Rate Limiting** - Control bandwidth usage with configurable rate limits
 - **Configurable Log Levels** - Set log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 - **JSON Log Format** - Optional structured logging for log aggregation systems
+- **Dark Mode** - Toggle between light and dark themes in the UI
 
 ## Features
 
 * Built on top of [LFTP](http://lftp.tech/), the fastest file transfer program ever
 * Web UI - track and control your transfers from anywhere
+* **Multiple path pairs** - sync multiple remote/local directory combinations
 * **Download rate limiting** - control bandwidth usage
 * **Configurable logging** - debug, info, warning, error, or critical levels
+* **Dark mode** - comfortable viewing in low-light environments
 * Automatically extract your files after sync
 * Auto-Queue - only sync the files you want based on pattern matching
 * Delete local and remote files easily
@@ -95,6 +99,47 @@ Configure log verbosity and format:
 | `log_format` | Log output format | `standard`, `json` |
 
 **JSON log format** is useful for log aggregation systems like ELK stack or Splunk.
+
+### Multiple Path Pairs
+
+Sync multiple remote/local directory combinations in a single RapidCopy instance. This is useful when you have multiple source directories on your remote server that should sync to different local destinations.
+
+Path pairs are configured via a `path_pairs.json` file in your config directory:
+
+```json
+{
+  "version": 1,
+  "path_pairs": [
+    {
+      "id": "movies-001",
+      "name": "Movies",
+      "remote_path": "/seedbox/movies",
+      "local_path": "/downloads/movies",
+      "enabled": true,
+      "auto_queue": true
+    },
+    {
+      "id": "tvshows-002",
+      "name": "TV Shows",
+      "remote_path": "/seedbox/tv",
+      "local_path": "/downloads/tv",
+      "enabled": true,
+      "auto_queue": true
+    }
+  ]
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique identifier for the path pair |
+| `name` | Human-readable name (shown in UI) |
+| `remote_path` | Directory on the remote server |
+| `local_path` | Local destination directory |
+| `enabled` | Whether this path pair is active |
+| `auto_queue` | Auto-queue new files in this path pair |
+
+Each path pair is scanned independently, and files are tagged with their path pair for proper routing during downloads.
 
 ### From Source
 

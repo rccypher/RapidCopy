@@ -284,26 +284,63 @@ Or in the web UI: **Settings > Server > Use password-less key-based authenticati
 
 ## Multi-Path Configuration
 
-RapidCopy supports syncing multiple remote/local path pairs in a single instance.
+RapidCopy supports syncing multiple remote/local path pairs in a single instance. This replaces the need to run multiple containers for different directory pairs.
 
-### Configuration format
+### How it works
 
-Add a `[PathPairs]` section to your `settings.cfg`:
+- Each path pair defines a remote directory and its corresponding local destination
+- Files are scanned and tracked independently for each path pair
+- Downloads are automatically routed to the correct local directory
+- The UI shows which path pair each file belongs to
 
-```ini
-[PathPairs]
-pair_1_remote = /remote/path/one
-pair_1_local = /downloads/one
-pair_1_label = Movies
+### Configuration
 
-pair_2_remote = /remote/path/two
-pair_2_local = /downloads/two
-pair_2_label = TVShows
+Path pairs are stored in `path_pairs.json` in your config directory (separate from `settings.cfg`):
 
-pair_3_remote = /remote/path/three
-pair_3_local = /downloads/three
-pair_3_label = Music
+Create `/opt/rapidcopy/config/path_pairs.json`:
+
+```json
+{
+  "version": 1,
+  "path_pairs": [
+    {
+      "id": "movies-001",
+      "name": "Movies",
+      "remote_path": "/seedbox/movies",
+      "local_path": "/downloads/movies",
+      "enabled": true,
+      "auto_queue": true
+    },
+    {
+      "id": "tvshows-002",
+      "name": "TV Shows",
+      "remote_path": "/seedbox/tv",
+      "local_path": "/downloads/tv",
+      "enabled": true,
+      "auto_queue": true
+    },
+    {
+      "id": "music-003",
+      "name": "Music",
+      "remote_path": "/seedbox/music",
+      "local_path": "/downloads/music",
+      "enabled": true,
+      "auto_queue": false
+    }
+  ]
+}
 ```
+
+### Path pair fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier (use any string, e.g., UUID or descriptive ID) |
+| `name` | Yes | Human-readable name displayed in the UI |
+| `remote_path` | Yes | Full path on the remote server |
+| `local_path` | Yes | Full path on the local machine (inside container) |
+| `enabled` | No | Set to `false` to temporarily disable scanning (default: `true`) |
+| `auto_queue` | No | Auto-queue new files for this path pair (default: `true`) |
 
 ### Volume mounts
 
