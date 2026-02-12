@@ -930,4 +930,4 @@ tests = ["PasteDeploy", "WSGIProxy2", "coverage", "mock", "nose (<1.3.0)", "pyqu
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "b84ca6dc3c9557d43f6420bf87646e7f9504ab92e681d7dacd2633d3c2bc80b3"
+content-hash = "8dcdd7ca130a9635dd98f76e792b0eaf5dd97e8650a00baab8609ea0c677c029"
