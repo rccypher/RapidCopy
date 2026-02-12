@@ -24,3 +24,77 @@ pyinstaller = "^4.1"
 testfixtures = "^6.17.0"
 webtest = "^2.0.35"
 pytest = "^8.0"
+pytest-cov = "^4.1"
+ruff = "^0.4"
+mypy = "^1.10"
+types-requests = "^2.31"
+types-pytz = ">=2024.1"
+
+# =============================================================================
+# Tool Configurations
+# =============================================================================
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E731",   # do not assign a lambda expression
+    "B008",   # do not perform function calls in argument defaults
+    "SIM108", # use ternary operator instead of if-else block
+    "UP032",  # use f-string instead of format call
+    "UP006",  # use dict instead of Dict for type annotations
+    "UP035",  # import from collections.abc
+    "F401",   # imported but unused (many re-exports in __init__.py)
+    "F821",   # undefined name (false positives with dynamic imports)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "E402"]  # Allow unused imports and late imports in __init__.py
+"tests/*" = ["B008", "E402"]      # Allow fixtures and late imports in tests
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = [
+    "build/",
+    "dist/",
+    ".venv/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    ".venv/*",
+    "build/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
