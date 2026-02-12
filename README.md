@@ -49,6 +49,23 @@ This fork modernizes the original SeedSync codebase:
 * Delete local and remote files easily
 * Fully open source!
 
+## Screenshots
+
+### Dashboard with Path Pair Statistics
+<!-- TODO: Add screenshot showing the dashboard with the path pair stats component -->
+<!-- Recommended: doc/images/dashboard_path_pairs.png -->
+*Dashboard showing file transfers grouped by path pair with progress indicators*
+
+### Path Pairs Management (Settings)
+<!-- TODO: Add screenshot showing the Settings > Path Pairs management UI -->
+<!-- Recommended: doc/images/settings_path_pairs.png -->
+*Settings page for managing multiple remote/local directory pairs*
+
+### Dark Mode
+<!-- TODO: Add screenshot showing dark mode theme -->
+<!-- Recommended: doc/images/dark_mode.png -->
+*Dark theme for comfortable viewing in low-light environments*
+
 ## How it works
 
 Install RapidCopy on a local machine. RapidCopy will connect to your remote server and sync files to the local machine as they become available.
