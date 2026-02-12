@@ -21,6 +21,7 @@ class LftpError(AppError):
     """
     Custom exception that describes the failure of the lftp command
     """
+
     pass
 
 
@@ -28,6 +29,7 @@ class Lftp:
     """
     Lftp command utility
     """
+
     __SET_NUM_PARALLEL_FILES = "mirror:parallel-transfer-count"
     __SET_NUM_CONNECTIONS_PGET = "pget:default-n"
     __SET_NUM_CONNECTIONS_MIRROR = "mirror:use-pget-n"
@@ -42,11 +44,7 @@ class Lftp:
     __SET_SFTP_AUTO_CONFIRM = "sftp:auto-confirm"
     __SET_SFTP_CONNECT_PROGRAM = "sftp:connect-program"
 
-    def __init__(self,
-                 address: str,
-                 port: int,
-                 user: str,
-                 password: str | None):
+    def __init__(self, address: str, port: int, user: str, password: str | None):
         self.__user = user
         self.__password = password
         self.__address = address
@@ -62,9 +60,11 @@ class Lftp:
         self.__pending_error = None
 
         args = [
-            "-p", str(port),
-            "-u", "{},{}".format(self.__user, self.__password if self.__password else ""),
-            "sftp://{}".format(self.__address)
+            "-p",
+            str(port),
+            "-u",
+            "{},{}".format(self.__user, self.__password if self.__password else ""),
+            "sftp://{}".format(self.__address),
         ]
         self.__process = pexpect.spawn("/usr/bin/lftp", args)
         self.__process.expect(self.__expect_pattern)
@@ -79,7 +79,7 @@ class Lftp:
         :return:
         """
         # Set to kill on exit to prevent a zombie process
-        self.__set(Lftp.__SET_COMMAND_AT_EXIT, "\"kill all\"")
+        self.__set(Lftp.__SET_COMMAND_AT_EXIT, '"kill all"')
         # Auto-add server to known host file
         self.sftp_auto_confirm = True
 
@@ -90,11 +90,13 @@ class Lftp:
         :param method:
         :return:
         """
+
         @wraps(method)
         def wrapper(inst: "Lftp", *args, **kwargs):
             if inst.__process is None or not inst.__process.isalive():
                 raise LftpError("lftp process is not running")
             return method(inst, *args, **kwargs)
+
         return wrapper
 
     def set_base_logger(self, base_logger: logging.Logger):
@@ -122,7 +124,7 @@ class Lftp:
     @with_check_process
     def __run_command(self, command: str):
         if self.__log_command_output:
-            self.logger.debug("command: {}".format(command.encode('utf8', 'surrogateescape')))
+            self.logger.debug("command: {}".format(command.encode("utf8", "surrogateescape")))
         self.__process.sendline(command)
         try:
             self.__process.expect(self.__expect_pattern, timeout=self.__timeout)
@@ -130,13 +132,16 @@ class Lftp:
             self.logger.exception("Lftp timeout exception")
             pass
         finally:
-            out = self.__process.before.decode('utf8', 'replace')
+            out = self.__process.before.decode("utf8", "replace")
             out = out.strip()  # remove any CRs
 
             if self.__log_command_output:
                 self.logger.debug("out ({} bytes):\n {}".format(len(out), out))
-                after = self.__process.after.decode('utf8', 'replace').strip() \
-                    if self.__process.after != pexpect.TIMEOUT else ""
+                after = (
+                    self.__process.after.decode("utf8", "replace").strip()
+                    if self.__process.after != pexpect.TIMEOUT
+                    else ""
+                )
                 self.logger.debug("after: {}".format(after))
 
         # let's try and detect some errors
@@ -150,12 +155,15 @@ class Lftp:
                 self.logger.exception("Lftp timeout exception")
                 pass
             finally:
-                out = self.__process.before.decode('utf8', 'replace')
+                out = self.__process.before.decode("utf8", "replace")
                 out = out.strip()  # remove any CRs
                 if self.__log_command_output:
                     self.logger.debug("retry out ({} bytes):\n {}".format(len(out), out))
-                    after = self.__process.after.decode('utf8', 'replace').strip() \
-                        if self.__process.after != pexpect.TIMEOUT else ""
+                    after = (
+                        self.__process.after.decode("utf8", "replace").strip()
+                        if self.__process.after != pexpect.TIMEOUT
+                        else ""
+                    )
                     self.logger.debug("retry after: {}".format(after))
                 self.logger.error("Lftp detected error: {}".format(error_out))
                 # save pending error
@@ -168,12 +176,9 @@ class Lftp:
             "pget: Access failed",
             "pget-chunk: Access failed",
             "mirror: Access failed",
-            "Login failed: Login incorrect"
+            "Login failed: Login incorrect",
         ]
-        for error in errors:
-            if error in out:
-                return True
-        return False
+        return any(error in out for error in errors)
 
     def __set(self, setting: str, value: str):
         """
@@ -201,7 +206,7 @@ class Lftp:
         # sets are taken from LFTP manual
         if value.lower() in {"true", "on", "yes", "1", "+"}:
             return True
-        elif value.lower() in {"false",  "off", "no", "0", "-"}:
+        elif value.lower() in {"false", "off", "no", "0", "-"}:
             return False
         else:
             raise LftpError("Cannot convert value '{}' to boolean".format(value))
@@ -340,21 +345,25 @@ class Lftp:
         :param is_dir: true if folder, false if file
         :return:
         """
+
         # Escape single and double quotes in any string used in queue command
         def escape(s: str) -> str:
-            return s.replace("'", "\\'").replace("\"", "\\\"")
+            return s.replace("'", "\\'").replace('"', '\\"')
 
-        command = " ".join([
-            "queue",
-            "'",
-            "pget" if not is_dir else "mirror",
-            "-c",
-            "\"{remote_dir}/{filename}\"".format(remote_dir=escape(self.__base_remote_dir_path),
-                                                 filename=escape(name)),
-            "-o" if not is_dir else "",
-            "\"{local_dir}/\"".format(local_dir=escape(self.__base_local_dir_path)),
-            "'"
-        ])
+        command = " ".join(
+            [
+                "queue",
+                "'",
+                "pget" if not is_dir else "mirror",
+                "-c",
+                '"{remote_dir}/{filename}"'.format(
+                    remote_dir=escape(self.__base_remote_dir_path), filename=escape(name)
+                ),
+                "-o" if not is_dir else "",
+                '"{local_dir}/"'.format(local_dir=escape(self.__base_local_dir_path)),
+                "'",
+            ]
+        )
         self.__run_command(command)
 
     def kill(self, name: str) -> bool:

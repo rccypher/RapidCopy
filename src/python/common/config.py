@@ -17,6 +17,7 @@ class ConfigError(AppError):
     """
     Exception indicating a bad config value
     """
+
     pass
 
 
@@ -25,7 +26,7 @@ OuterConfigType = Dict[str, InnerConfigType]
 
 
 # Source: https://stackoverflow.com/a/39205612/8571324
-T = TypeVar('T', bound='InnerConfig')
+T = TypeVar("T", bound="InnerConfig")
 
 
 class Converters:
@@ -36,29 +37,21 @@ class Converters:
     @staticmethod
     def int(cls: T, name: str, value: str) -> int:
         if not value:
-            raise ConfigError("Bad config: {}.{} is empty".format(
-                cls.__name__, name
-            ))
+            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         try:
             val = int(value)
         except ValueError:
-            raise ConfigError("Bad config: {}.{} ({}) must be an integer value".format(
-                cls.__name__, name, value
-            ))
+            raise ConfigError("Bad config: {}.{} ({}) must be an integer value".format(cls.__name__, name, value))
         return val
 
     @staticmethod
     def bool(cls: T, name: str, value: str) -> bool:
         if not value:
-            raise ConfigError("Bad config: {}.{} is empty".format(
-                cls.__name__, name
-            ))
+            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         try:
             val = bool(strtobool(value))
         except ValueError:
-            raise ConfigError("Bad config: {}.{} ({}) must be a boolean value".format(
-                cls.__name__, name, value
-            ))
+            raise ConfigError("Bad config: {}.{} ({}) must be a boolean value".format(cls.__name__, name, value))
         return val
 
 
@@ -70,25 +63,19 @@ class Checkers:
     @staticmethod
     def string_nonempty(cls: T, name: str, value: str) -> str:
         if not value or not value.strip():
-            raise ConfigError("Bad config: {}.{} is empty".format(
-                cls.__name__, name
-            ))
+            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
         return value
 
     @staticmethod
     def int_non_negative(cls: T, name: str, value: int) -> int:
         if value < 0:
-            raise ConfigError("Bad config: {}.{} ({}) must be zero or greater".format(
-                cls.__name__, name, value
-            ))
+            raise ConfigError("Bad config: {}.{} ({}) must be zero or greater".format(cls.__name__, name, value))
         return value
 
     @staticmethod
     def int_positive(cls: T, name: str, value: int) -> int:
         if value < 1:
-            raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(
-                cls.__name__, name, value
-            ))
+            raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(cls.__name__, name, value))
         return value
 
 
@@ -104,8 +91,10 @@ class InnerConfig(ABC):
     The checker function performs boundary check on the native type value.
     The converter function converts the string representation into the native type.
     """
+
     class PropMetadata:
         """Tracks property metadata"""
+
         def __init__(self, checker: Callable, converter: Callable):
             self.checker = checker
             self.converter = converter
@@ -117,8 +106,7 @@ class InnerConfig(ABC):
     @classmethod
     def _create_property(cls, name: str, checker: Callable, converter: Callable) -> property:
         # noinspection PyProtectedMember
-        prop = property(fget=lambda s: s._get_property(name),
-                        fset=lambda s, v: s._set_property(name, v, checker))
+        prop = property(fget=lambda s: s._get_property(name), fset=lambda s, v: s._set_property(name, v, checker))
         prop_addon = InnerConfig.PropMetadata(checker=checker, converter=converter)
         InnerConfig.__prop_addon_map[prop] = prop_addon
         return prop
@@ -148,7 +136,7 @@ class InnerConfig(ABC):
         # noinspection PyCallingNonCallable
         inner_config = cls()
         property_map = {p: getattr(cls, p) for p in dir(cls) if isinstance(getattr(cls, p), property)}
-        for name, prop in property_map.items():
+        for name, _prop in property_map.items():
             if name not in config_dict:
                 raise ConfigError("Missing config: {}.{}".format(cls.__name__, name))
             inner_config.set_property(name, config_dict[name])
@@ -216,6 +204,7 @@ class Config(Persist):
     """
     Configuration registry
     """
+
     class General(IC):
         debug = PROP("debug", Checkers.null, Converters.bool)
         verbose = PROP("verbose", Checkers.null, Converters.bool)
@@ -235,15 +224,15 @@ class Config(Persist):
         remote_path_to_scan_script = PROP("remote_path_to_scan_script", Checkers.string_nonempty, Converters.null)
         use_ssh_key = PROP("use_ssh_key", Checkers.null, Converters.bool)
         num_max_parallel_downloads = PROP("num_max_parallel_downloads", Checkers.int_positive, Converters.int)
-        num_max_parallel_files_per_download = PROP("num_max_parallel_files_per_download",
-                                                   Checkers.int_positive,
-                                                   Converters.int)
-        num_max_connections_per_root_file = PROP("num_max_connections_per_root_file",
-                                                 Checkers.int_positive,
-                                                 Converters.int)
-        num_max_connections_per_dir_file = PROP("num_max_connections_per_dir_file",
-                                                Checkers.int_positive,
-                                                Converters.int)
+        num_max_parallel_files_per_download = PROP(
+            "num_max_parallel_files_per_download", Checkers.int_positive, Converters.int
+        )
+        num_max_connections_per_root_file = PROP(
+            "num_max_connections_per_root_file", Checkers.int_positive, Converters.int
+        )
+        num_max_connections_per_dir_file = PROP(
+            "num_max_connections_per_dir_file", Checkers.int_positive, Converters.int
+        )
         num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative, Converters.int)
         use_temp_file = PROP("use_temp_file", Checkers.null, Converters.bool)
 
@@ -324,13 +313,8 @@ class Config(Persist):
         config_parser = configparser.ConfigParser()
         try:
             config_parser.read_string(content)
-        except (
-                configparser.MissingSectionHeaderError,
-                configparser.ParsingError
-        ) as e:
-            raise PersistError("Error parsing Config - {}: {}".format(
-                type(e).__name__, str(e))
-            )
+        except (configparser.MissingSectionHeaderError, configparser.ParsingError) as e:
+            raise PersistError("Error parsing Config - {}: {}".format(type(e).__name__, str(e)))
         config_dict = {}
         for section in config_parser.sections():
             config_dict[section] = {}

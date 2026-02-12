@@ -20,12 +20,8 @@ class LftpJobStatusParser:
 
     # python doesn't support partial inline-modified flags, so we need
     # to capture all case-sensitive cases here
-    __SIZE_UNITS_REGEX = (
-        "b|B|k|kb|kib|K|Kb|KB|KiB|Kib|m|mb|mib|M|Mb|MB|MiB|Mib|g|gb|gib|G|Gb|GB|GiB|Gib"
-    )
-    __TIME_UNITS_REGEX = (
-        r"(?P<eta_d>\d*d)?(?P<eta_h>\d*h)?(?P<eta_m>\d*m)?(?P<eta_s>\d*s)?"
-    )
+    __SIZE_UNITS_REGEX = "b|B|k|kb|kib|K|Kb|KB|KiB|Kib|m|mb|mib|M|Mb|MB|MiB|Mib|g|gb|gib|G|Gb|GB|GiB|Gib"
+    __TIME_UNITS_REGEX = r"(?P<eta_d>\d*d)?(?P<eta_h>\d*h)?(?P<eta_m>\d*m)?(?P<eta_s>\d*s)?"
 
     __QUOTED_FILE_NAME_REGEX = r"`(?P<name>.*)'"
 
@@ -46,11 +42,7 @@ class LftpJobStatusParser:
         """
         if size == "0":
             return 0
-        m = re.compile(
-            r"(?P<number>\d+\.?\d*)\s*(?P<units>{})?".format(
-                LftpJobStatusParser.__SIZE_UNITS_REGEX
-            )
-        )
+        m = re.compile(r"(?P<number>\d+\.?\d*)\s*(?P<units>{})?".format(LftpJobStatusParser.__SIZE_UNITS_REGEX))
         result = m.search(size)
         if not result:
             raise ValueError("String '{}' does not match the size pattern".format(size))
@@ -58,9 +50,7 @@ class LftpJobStatusParser:
         unit = (result.group("units") or "b")[0].lower()
         multipliers = {"b": 1, "k": 1024, "m": 1024 * 1024, "g": 1024 * 1024 * 1024}
         if unit not in multipliers:
-            raise ValueError(
-                "Unrecognized unit {} in size string '{}'".format(unit, size)
-            )
+            raise ValueError("Unrecognized unit {} in size string '{}'".format(unit, size))
         return int(number * multipliers[unit])
 
     @staticmethod
@@ -86,15 +76,13 @@ class LftpJobStatusParser:
         lines = [s.strip() for s in output.splitlines()]
         lines = list(filter(None, lines))  # remove blank lines
         # remove all lines before the first 'jobs -v'
-        start = next((i + 1 for i, l in enumerate(lines) if l == "jobs -v"), 0)
+        start = next((i + 1 for i, line in enumerate(lines) if line == "jobs -v"), 0)
         lines = lines[start:]
         # remove any remaining 'jobs -v' lines
         lines = list(filter(lambda s: s != "jobs -v", lines))
         # remove any remaining log line
         lines = filter(
-            lambda s: not re.match(
-                r"^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}.*\s->\s.*$", s
-            ),
+            lambda s: not re.match(r"^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}.*\s->\s.*$", s),
             lines,
         )
         lines = list(lines)
@@ -150,9 +138,7 @@ class LftpJobStatusParser:
         mirror_fl_header_m = re.compile(mirror_fl_header_pattern)
 
         # Data patterns
-        filename_pattern = (
-            r"\\transfer\s" + LftpJobStatusParser.__QUOTED_FILE_NAME_REGEX
-        )
+        filename_pattern = r"\\transfer\s" + LftpJobStatusParser.__QUOTED_FILE_NAME_REGEX
         filename_m = re.compile(filename_pattern)
 
         chunk_at_pattern = (
@@ -213,9 +199,7 @@ class LftpJobStatusParser:
         ).format(sz=LftpJobStatusParser.__SIZE_UNITS_REGEX)
         mirror_m = re.compile(mirror_pattern)
 
-        mirror_empty_pattern = (
-            r"\\mirror\s" + LftpJobStatusParser.__QUOTED_FILE_NAME_REGEX + r"\s*$"
-        )
+        mirror_empty_pattern = r"\\mirror\s" + LftpJobStatusParser.__QUOTED_FILE_NAME_REGEX + r"\s*$"
         mirror_empty_m = re.compile(mirror_empty_pattern)
 
         queue_done_m = re.compile(LftpJobStatusParser.__QUEUE_DONE_REGEX)
@@ -226,23 +210,16 @@ class LftpJobStatusParser:
 
             # First line must be a valid job header
             if not (
-                prev_job
-                or pget_header_m.match(line)
-                or mirror_header_m.match(line)
-                or mirror_fl_header_m.match(line)
+                prev_job or pget_header_m.match(line) or mirror_header_m.match(line) or mirror_fl_header_m.match(line)
             ):
-                raise ValueError(
-                    "First line is not a matching header '{}'".format(line)
-                )
+                raise ValueError("First line is not a matching header '{}'".format(line))
 
             # Search for pget header
             result = pget_header_m.search(line)
             if result:
                 # Next line must be the sftp line
                 if len(lines) < 1 or "sftp" not in lines[0]:
-                    raise ValueError(
-                        "Missing the 'sftp' line for pget header '{}'".format(line)
-                    )
+                    raise ValueError("Missing the 'sftp' line for pget header '{}'".format(line))
                 lines.pop(0)  # pop the 'sftp' line
 
                 # Data line may not exist
@@ -277,14 +254,10 @@ class LftpJobStatusParser:
                     percent_local = None
                     speed = None
                     if result_at.group("speed"):
-                        speed = LftpJobStatusParser._size_to_bytes(
-                            result_at.group("speed")
-                        )
+                        speed = LftpJobStatusParser._size_to_bytes(result_at.group("speed"))
                     eta = None
                     if result_at.group("eta"):
-                        eta = LftpJobStatusParser._eta_to_seconds(
-                            result_at.group("eta")
-                        )
+                        eta = LftpJobStatusParser._eta_to_seconds(result_at.group("eta"))
                     transfer_state = LftpJobStatus.TransferState(
                         size_local,
                         None,  # size remote
@@ -299,40 +272,26 @@ class LftpJobStatusParser:
                                 result.group("remote"), result_at2.group("name")
                             )
                         )
-                    transfer_state = LftpJobStatus.TransferState(
-                        None, None, None, None, None
-                    )
+                    transfer_state = LftpJobStatus.TransferState(None, None, None, None, None)
                 elif result_got:
-                    got_group_basename = os.path.basename(
-                        os.path.normpath(result_got.group("name"))
-                    )
+                    got_group_basename = os.path.basename(os.path.normpath(result_got.group("name")))
                     if got_group_basename != name:
                         raise ValueError(
-                            "Mismatch: filename '{}' but chunk data for '{}'".format(
-                                name, got_group_basename
-                            )
+                            "Mismatch: filename '{}' but chunk data for '{}'".format(name, got_group_basename)
                         )
                     size_local = int(result_got.group("szlocal"))
                     size_remote = int(result_got.group("szremote"))
                     percent_local = int(result_got.group("pctlocal"))
                     speed = None
                     if result_got.group("speed"):
-                        speed = LftpJobStatusParser._size_to_bytes(
-                            result_got.group("speed")
-                        )
+                        speed = LftpJobStatusParser._size_to_bytes(result_got.group("speed"))
                     eta = None
                     if result_got.group("eta"):
-                        eta = LftpJobStatusParser._eta_to_seconds(
-                            result_got.group("eta")
-                        )
-                    transfer_state = LftpJobStatus.TransferState(
-                        size_local, size_remote, percent_local, speed, eta
-                    )
+                        eta = LftpJobStatusParser._eta_to_seconds(result_got.group("eta"))
+                    transfer_state = LftpJobStatus.TransferState(size_local, size_remote, percent_local, speed, eta)
                 else:
                     # No data line at all
-                    transfer_state = LftpJobStatus.TransferState(
-                        None, None, None, None, None
-                    )
+                    transfer_state = LftpJobStatus.TransferState(None, None, None, None, None)
 
                 status.total_transfer_state = transfer_state
                 jobs.append(status)
@@ -354,9 +313,7 @@ class LftpJobStatusParser:
                     flags=flags,
                 )
                 size_local = LftpJobStatusParser._size_to_bytes(result.group("szlocal"))
-                size_remote = LftpJobStatusParser._size_to_bytes(
-                    result.group("szremote")
-                )
+                size_remote = LftpJobStatusParser._size_to_bytes(result.group("szremote"))
                 percent_local = int(result.group("pctlocal"))
                 speed = None
                 if result.group("speed"):
@@ -379,10 +336,7 @@ class LftpJobStatusParser:
             result = mirror_fl_header_m.search(line)
             if result:
                 # There may be a 'Connecting' or 'cd' line ahead, but not always
-                if lines and (
-                    lines[0].startswith("Getting file list")
-                    or lines[0].startswith("cd ")
-                ):
+                if lines and (lines[0].startswith("Getting file list") or lines[0].startswith("cd ")):
                     lines.pop(0)  # pop the connecting line
                 id_ = int(result.group("id"))
                 name = os.path.basename(os.path.normpath(result.group("remote")))
@@ -405,83 +359,53 @@ class LftpJobStatusParser:
             if result:
                 name = result.group("name")
                 if not lines:
-                    raise ValueError(
-                        "Missing chunk data for filename '{}'".format(name)
-                    )
+                    raise ValueError("Missing chunk data for filename '{}'".format(name))
                 line = lines.pop(0)
                 result_at = chunk_at_m.search(line)
                 result_at2 = chunk_at2_m.search(line)
                 result_got = chunk_got_m.search(line)
                 if result_at:
                     # filename is full path, but chunk name is only normpath
-                    if result_at.group("name") != os.path.basename(
-                        os.path.normpath(name)
-                    ):
+                    if result_at.group("name") != os.path.basename(os.path.normpath(name)):
                         raise ValueError(
-                            "Mismatch: filename '{}' but chunk data for '{}'".format(
-                                name, result_at.group("name")
-                            )
+                            "Mismatch: filename '{}' but chunk data for '{}'".format(name, result_at.group("name"))
                         )
                     size_local = None
                     percent_local = None
                     speed = None
                     if result_at.group("speed"):
-                        speed = LftpJobStatusParser._size_to_bytes(
-                            result_at.group("speed")
-                        )
+                        speed = LftpJobStatusParser._size_to_bytes(result_at.group("speed"))
                     eta = None
                     if result_at.group("eta"):
-                        eta = LftpJobStatusParser._eta_to_seconds(
-                            result_at.group("eta")
-                        )
-                    file_status = LftpJobStatus.TransferState(
-                        size_local, None, percent_local, speed, eta
-                    )
+                        eta = LftpJobStatusParser._eta_to_seconds(result_at.group("eta"))
+                    file_status = LftpJobStatus.TransferState(size_local, None, percent_local, speed, eta)
                     prev_job.add_active_file_transfer_state(name, file_status)
                 elif result_at2:
                     # filename is full path, but chunk name is only normpath
-                    if result_at2.group("name") != os.path.basename(
-                        os.path.normpath(name)
-                    ):
+                    if result_at2.group("name") != os.path.basename(os.path.normpath(name)):
                         raise ValueError(
-                            "Mismatch: filename '{}' but chunk data for '{}'".format(
-                                name, result_at2.group("name")
-                            )
+                            "Mismatch: filename '{}' but chunk data for '{}'".format(name, result_at2.group("name"))
                         )
-                    file_status = LftpJobStatus.TransferState(
-                        None, None, None, None, None
-                    )
+                    file_status = LftpJobStatus.TransferState(None, None, None, None, None)
                     prev_job.add_active_file_transfer_state(name, file_status)
                 elif result_got:
-                    if result_got.group("name") != os.path.basename(
-                        os.path.normpath(name)
-                    ):
+                    if result_got.group("name") != os.path.basename(os.path.normpath(name)):
                         raise ValueError(
-                            "Mismatch: filename '{}' but chunk data for '{}'".format(
-                                name, result_got.group("name")
-                            )
+                            "Mismatch: filename '{}' but chunk data for '{}'".format(name, result_got.group("name"))
                         )
                     size_local = int(result_got.group("szlocal"))
                     size_remote = int(result_got.group("szremote"))
                     percent_local = int(result_got.group("pctlocal"))
                     speed = None
                     if result_got.group("speed"):
-                        speed = LftpJobStatusParser._size_to_bytes(
-                            result_got.group("speed")
-                        )
+                        speed = LftpJobStatusParser._size_to_bytes(result_got.group("speed"))
                     eta = None
                     if result_got.group("eta"):
-                        eta = LftpJobStatusParser._eta_to_seconds(
-                            result_got.group("eta")
-                        )
-                    file_status = LftpJobStatus.TransferState(
-                        size_local, size_remote, percent_local, speed, eta
-                    )
+                        eta = LftpJobStatusParser._eta_to_seconds(result_got.group("eta"))
+                    file_status = LftpJobStatus.TransferState(size_local, size_remote, percent_local, speed, eta)
                     prev_job.add_active_file_transfer_state(name, file_status)
                 else:
-                    raise ValueError(
-                        "Missing chunk data for filename '{}'".format(name)
-                    )
+                    raise ValueError("Missing chunk data for filename '{}'".format(name))
                 # Continue the outer loop
                 continue
 
@@ -498,14 +422,13 @@ class LftpJobStatusParser:
                 #    "cd"
                 #    "<name>: "
                 #    "mkdir"
-                if lines:
-                    if (
-                        "Getting file list" in lines[0]
-                        or lines[0].startswith("cd ")
-                        or lines[0] == "{}:".format(name)
-                        or lines[0].startswith("mkdir ")
-                    ):
-                        lines.pop(0)
+                if lines and (
+                    "Getting file list" in lines[0]
+                    or lines[0].startswith("cd ")
+                    or lines[0] == "{}:".format(name)
+                    or lines[0].startswith("mkdir ")
+                ):
+                    lines.pop(0)
                 # Continue the outer loop
                 continue
 
@@ -532,9 +455,7 @@ class LftpJobStatusParser:
                     if result_chmod:
                         name_chmod = result_chmod.group("name")
                         if name != name_chmod:
-                            raise ValueError(
-                                "Mismatch in names chmod '{}'".format(name)
-                            )
+                            raise ValueError("Mismatch in names chmod '{}'".format(name))
                         lines.pop(0)
                 # Continue the outer loop
                 continue
@@ -627,13 +548,9 @@ class LftpJobStatusParser:
                             type_ = LftpJobStatus.Type.MIRROR
                             result = result_mirror
                         else:
-                            raise ValueError(
-                                "Failed to parse queue line: {}".format(line)
-                            )
+                            raise ValueError("Failed to parse queue line: {}".format(line))
                         id_ = int(result.group("id"))
-                        name = os.path.basename(
-                            os.path.normpath(result.group("remote"))
-                        )
+                        name = os.path.basename(os.path.normpath(result.group("remote")))
                         flags = result.group("flags")
                         status = LftpJobStatus(
                             job_id=id_,

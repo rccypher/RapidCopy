@@ -70,11 +70,7 @@ class ModelFile:
         other_children_dict = {f.name: f for f in other.__children}
         if my_children_dict.keys() != other_children_dict.keys():
             return False
-        for name in my_children_dict:
-            if my_children_dict[name] != other_children_dict[name]:
-                return False
-
-        return True
+        return all(my_children_dict[name] == other_children_dict[name] for name in my_children_dict)
 
     def __repr__(self):
         return str(self.__dict__)
