@@ -29,6 +29,7 @@
             <div class="text">
                 <div class="title">
                     {{file.name}}
+                    <span class="path-pair-badge" *ngIf="file.pathPairName">{{file.pathPairName}}</span>
                 </div>
                 <div class="details" *ngIf="(options | async)?.showDetails">
                     <div class="details-text">

@@ -432,7 +432,9 @@ export class ViewFileService {
             localCreatedTimestamp: modelFile.local_created_timestamp,
             localModifiedTimestamp: modelFile.local_modified_timestamp,
             remoteCreatedTimestamp: modelFile.remote_created_timestamp,
-            remoteModifiedTimestamp: modelFile.remote_modified_timestamp
+            remoteModifiedTimestamp: modelFile.remote_modified_timestamp,
+            pathPairId: modelFile.path_pair_id,
+            pathPairName: modelFile.path_pair_name
         });
     }
 

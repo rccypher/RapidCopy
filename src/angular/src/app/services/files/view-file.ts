@@ -27,6 +27,9 @@ interface IViewFile {
     localModifiedTimestamp: Date;
     remoteCreatedTimestamp: Date;
     remoteModifiedTimestamp: Date;
+    // path pair info
+    pathPairId: string;
+    pathPairName: string;
 }
 
 // Boiler plate code to set up an immutable class
@@ -50,7 +53,9 @@ const DefaultViewFile: IViewFile = {
     localCreatedTimestamp: null,
     localModifiedTimestamp: null,
     remoteCreatedTimestamp: null,
-    remoteModifiedTimestamp: null
+    remoteModifiedTimestamp: null,
+    pathPairId: null,
+    pathPairName: null
 };
 const ViewFileRecord = Record(DefaultViewFile);
 
@@ -84,6 +89,8 @@ export class ViewFile extends ViewFileRecord implements IViewFile {
     get localModifiedTimestamp(): Date { return this.get("localModifiedTimestamp"); }
     get remoteCreatedTimestamp(): Date { return this.get("remoteCreatedTimestamp"); }
     get remoteModifiedTimestamp(): Date { return this.get("remoteModifiedTimestamp"); }
+    get pathPairId(): string { return this.get("pathPairId"); }
+    get pathPairName(): string { return this.get("pathPairName"); }
 }
 
 export module ViewFile {
