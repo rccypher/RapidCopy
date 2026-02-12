@@ -6,11 +6,11 @@
 
 /* striped rows */
 #file-list > div:nth-child(even){
-    background-color: $primary-lighter-color;
+    background-color: var(--color-bg-secondary);
 }
 
 /* list separator */
-#file-list > div {border-bottom: 1px solid #ddd;}
+#file-list > div {border-bottom: 1px solid var(--color-border);}
 #file-list > div:last-child{border-bottom: none;}
 
 
@@ -39,7 +39,7 @@
     /* header color */
     #header div {
         font-weight: bold;
-        color: #fff;
-        background-color: #000;
+        color: var(--color-text-inverse);
+        background-color: var(--color-text-primary);
     }
 }

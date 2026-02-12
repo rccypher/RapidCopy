@@ -3,8 +3,8 @@
 // Common dropdown template
 %dropdown {
     button {
-        background-color: $primary-color;
-        color: white;
+        background-color: var(--color-accent-primary);
+        color: var(--color-text-inverse);
         height: 34px;
         width: 100%;
         cursor: default;
@@ -37,15 +37,15 @@
     }
 
     .dropdown-menu {
-        background-color: $primary-color;
-        border: 1px solid $primary-dark-color;
-        color: white;
+        background-color: var(--color-accent-primary);
+        border: 1px solid var(--color-accent-primary-dark);
+        color: var(--color-text-inverse);
         padding: 0;
         cursor: default;
         user-select: none;
 
         .dropdown-item {
-            color: white;
+            color: var(--color-text-inverse);
             height: 32px;
 
             display: flex;
@@ -55,17 +55,17 @@
 
             &.active,
             &.active:hover {
-                background-color: $secondary-dark-color;
+                background-color: var(--color-accent-secondary-dark);
             }
 
             &:hover,
             &:active {
-                background-color: $primary-color;
+                background-color: var(--color-accent-primary);
             }
 
             &.disabled {
                 opacity: .65;
-                background-color: $primary-color;
+                background-color: var(--color-accent-primary);
             }
 
             .icon {
@@ -105,9 +105,9 @@
 
 
 %toggle {
-    background-color: $primary-color;
-    border: 1px solid $primary-dark-color;
-    color: white;
+    background-color: var(--color-accent-primary);
+    border: 1px solid var(--color-accent-primary-dark);
+    color: var(--color-text-inverse);
     height: 34px;
     cursor: default;
     user-select: none;
@@ -119,18 +119,18 @@
 
     &.active,
     &.active:hover{
-        background-color: $secondary-dark-color;
-        border-color: $secondary-darker-color;
+        background-color: var(--color-accent-secondary-dark);
+        border-color: var(--color-accent-secondary-darker);
     }
 
     &:hover,
     &:active {
-        background-color: $primary-color;
+        background-color: var(--color-accent-primary);
     }
 
     &.disabled {
         opacity: .65;
-        background-color: $primary-color;
+        background-color: var(--color-accent-primary);
     }
 
     .selection {
@@ -157,8 +157,9 @@
 #file-options {
     position: static;
     z-index: $zindex-file-options;
-    background-color: $header-color;
+    background-color: var(--color-bg-header);
     padding: 0 8px 8px 8px;
+    @include theme-transition;
 
     display: flex;
     flex-direction: row;

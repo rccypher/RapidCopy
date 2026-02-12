@@ -7,6 +7,7 @@ import {ServerCommandService} from "../../services/server/server-command.service
 import {LoggerService} from "../../services/utils/logger.service";
 import {ConnectedService} from "../../services/utils/connected.service";
 import {StreamServiceRegistry} from "../../services/base/stream-service.registry";
+import {ThemeService, Theme} from "../../services/utils/theme.service";
 
 @Component({
     selector: "app-sidebar",
@@ -18,13 +19,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
     routeInfos = ROUTE_INFOS;
 
     public commandsEnabled: boolean;
+    public currentTheme: Theme = 'light';
 
     private _connectedService: ConnectedService;
     private destroy$ = new Subject<void>();
 
     constructor(private _logger: LoggerService,
                 _streamServiceRegistry: StreamServiceRegistry,
-                private _commandService: ServerCommandService) {
+                private _commandService: ServerCommandService,
+                private _themeService: ThemeService) {
         this._connectedService = _streamServiceRegistry.connectedService;
         this.commandsEnabled = false;
     }
@@ -36,6 +39,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (connected: boolean) => {
                     this.commandsEnabled = connected;
+                }
+            });
+
+        this._themeService.theme$
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+                next: (theme: Theme) => {
+                    this.currentTheme = theme;
                 }
             });
     }
@@ -55,5 +66,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 }
             }
         });
+    }
+
+    onToggleTheme() {
+        this._themeService.toggleTheme();
+    }
+
+    get isDarkMode(): boolean {
+        return this.currentTheme === 'dark';
     }
 }

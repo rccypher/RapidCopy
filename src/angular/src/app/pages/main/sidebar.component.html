@@ -15,4 +15,13 @@
         <img src="assets/icons/refresh.svg" />
         <span class="text">Restart</span>
     </a>
+
+    <hr>
+
+    <a class="button theme-toggle"
+       (click)="onToggleTheme()">
+        <img *ngIf="isDarkMode" src="assets/icons/sun.svg" />
+        <img *ngIf="!isDarkMode" src="assets/icons/moon.svg" />
+        <span class="text">{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
+    </a>
 </div>

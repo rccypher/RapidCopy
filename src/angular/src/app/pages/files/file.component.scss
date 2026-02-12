@@ -6,7 +6,7 @@
 
 /* selected file */
 .file.selected {
-    background-color: $secondary-color;
+    background-color: var(--color-accent-secondary);
 }
 
 /* content */
@@ -61,19 +61,20 @@
             flex-wrap: wrap;
             gap: 6px;
 
-            .path-pair-badge {
-                display: inline-block;
-                font-size: 10px;
-                font-weight: 500;
-                padding: 2px 6px;
-                border-radius: 3px;
-                background-color: #4a5568;
-                color: #e2e8f0;
-                white-space: nowrap;
-                max-width: 120px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
+                .path-pair-badge {
+                    display: inline-block;
+                    font-size: 10px;
+                    font-weight: 500;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    background-color: var(--color-bg-tertiary);
+                    color: var(--color-text-secondary);
+                    border: 1px solid var(--color-border);
+                    white-space: nowrap;
+                    max-width: 120px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
         }
 
         .details {
@@ -81,7 +82,7 @@
             flex-direction: column;
 
             .details-text {
-                color: darkgray;
+                color: var(--color-text-muted);
                 font-size: 80%;
                 line-height: 120%;
 
@@ -192,8 +193,8 @@
 
     .loader {
         display: none;
-        border: 5px solid white;
-        border-top: 5px solid $secondary-dark-color;
+        border: 5px solid var(--color-text-inverse);
+        border-top: 5px solid var(--color-accent-secondary-dark);
         border-radius: 50%;
         width: 25px;
         height: 25px;
@@ -208,8 +209,8 @@
     // Show loader icon when loading
     &.loading {
         opacity: 1.0;
-        background-color: $secondary-dark-color;
-        border-color: $secondary-darker-color;
+        background-color: var(--color-accent-secondary-dark);
+        border-color: var(--color-accent-secondary-darker);
 
         img {
             display: none;
@@ -233,7 +234,7 @@
 @media only screen and (min-width: $medium-min-width) {
     /* enable row hover */
     .file:not(.selected):hover {
-        background-color: $secondary-light-color;
+        background-color: var(--color-accent-secondary-light);
     }
 
     /* width */

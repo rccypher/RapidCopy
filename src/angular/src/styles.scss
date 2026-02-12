@@ -11,6 +11,9 @@ html, body {
     font-size: 15px;
     line-height: 1.5;
     margin: 0;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 /* show the input search cancel button */

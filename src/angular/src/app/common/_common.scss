@@ -1,3 +1,138 @@
+// ===========================================
+// CSS Custom Properties for Theming
+// ===========================================
+
+:root {
+    // Light theme (default)
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #F6F6F6;
+    --color-bg-tertiary: #f0f0f0;
+    --color-bg-sidebar: #D7E7F4;
+    --color-bg-header: #DDDDDD;
+    --color-bg-header-dark: #D3D3D3;
+    --color-bg-input: #ffffff;
+    --color-bg-card: #ffffff;
+    --color-bg-hover: rgba(0, 0, 0, 0.05);
+
+    --color-text-primary: #333333;
+    --color-text-secondary: #555555;
+    --color-text-muted: #888888;
+    --color-text-inverse: #ffffff;
+
+    --color-accent-primary: #337BB7;
+    --color-accent-primary-dark: #2e6da4;
+    --color-accent-primary-light: #D7E7F4;
+    --color-accent-secondary: #79DFB6;
+    --color-accent-secondary-light: #C5F0DE;
+    --color-accent-secondary-dark: #32AD7B;
+    --color-accent-secondary-darker: #077F4F;
+
+    --color-border: #dddddd;
+    --color-border-dark: #cccccc;
+
+    --color-success: #5cb85c;
+    --color-success-dark: #449d44;
+    --color-warning: #f0ad4e;
+    --color-warning-dark: #ec971f;
+    --color-danger: #d9534f;
+    --color-danger-dark: #c9302c;
+    --color-info: #5bc0de;
+    --color-info-dark: #31b0d5;
+
+    --color-logo: #118247;
+
+    --color-progress-bg: #e0e0e0;
+    --color-progress-bar: #337BB7;
+
+    --color-status-downloading: #337BB7;
+    --color-status-queued: #5bc0de;
+    --color-status-downloaded: #5cb85c;
+    --color-status-stopped: #f0ad4e;
+    --color-status-error: #d9534f;
+    --color-status-extracting: #9b59b6;
+    --color-status-validating: #3498db;
+    --color-status-validated: #27ae60;
+    --color-status-corrupt: #e74c3c;
+
+    --color-log-debug: #777777;
+    --color-log-info: #337BB7;
+    --color-log-warning: #f0ad4e;
+    --color-log-error: #d9534f;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.15);
+
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+}
+
+[data-theme="dark"] {
+    // Dark theme
+    --color-bg-primary: #1a1a2e;
+    --color-bg-secondary: #16213e;
+    --color-bg-tertiary: #1f2940;
+    --color-bg-sidebar: #0f3460;
+    --color-bg-header: #252545;
+    --color-bg-header-dark: #1e1e3a;
+    --color-bg-input: #2a2a4a;
+    --color-bg-card: #1e1e3a;
+    --color-bg-hover: rgba(255, 255, 255, 0.05);
+
+    --color-text-primary: #e8e8e8;
+    --color-text-secondary: #b0b0b0;
+    --color-text-muted: #808080;
+    --color-text-inverse: #1a1a2e;
+
+    --color-accent-primary: #5a9fd4;
+    --color-accent-primary-dark: #4a8fc4;
+    --color-accent-primary-light: #1e3a5f;
+    --color-accent-secondary: #5fd4a1;
+    --color-accent-secondary-light: #2a5a4a;
+    --color-accent-secondary-dark: #4ec490;
+    --color-accent-secondary-darker: #3eb480;
+
+    --color-border: #3a3a5a;
+    --color-border-dark: #4a4a6a;
+
+    --color-success: #2ecc71;
+    --color-success-dark: #27ae60;
+    --color-warning: #f39c12;
+    --color-warning-dark: #d68910;
+    --color-danger: #e74c3c;
+    --color-danger-dark: #c0392b;
+    --color-info: #3498db;
+    --color-info-dark: #2980b9;
+
+    --color-logo: #5fd4a1;
+
+    --color-progress-bg: #3a3a5a;
+    --color-progress-bar: #5a9fd4;
+
+    --color-status-downloading: #5a9fd4;
+    --color-status-queued: #3498db;
+    --color-status-downloaded: #2ecc71;
+    --color-status-stopped: #f39c12;
+    --color-status-error: #e74c3c;
+    --color-status-extracting: #9b59b6;
+    --color-status-validating: #3498db;
+    --color-status-validated: #2ecc71;
+    --color-status-corrupt: #e74c3c;
+
+    --color-log-debug: #808080;
+    --color-log-info: #5a9fd4;
+    --color-log-warning: #f39c12;
+    --color-log-error: #e74c3c;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.35);
+}
+
+// ===========================================
+// SCSS Variables (for backwards compatibility)
+// ===========================================
+
 $primary-color: #337BB7;
 $primary-dark-color: #2e6da4;
 $primary-light-color: #D7E7F4;
@@ -14,22 +149,38 @@ $header-dark-color: #D3D3D3;
 $logo-color: #118247;
 $logo-font: 'Arial Black', Gadget, sans-serif;
 
+// ===========================================
+// Breakpoints
+// ===========================================
+
 $small-max-width: 600px;
 $medium-min-width: 601px;
 $medium-max-width: 992px;
 $large-min-width: 993px;
 
+// ===========================================
+// Layout
+// ===========================================
+
 $sidebar-width: 170px;
+
+// ===========================================
+// Z-indexes
+// ===========================================
 
 $zindex-sidebar: 300;
 $zindex-top-header: 200;
 $zindex-file-options: 201;
 $zindex-file-search: 100;
 
+// ===========================================
+// Mixins and Placeholders
+// ===========================================
+
 %button {
-    background-color: $primary-color;
-    color: white;
-    border: 1px solid $primary-dark-color;
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-inverse);
+    border: 1px solid var(--color-accent-primary-dark);
     border-radius: 4px;
     display: flex;
     flex-direction: column;
@@ -37,18 +188,27 @@ $zindex-file-search: 100;
     justify-content: center;
     cursor: default;
     user-select: none;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
 
     &:active {
-        background-color: #286090;
+        background-color: var(--color-accent-primary-dark);
     }
 
     &[disabled] {
         opacity: .65;
-        background-color: $primary-color;
+        background-color: var(--color-accent-primary);
     }
 
     &.selected {
-        background-color: $secondary-color;
-        border-color: $secondary-darker-color;
+        background-color: var(--color-accent-secondary);
+        border-color: var(--color-accent-secondary-darker);
     }
+}
+
+// Theme transition mixin
+@mixin theme-transition {
+    transition: background-color var(--transition-normal),
+                color var(--transition-normal),
+                border-color var(--transition-normal),
+                box-shadow var(--transition-normal);
 }
