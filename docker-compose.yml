@@ -1,0 +1,14 @@
+services:
+  rapidcopy:
+    build: .
+    image: rapidcopy:latest
+    container_name: rapidcopy
+    restart: unless-stopped
+    ports:
+      - "8800:8800"
+    volumes:
+      - ./config:/config
+      - ./downloads:/downloads
+      # Uncomment to use custom paths:
+      # - /path/to/your/config:/config
+      # - /path/to/your/downloads:/downloads
