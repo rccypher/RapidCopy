@@ -1,0 +1,171 @@
+# RapidCopy QA Test Environment
+# 
+# This compose file sets up a complete QA environment for testing ALL features:
+# - RapidCopy backend + frontend
+# - Mock remote SSH server (simulates seedbox)
+# - NFS server for network mount testing
+# - SMB/CIFS server for Windows share testing
+#
+# Usage:
+#   docker-compose -f docker-compose.qa.yml up --build
+#
+# Access:
+#   - RapidCopy UI: http://localhost:8800
+#   - Remote SSH: localhost:1234 (user: remoteuser, pass: remotepass)
+#
+# Pre-configured settings will be applied automatically.
+
+services:
+  # ============================================================================
+  # RapidCopy Application (Backend + Frontend)
+  # ============================================================================
+  rapidcopy:
+    build: .
+    image: rapidcopy:qa
+    container_name: rapidcopy-qa
+    restart: unless-stopped
+    ports:
+      - "8800:8800"
+    # Required for network mount support (NFS/SMB/CIFS)
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    privileged: true  # Required for mount operations
+    volumes:
+      - rapidcopy-config:/config
+      - rapidcopy-downloads:/downloads
+      - rapidcopy-mounts:/mounts:shared
+    depends_on:
+      remote:
+        condition: service_started
+      configure:
+        condition: service_completed_successfully
+    environment:
+      - UPDATE_TOKEN=qa-test-token-12345
+      - UPDATE_SERVER_URL=http://host.docker.internal:8801
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - rapidcopy-qa
+
+  # ============================================================================
+  # Mock Remote SSH Server (Simulates Seedbox/Remote Server)
+  # ============================================================================
+  # Provides test files for download testing
+  # SSH credentials: remoteuser / remotepass
+  # Remote path: /home/remoteuser/files
+  remote:
+    build:
+      context: .
+      dockerfile: src/docker/test/e2e/remote/Dockerfile
+    image: rapidcopy-qa/remote
+    container_name: rapidcopy-qa-remote
+    ports:
+      - "1234:1234"
+    networks:
+      - rapidcopy-qa
+
+  # ============================================================================
+  # Configuration Service
+  # ============================================================================
+  # Automatically configures RapidCopy to connect to the remote server
+  configure:
+    build:
+      context: .
+      dockerfile: src/docker/test/e2e/configure/Dockerfile
+    image: rapidcopy-qa/configure
+    container_name: rapidcopy-qa-configure
+    depends_on:
+      - remote
+    volumes:
+      - rapidcopy-config:/config
+    environment:
+      - REMOTE_ADDRESS=remote
+      - REMOTE_PORT=1234
+      - REMOTE_USER=remoteuser
+      - REMOTE_PASS=remotepass
+      - REMOTE_PATH=/home/remoteuser/files
+      - LOCAL_PATH=/downloads
+    networks:
+      - rapidcopy-qa
+
+  # ============================================================================
+  # NFS Server (for Network Mount Testing)
+  # ============================================================================
+  # Exports /data as an NFS share
+  # Mount from RapidCopy: nfs-server:/data
+  nfs-server:
+    image: itsthenetwork/nfs-server-alpine:12
+    container_name: rapidcopy-qa-nfs
+    privileged: true
+    environment:
+      - SHARED_DIRECTORY=/data
+      - SYNC=true
+    volumes:
+      - nfs-data:/data
+    ports:
+      - "2049:2049"
+    networks:
+      - rapidcopy-qa
+
+  # ============================================================================
+  # SMB/CIFS Server (for Windows Share Testing)
+  # ============================================================================
+  # Share name: public (guest access)
+  # Share name: private (user: smbuser, pass: smbpass)
+  smb-server:
+    image: dperson/samba:latest
+    container_name: rapidcopy-qa-smb
+    environment:
+      - USER=smbuser;smbpass
+      - SHARE=public;/share/public;yes;no;yes;all
+      - SHARE2=private;/share/private;yes;no;no;smbuser
+    volumes:
+      - smb-public:/share/public
+      - smb-private:/share/private
+    ports:
+      - "445:445"
+      - "139:139"
+    networks:
+      - rapidcopy-qa
+
+  # ============================================================================
+  # Playwright Test Runner (Optional - for automated E2E tests)
+  # ============================================================================
+  # Run with: docker-compose -f docker-compose.qa.yml run playwright
+  playwright:
+    build:
+      context: ./src/e2e-playwright
+      dockerfile: Dockerfile.qa
+    image: rapidcopy-qa/playwright
+    container_name: rapidcopy-qa-playwright
+    profiles:
+      - testing  # Only starts when explicitly requested
+    depends_on:
+      - rapidcopy
+    environment:
+      - RAPIDCOPY_URL=http://rapidcopy:8800
+    volumes:
+      - ./src/e2e-playwright/test-results:/app/test-results
+      - ./src/e2e-playwright/playwright-report:/app/playwright-report
+    networks:
+      - rapidcopy-qa
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  rapidcopy-qa:
+    driver: bridge
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  rapidcopy-config:
+  rapidcopy-downloads:
+  rapidcopy-mounts:
+  nfs-data:
+  smb-public:
+  smb-private:
