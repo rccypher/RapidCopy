@@ -135,12 +135,16 @@ class RemoteScanner(IScanner):
 
     def _parse_scan_output(self, out: bytes) -> List[SystemFile]:
         """
-        Parse JSON scan output and convert to SystemFile objects.
+        Parse scan output and convert to SystemFile objects.
 
-        SECURITY: This method uses JSON instead of pickle to prevent Remote Code
+        Supports both JSON (preferred) and pickle (legacy) formats for backward
+        compatibility with older scanfs binaries.
+
+        SECURITY NOTE: JSON is preferred over pickle to prevent Remote Code
         Execution (RCE) attacks. Pickle can deserialize arbitrary Python objects,
         which could allow an attacker who controls the remote server to execute
-        arbitrary code on the local machine.
+        arbitrary code on the local machine. The pickle fallback is provided only
+        for backward compatibility with existing scanfs binaries.
 
         Expected JSON format:
         [
@@ -156,8 +160,29 @@ class RemoteScanner(IScanner):
         ]
         """
         from datetime import datetime
+        import pickle
 
-        data = json.loads(out.decode("utf-8"))
+        # Try JSON first (preferred format)
+        try:
+            data = json.loads(out.decode("utf-8"))
+            return self._parse_json_files(data)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            pass
+
+        # Fall back to pickle for legacy scanfs binaries
+        # SECURITY WARNING: pickle is unsafe with untrusted data
+        self.logger.warning("Using legacy pickle format for scan output - consider updating scanfs binary")
+        try:
+            files = pickle.loads(out)
+            if isinstance(files, list) and all(isinstance(f, SystemFile) for f in files):
+                return files
+            raise ValueError("Invalid pickle data: expected list of SystemFile objects")
+        except (pickle.UnpicklingError, ValueError, AttributeError, ModuleNotFoundError) as e:
+            raise json.JSONDecodeError(f"Failed to parse scan output as JSON or pickle: {e}", "", 0) from e
+
+    def _parse_json_files(self, data: list) -> List[SystemFile]:
+        """Parse JSON file data into SystemFile objects."""
+        from datetime import datetime
 
         def _parse_file(file_dict: dict) -> SystemFile:
             """Recursively parse a file dictionary into a SystemFile object."""
