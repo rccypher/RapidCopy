@@ -10,11 +10,13 @@ import {Record} from "immutable";
  */
 interface IGeneral {
     debug: boolean;
+    verbose: boolean;
     // Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
     log_level: string;
 }
 const DefaultGeneral: IGeneral = {
     debug: null,
+    verbose: null,
     log_level: null
 };
 const GeneralRecord = Record(DefaultGeneral);
@@ -104,6 +106,34 @@ const DefaultAutoQueue: IAutoQueue = {
 };
 const AutoQueueRecord = Record(DefaultAutoQueue);
 
+/*
+ * VALIDATION
+ */
+interface IValidation {
+    enabled: boolean;
+    algorithm: string;
+    default_chunk_size: number;
+    min_chunk_size: number;
+    max_chunk_size: number;
+    validate_after_chunk: boolean;
+    validate_after_file: boolean;
+    max_retries: number;
+    retry_delay_ms: number;
+    enable_adaptive_sizing: boolean;
+}
+const DefaultValidation: IValidation = {
+    enabled: null,
+    algorithm: null,
+    default_chunk_size: null,
+    min_chunk_size: null,
+    max_chunk_size: null,
+    validate_after_chunk: null,
+    validate_after_file: null,
+    max_retries: null,
+    retry_delay_ms: null,
+    enable_adaptive_sizing: null,
+};
+const ValidationRecord = Record(DefaultValidation);
 
 
 /*
@@ -115,7 +145,7 @@ export interface IConfig {
     controller: IController;
     web: IWeb;
     autoqueue: IAutoQueue;
-
+    validation: IValidation;
 }
 const DefaultConfig: IConfig = {
     general: null,
@@ -123,6 +153,7 @@ const DefaultConfig: IConfig = {
     controller: null,
     web: null,
     autoqueue: null,
+    validation: null,
 };
 const ConfigRecord = Record(DefaultConfig);
 
@@ -135,7 +166,8 @@ export class Config extends ConfigRecord implements IConfig {
             lftp: LftpRecord(props.lftp),
             controller: ControllerRecord(props.controller),
             web: WebRecord(props.web),
-            autoqueue: AutoQueueRecord(props.autoqueue)
+            autoqueue: AutoQueueRecord(props.autoqueue),
+            validation: ValidationRecord(props.validation)
         });
     }
 
@@ -145,4 +177,5 @@ export class Config extends ConfigRecord implements IConfig {
     get controller(): IController { return this.get("controller"); }
     get web(): IWeb { return this.get("web"); }
     get autoqueue(): IAutoQueue { return this.get("autoqueue"); }
+    get validation(): IValidation { return this.get("validation"); }
 }
