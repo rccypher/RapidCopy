@@ -22,6 +22,9 @@ from .persist import Persist, PersistError
 # Docker container expected base directory for downloads
 DOCKER_DOWNLOADS_BASE = "/downloads"
 
+# Docker container expected base directory for network mounts
+DOCKER_MOUNTS_BASE = "/mounts"
+
 
 class PathPairError(AppError):
     """Exception indicating a path pair error"""
@@ -96,21 +99,27 @@ class PathPair:
 
         warnings: List[str] = []
 
-        # Docker-specific validation: warn if local_path is not under /downloads
+        # Docker-specific validation: warn if local_path is not under /downloads or /mounts
         if is_running_in_docker():
             local_path_normalized = os.path.normpath(self.local_path)
             downloads_base = os.path.normpath(DOCKER_DOWNLOADS_BASE)
+            mounts_base = os.path.normpath(DOCKER_MOUNTS_BASE)
 
-            # Check if local_path is a subdirectory of /downloads
-            if not (
-                local_path_normalized == downloads_base or local_path_normalized.startswith(downloads_base + os.sep)
-            ):
+            # Check if local_path is a subdirectory of /downloads or /mounts
+            is_under_downloads = local_path_normalized == downloads_base or local_path_normalized.startswith(
+                downloads_base + os.sep
+            )
+            is_under_mounts = local_path_normalized == mounts_base or local_path_normalized.startswith(
+                mounts_base + os.sep
+            )
+
+            if not is_under_downloads and not is_under_mounts:
                 warnings.append(
                     f"Path pair '{self.name}': Local path '{self.local_path}' is not under "
-                    f"'{DOCKER_DOWNLOADS_BASE}'. In Docker, all local paths should be "
-                    f"subdirectories of '{DOCKER_DOWNLOADS_BASE}' (e.g., "
-                    f"'{DOCKER_DOWNLOADS_BASE}/movies'). Mount additional volumes or use "
-                    f"subdirectories under '{DOCKER_DOWNLOADS_BASE}'."
+                    f"'{DOCKER_DOWNLOADS_BASE}' or '{DOCKER_MOUNTS_BASE}'. In Docker, all local paths should be "
+                    f"subdirectories of '{DOCKER_DOWNLOADS_BASE}' for local storage or "
+                    f"'{DOCKER_MOUNTS_BASE}' for network mounts (e.g., "
+                    f"'{DOCKER_DOWNLOADS_BASE}/movies' or '{DOCKER_MOUNTS_BASE}/nas/media')."
                 )
 
         return warnings
