@@ -151,6 +151,35 @@ run-tests-angular: tests-angular
 		-f ${SOURCEDIR}/docker/test/angular/compose.yml \
 		up --force-recreate --exit-code-from tests
 
+# ============================================================================
+# Playwright E2E Tests (new)
+# ============================================================================
+
+tests-e2e-playwright:
+	cd ${SOURCEDIR}/e2e-playwright && npm install
+	cd ${SOURCEDIR}/e2e-playwright && npx playwright install chromium
+
+run-tests-e2e-playwright: tests-e2e-playwright
+	@echo "${green}Running Playwright E2E tests (headless)${reset}"
+	cd ${SOURCEDIR}/e2e-playwright && npx playwright test
+
+run-tests-e2e-playwright-headed: tests-e2e-playwright
+	@echo "${green}Running Playwright E2E tests (headed)${reset}"
+	cd ${SOURCEDIR}/e2e-playwright && npx playwright test --headed
+
+run-tests-e2e-playwright-dev: tests-e2e-playwright
+	@echo "${green}Running Playwright E2E tests against dev server (port 4200)${reset}"
+	cd ${SOURCEDIR}/e2e-playwright && RAPIDCOPY_URL=http://localhost:4200 npx playwright test
+
+run-tests-e2e-playwright-report: tests-e2e-playwright
+	@echo "${green}Running Playwright E2E tests with HTML report${reset}"
+	cd ${SOURCEDIR}/e2e-playwright && npx playwright test --reporter=html
+	cd ${SOURCEDIR}/e2e-playwright && npx playwright show-report
+
+# ============================================================================
+# Legacy Protractor E2E Tests (deprecated - use Playwright instead)
+# ============================================================================
+
 tests-e2e-deps:
 	# deb pre-reqs
 	$(DOCKER) build \

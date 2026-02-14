@@ -1,3 +1,22 @@
+# DEPRECATED - Protractor E2E Tests
+
+> **WARNING: This E2E test suite is deprecated.**
+>
+> Protractor is no longer maintained. Please use the new Playwright E2E tests instead:
+>
+> ```bash
+> cd src/e2e-playwright
+> npm install
+> npx playwright install chromium
+> npx playwright test
+> ```
+>
+> See `src/e2e-playwright/` for the new test suite.
+
+---
+
+### Legacy Instructions (for reference only)
+
 ### To run e2e tests in dev mode:
 
 1. Install dependencies
