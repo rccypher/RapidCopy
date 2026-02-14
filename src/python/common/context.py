@@ -9,6 +9,7 @@ from typing import Optional
 from .config import Config
 from .status import Status
 from .path_pair import PathPairManager
+from .network_mount import NetworkMountManager
 
 
 class Args:
@@ -46,6 +47,7 @@ class Context:
         args: Args,
         status: Status,
         path_pair_manager: Optional[PathPairManager] = None,
+        network_mount_manager: Optional[NetworkMountManager] = None,
     ):
         """
         Primary constructor to construct the top-level context
@@ -57,6 +59,7 @@ class Context:
         self.args = args
         self.status = status
         self.path_pair_manager = path_pair_manager
+        self.network_mount_manager = network_mount_manager
 
     def create_child_context(self, context_name: str) -> "Context":
         child_context = copy.copy(self)
@@ -83,5 +86,15 @@ class Context:
                 self.logger.debug(
                     "  [{}] {} -> {} (enabled={}, auto_queue={})".format(
                         pair.id[:8], pair.remote_path, pair.local_path, pair.enabled, pair.auto_queue
+                    )
+                )
+
+        # Print network mounts
+        if self.network_mount_manager:
+            self.logger.debug("Network Mounts:")
+            for mount in self.network_mount_manager.get_all_mounts():
+                self.logger.debug(
+                    "  [{}] {} ({}) -> {} (enabled={})".format(
+                        mount.id, mount.name, mount.mount_type, mount.mount_point, mount.enabled
                     )
                 )

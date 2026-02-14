@@ -1,6 +1,6 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
-from common import Context, PathPairManager
+from common import Context, PathPairManager, NetworkMountManager
 from controller import Controller, AutoQueuePersist
 from .web_app import WebApp
 from .handler.stream_model import ModelStreamHandler
@@ -13,6 +13,8 @@ from .handler.stream_log import LogStreamHandler
 from .handler.status import StatusHandler
 from .handler.path_pairs import PathPairsHandler
 from .handler.validation import ValidationHandler
+from .handler.update import UpdateHandler
+from .handler.mounts import MountsHandler
 
 
 class WebAppBuilder:
@@ -30,10 +32,15 @@ class WebAppBuilder:
         self.auto_queue_handler = AutoQueueHandler(auto_queue_persist)
         self.status_handler = StatusHandler(context.status)
         self.validation_handler = ValidationHandler(controller)
+        self.update_handler = UpdateHandler(context.logger)
         # Path pairs handler for multi-path support
         self.path_pairs_handler = None
         if context.path_pair_manager:
             self.path_pairs_handler = PathPairsHandler(context.path_pair_manager)
+        # Network mounts handler for NFS/CIFS support
+        self.mounts_handler = None
+        if context.network_mount_manager:
+            self.mounts_handler = MountsHandler(context.network_mount_manager, context.logger)
 
     def build(self) -> WebApp:
         web_app = WebApp(context=self.__context, controller=self.__controller)
@@ -50,10 +57,15 @@ class WebAppBuilder:
         self.auto_queue_handler.add_routes(web_app)
         self.status_handler.add_routes(web_app)
         self.validation_handler.add_routes(web_app)
+        self.update_handler.add_routes(web_app)
 
         # Add path pairs routes if available
         if self.path_pairs_handler:
             self.path_pairs_handler.add_routes(web_app)
+
+        # Add network mounts routes if available
+        if self.mounts_handler:
+            self.mounts_handler.add_routes(web_app)
 
         web_app.add_default_routes()
 

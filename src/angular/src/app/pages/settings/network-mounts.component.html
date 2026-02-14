@@ -1,0 +1,215 @@
+<div class="network-mounts-container">
+    <div class="header">
+        <h4>Network Mounts</h4>
+        <p class="description">Configure NFS or SMB/CIFS network shares to mount in the container.</p>
+        <button class="btn btn-primary btn-sm add-btn" 
+                (click)="startCreate()" 
+                [disabled]="isCreating || isEditing">
+            <span>+ Add Network Mount</span>
+        </button>
+    </div>
+
+    <!-- Create/Edit Form -->
+    <div class="form-card" *ngIf="isCreating || isEditing">
+        <h5>{{ isCreating ? 'New Network Mount' : 'Edit Network Mount' }}</h5>
+        
+        <div class="form-group">
+            <label for="name">Name <span class="required">*</span></label>
+            <input type="text" 
+                   id="name" 
+                   class="form-control" 
+                   [(ngModel)]="formName" 
+                   placeholder="e.g., NAS Media">
+            <small class="form-text text-muted">A friendly name for this mount</small>
+        </div>
+
+        <div class="form-group">
+            <label for="mountType">Mount Type <span class="required">*</span></label>
+            <select id="mountType" 
+                    class="form-control" 
+                    [(ngModel)]="formMountType">
+                <option value="cifs">SMB/CIFS (Windows shares)</option>
+                <option value="nfs">NFS (Linux/Unix shares)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="server">Server <span class="required">*</span></label>
+            <input type="text" 
+                   id="server" 
+                   class="form-control" 
+                   [(ngModel)]="formServer" 
+                   placeholder="e.g., 192.168.1.100 or nas.local">
+        </div>
+
+        <div class="form-group">
+            <label for="sharePath">Share Path <span class="required">*</span></label>
+            <input type="text" 
+                   id="sharePath" 
+                   class="form-control" 
+                   [(ngModel)]="formSharePath" 
+                   [placeholder]="formMountType === 'cifs' ? 'e.g., Media or /volume1/Media' : 'e.g., /export/media'">
+            <small class="form-text text-muted" *ngIf="formMountType === 'cifs'">
+                For SMB: share name (e.g., "Media") or full path
+            </small>
+            <small class="form-text text-muted" *ngIf="formMountType === 'nfs'">
+                For NFS: exported path on the server
+            </small>
+        </div>
+
+        <!-- CIFS-specific fields -->
+        <div *ngIf="formMountType === 'cifs'" class="cifs-fields">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" 
+                       id="username" 
+                       class="form-control" 
+                       [(ngModel)]="formUsername" 
+                       placeholder="Leave empty for guest access">
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" 
+                       id="password" 
+                       class="form-control" 
+                       [(ngModel)]="formPassword" 
+                       [placeholder]="isEditing ? 'Leave empty to keep current password' : 'Password for authentication'">
+                <small class="form-text text-muted" *ngIf="isEditing">
+                    Leave empty to keep the current password
+                </small>
+            </div>
+
+            <div class="form-group">
+                <label for="domain">Domain</label>
+                <input type="text" 
+                       id="domain" 
+                       class="form-control" 
+                       [(ngModel)]="formDomain" 
+                       placeholder="e.g., WORKGROUP (optional)">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="mountOptions">Mount Options</label>
+            <input type="text" 
+                   id="mountOptions" 
+                   class="form-control" 
+                   [(ngModel)]="formMountOptions" 
+                   [placeholder]="formMountType === 'cifs' ? 'e.g., vers=3.0,uid=1000,gid=1000' : 'e.g., vers=4,rw'">
+            <small class="form-text text-muted">
+                Additional mount options (comma-separated)
+            </small>
+        </div>
+
+        <div class="form-group form-check">
+            <input type="checkbox" 
+                   id="enabled" 
+                   class="form-check-input" 
+                   [(ngModel)]="formEnabled">
+            <label for="enabled" class="form-check-label">Enabled (auto-mount on startup)</label>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-secondary btn-sm" (click)="cancel()">Cancel</button>
+            <button class="btn btn-primary btn-sm" (click)="save()">Save</button>
+        </div>
+    </div>
+
+    <!-- Network Mounts List -->
+    <div class="mounts-list" *ngIf="mounts.length > 0; else emptyState">
+        <div class="mount-item" 
+             *ngFor="let mount of mounts"
+             [class.disabled]="!mount.enabled">
+            <div class="mount-info">
+                <div class="mount-header">
+                    <span class="mount-name">{{ mount.name }}</span>
+                    <span class="mount-type-badge">{{ getMountTypeLabel(mount.mount_type) }}</span>
+                    <span class="mount-status" [ngClass]="getStatusClass(mount.status)">
+                        {{ getStatusLabel(mount.status) }}
+                    </span>
+                    <span class="enabled-badge" *ngIf="!mount.enabled">Disabled</span>
+                </div>
+                <div class="mount-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Source:</span>
+                        <span class="detail-value">{{ mount.mount_source }}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Mount Point:</span>
+                        <span class="detail-value">{{ mount.mount_point }}</span>
+                    </div>
+                    <div class="detail-row" *ngIf="mount.username">
+                        <span class="detail-label">User:</span>
+                        <span class="detail-value">{{ mount.username }}{{ mount.domain ? '@' + mount.domain : '' }}</span>
+                    </div>
+                    <div class="detail-row error-message" *ngIf="mount.status === 'error' && mount.status_message">
+                        <span class="detail-label">Error:</span>
+                        <span class="detail-value">{{ mount.status_message }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mount-actions">
+                <!-- Mount/Unmount buttons -->
+                <div class="mount-controls" *ngIf="mount.enabled">
+                    <button class="btn btn-sm btn-success" 
+                            *ngIf="mount.status !== 'mounted'"
+                            (click)="mountShare(mount)"
+                            [disabled]="mountingId === mount.id || isCreating || isEditing">
+                        {{ mountingId === mount.id ? 'Mounting...' : 'Mount' }}
+                    </button>
+                    <button class="btn btn-sm btn-warning" 
+                            *ngIf="mount.status === 'mounted'"
+                            (click)="unmountShare(mount)"
+                            [disabled]="mountingId === mount.id || isCreating || isEditing">
+                        {{ mountingId === mount.id ? 'Unmounting...' : 'Unmount' }}
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" 
+                            *ngIf="mount.status === 'error'"
+                            (click)="forceUnmount(mount)"
+                            [disabled]="mountingId === mount.id || isCreating || isEditing"
+                            title="Force unmount">
+                        Force
+                    </button>
+                </div>
+                
+                <!-- Test connection -->
+                <button class="btn btn-sm btn-test"
+                        (click)="testConnection(mount)"
+                        [disabled]="testingId === mount.id || isCreating || isEditing">
+                    {{ testingId === mount.id ? 'Testing...' : 'Test' }}
+                </button>
+
+                <!-- Toggle enabled -->
+                <button class="btn btn-sm btn-toggle"
+                        (click)="toggleEnabled(mount)"
+                        [title]="mount.enabled ? 'Disable auto-mount' : 'Enable auto-mount'">
+                    {{ mount.enabled ? 'Disable' : 'Enable' }}
+                </button>
+
+                <!-- Edit -->
+                <button class="btn btn-sm btn-edit" 
+                        (click)="startEdit(mount)"
+                        [disabled]="isCreating || isEditing || mount.status === 'mounted'">
+                    Edit
+                </button>
+
+                <!-- Delete -->
+                <button class="btn btn-sm btn-danger" 
+                        (click)="delete(mount)"
+                        [disabled]="isCreating || isEditing || mount.status === 'mounted'">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <ng-template #emptyState>
+        <div class="empty-state" *ngIf="!isCreating">
+            <p>No network mounts configured yet.</p>
+            <p class="hint">Click "Add Network Mount" to configure NFS or SMB/CIFS shares.</p>
+            <p class="hint small">Network mounts allow you to download files directly to NAS or network storage.</p>
+        </div>
+    </ng-template>
+</div>

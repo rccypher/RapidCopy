@@ -9,4 +9,7 @@ src/python/site
 # Security - Never commit private keys
 id_rsa
 *.pem
-*.keyconfig/
+*.key
+
+# Local runtime config (user-specific)
+config/

@@ -15,8 +15,9 @@ import platform
 from common import ServiceExit, Context, Constants, Config, Args, AppError
 from common import ServiceRestart
 from common import Localization, Status, ConfigError, Persist, PersistError
-from common import PathPairManager
+from common import PathPairManager, NetworkMountManager
 from common.log_manager import LogManager
+from common.mount_utils import do_mount, MountResult
 from controller import Controller, ControllerJob, ControllerPersist, AutoQueue, AutoQueuePersist
 from web import WebAppJob, WebAppBuilder
 
@@ -101,6 +102,10 @@ class Rapidcopy:
             ):
                 logger.info("Migrated legacy path config to path pairs")
 
+        # Initialize NetworkMountManager for NFS/CIFS mount support
+        network_mount_manager = NetworkMountManager(args.config_dir)
+        network_mount_manager.load()
+
         # Create context
         self.context = Context(
             logger=logger,
@@ -109,6 +114,7 @@ class Rapidcopy:
             args=ctx_args,
             status=status,
             path_pair_manager=path_pair_manager,
+            network_mount_manager=network_mount_manager,
         )
 
         # Register the signal handlers
@@ -128,6 +134,9 @@ class Rapidcopy:
     def run(self):
         self.context.logger.info("Starting RapidCopy")
         self.context.logger.info("Platform: {}".format(platform.machine()))
+
+        # Auto-mount enabled network mounts on startup
+        self._auto_mount_network_shares()
 
         # Create controller
         controller = Controller(self.context, self.controller_persist)
@@ -232,6 +241,32 @@ class Rapidcopy:
         self.controller_persist.to_file(self.controller_persist_path)
         self.auto_queue_persist.to_file(self.auto_queue_persist_path)
         self.context.config.to_file(self.config_path)
+
+    def _auto_mount_network_shares(self):
+        """
+        Auto-mount enabled network shares on startup.
+        Logs warnings for any mounts that fail but continues startup.
+        """
+        if not self.context.network_mount_manager:
+            return
+
+        enabled_mounts = self.context.network_mount_manager.get_enabled_mounts()
+        if not enabled_mounts:
+            return
+
+        self.context.logger.info(f"Auto-mounting {len(enabled_mounts)} network share(s)...")
+
+        for mount in enabled_mounts:
+            try:
+                result = do_mount(mount, self.context.network_mount_manager.config_dir, self.context.logger)
+                if result.result == MountResult.SUCCESS:
+                    self.context.logger.info(f"Mounted: {mount.name} -> {mount.mount_point}")
+                elif result.result == MountResult.ALREADY_MOUNTED:
+                    self.context.logger.debug(f"Already mounted: {mount.name}")
+                else:
+                    self.context.logger.warning(f"Failed to mount {mount.name}: {result.message}")
+            except Exception as e:
+                self.context.logger.warning(f"Error mounting {mount.name}: {e}")
 
     def signal(self, signum: int, _):
         # noinspection PyUnresolvedReferences

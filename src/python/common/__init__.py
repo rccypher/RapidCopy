@@ -19,6 +19,15 @@ from .path_pair import (
     is_running_in_docker,
     DOCKER_DOWNLOADS_BASE,
 )
+from .network_mount import (
+    NetworkMount,
+    NetworkMountCollection,
+    NetworkMountManager,
+    NetworkMountError,
+    MountType,
+    MountStatus,
+    MOUNTS_BASE_DIR,
+)
 from .validation_models import (
     ChunkStatus,
     ChunkInfo,

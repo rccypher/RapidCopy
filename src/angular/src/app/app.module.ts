@@ -43,9 +43,12 @@ import {ViewFileSortService} from "./services/files/view-file-sort.service";
 import {DomService} from "./services/utils/dom.service";
 import {StorageServiceModule} from "ngx-webstorage-service";
 import {VersionCheckService} from "./services/utils/version-check.service";
+import {UpdateService} from "./services/utils/update.service";
 import {PathPairsComponent} from "./pages/settings/path-pairs.component";
 import {PathPairStatsComponent} from "./pages/files/path-pair-stats.component";
 import {PathPairService} from "./services/settings/path-pair.service";
+import {NetworkMountsComponent} from "./pages/settings/network-mounts.component";
+import {NetworkMountService} from "./services/settings/network-mount.service";
 
 @NgModule({
     declarations: [
@@ -73,7 +76,8 @@ import {PathPairService} from "./services/settings/path-pair.service";
         StorageServiceModule,
         FileSizePipe,
         PathPairsComponent,
-        PathPairStatsComponent
+        PathPairStatsComponent,
+        NetworkMountsComponent
     ],
     providers: [
         provideHttpClient(withInterceptorsFromDi()),
@@ -87,7 +91,9 @@ import {PathPairService} from "./services/settings/path-pair.service";
         ViewFileOptionsService,
         DomService,
         VersionCheckService,
+        UpdateService,
         PathPairService,
+        NetworkMountService,
 
         // Stream services
         StreamDispatchService,

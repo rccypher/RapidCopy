@@ -77,6 +77,10 @@ RUN if [ -f /etc/apt/sources.list ]; then \
         libnss-wrapper \
         libxml2-dev libxslt-dev libffi-dev \
         zlib1g-dev \
+        # Network mount support (NFS/SMB/CIFS)
+        nfs-common \
+        cifs-utils \
+        keyutils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -120,8 +124,10 @@ RUN groupadd -g 1000 rapidcopy && \
     useradd -r -u 1000 -g rapidcopy rapidcopy && \
     mkdir /config && \
     mkdir /downloads && \
+    mkdir /mounts && \
     chown rapidcopy:rapidcopy /config && \
-    chown rapidcopy:rapidcopy /downloads
+    chown rapidcopy:rapidcopy /downloads && \
+    chown rapidcopy:rapidcopy /mounts
 
 USER rapidcopy
 
