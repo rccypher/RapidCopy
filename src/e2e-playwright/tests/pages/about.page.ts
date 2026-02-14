@@ -13,7 +13,8 @@ export class AboutPage extends BasePage {
    * Navigate to the about page
    */
   async goto(): Promise<void> {
-    await this.page.goto('/about');
+    // Use domcontentloaded to avoid waiting for WebSocket to complete
+    await this.page.goto('/about', { waitUntil: 'domcontentloaded' });
     await this.waitForPageReady();
   }
 

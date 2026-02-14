@@ -13,7 +13,8 @@ export class AutoQueuePage extends BasePage {
    * Navigate to the autoqueue page
    */
   async goto(): Promise<void> {
-    await this.page.goto('/autoqueue');
+    // Use domcontentloaded to avoid waiting for WebSocket to complete
+    await this.page.goto('/autoqueue', { waitUntil: 'domcontentloaded' });
     await this.waitForPageReady();
   }
 

@@ -24,7 +24,8 @@ export class SettingsPage extends BasePage {
    * Navigate to the settings page
    */
   async goto(): Promise<void> {
-    await this.page.goto('/settings');
+    // Use domcontentloaded to avoid waiting for WebSocket to complete
+    await this.page.goto('/settings', { waitUntil: 'domcontentloaded' });
     await this.waitForPageReady();
   }
 

@@ -30,15 +30,32 @@ export class DashboardPage extends BasePage {
    * Navigate to the dashboard page
    */
   async goto(): Promise<void> {
-    await this.page.goto('/dashboard');
-    await this.waitForFileList();
+    // Use domcontentloaded to avoid waiting for WebSocket to complete
+    await this.page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await this.waitForDashboardReady();
   }
 
   /**
-   * Wait for the file list to be visible
+   * Wait for the dashboard to be ready (either files present or empty state)
+   */
+  async waitForDashboardReady(): Promise<void> {
+    // Wait for the file-list container to be present (regardless of content)
+    await this.page.locator('#file-list').waitFor({ state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Wait for files to appear in the list (use only when files are expected)
    */
   async waitForFileList(): Promise<void> {
-    await this.page.locator('#file-list .file').first().waitFor({ state: 'visible' });
+    await this.page.locator('#file-list .file').first().waitFor({ state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Check if there are any files in the list
+   */
+  async hasFiles(): Promise<boolean> {
+    const count = await this.page.locator('#file-list .file').count();
+    return count > 0;
   }
 
   /**

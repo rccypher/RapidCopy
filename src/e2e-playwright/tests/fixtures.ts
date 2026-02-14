@@ -93,10 +93,15 @@ export class BasePage {
 
   /**
    * Wait for the page to be ready (loading complete)
+   * Note: We use 'domcontentloaded' instead of 'networkidle' because
+   * RapidCopy maintains a persistent WebSocket connection that prevents
+   * networkidle from ever completing.
    */
   async waitForPageReady(): Promise<void> {
-    // Wait for any loading indicators to disappear
-    await this.page.waitForLoadState('networkidle');
+    // Wait for DOM content to load - networkidle doesn't work due to WebSocket
+    await this.page.waitForLoadState('domcontentloaded');
+    // Also wait for any Angular app to bootstrap by checking for app-root content
+    await this.page.locator('app-root').waitFor({ state: 'attached', timeout: 10000 });
   }
 }
 
@@ -105,7 +110,7 @@ export class BasePage {
  */
 export async function isBackendAvailable(page: Page): Promise<boolean> {
   try {
-    const response = await page.request.get('/server/status');
+    const response = await page.request.get('/server/status', { timeout: 5000 });
     return response.ok();
   } catch {
     return false;
@@ -122,10 +127,10 @@ export const test = base.extend<{
    * Fixture that checks if backend is available
    * Use this in tests to conditionally skip if backend is not running
    */
-  backendAvailable: async ({ page }, use) => {
+  backendAvailable: [async ({ page }, use) => {
     const available = await isBackendAvailable(page);
     await use(available);
-  },
+  }, { timeout: 10000 }],
 });
 
 export { expect };
