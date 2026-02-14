@@ -12,17 +12,42 @@ import json
 import os
 import uuid
 from dataclasses import dataclass, field, asdict
-from typing import Optional
+from typing import Optional, List, Tuple
 from pathlib import Path
 
 from .error import AppError
 from .persist import Persist, PersistError
 
 
+# Docker container expected base directory for downloads
+DOCKER_DOWNLOADS_BASE = "/downloads"
+
+
 class PathPairError(AppError):
     """Exception indicating a path pair error"""
 
     pass
+
+
+def is_running_in_docker() -> bool:
+    """
+    Detect if we're running inside a Docker container.
+
+    Returns:
+        True if running in Docker, False otherwise
+    """
+    # Check for /.dockerenv file (most reliable)
+    if os.path.exists("/.dockerenv"):
+        return True
+
+    # Check for docker in cgroup (fallback for some environments)
+    try:
+        with open("/proc/1/cgroup", "r") as f:
+            return "docker" in f.read()
+    except (FileNotFoundError, PermissionError):
+        pass
+
+    return False
 
 
 @dataclass
@@ -52,10 +77,15 @@ class PathPair:
             # Use the last directory component of remote_path as default name
             self.name = os.path.basename(self.remote_path.rstrip("/")) or "Default"
 
-    def validate(self) -> None:
+    def validate(self) -> List[str]:
         """
         Validate the path pair configuration.
-        Raises PathPairError if invalid.
+
+        Returns:
+            List of warning messages (empty if no warnings)
+
+        Raises:
+            PathPairError: If the path pair has invalid/missing required fields
         """
         if not self.remote_path or not self.remote_path.strip():
             raise PathPairError(f"Path pair '{self.name}': remote_path cannot be empty")
@@ -63,6 +93,27 @@ class PathPair:
             raise PathPairError(f"Path pair '{self.name}': local_path cannot be empty")
         if not self.id:
             raise PathPairError(f"Path pair '{self.name}': id cannot be empty")
+
+        warnings: List[str] = []
+
+        # Docker-specific validation: warn if local_path is not under /downloads
+        if is_running_in_docker():
+            local_path_normalized = os.path.normpath(self.local_path)
+            downloads_base = os.path.normpath(DOCKER_DOWNLOADS_BASE)
+
+            # Check if local_path is a subdirectory of /downloads
+            if not (
+                local_path_normalized == downloads_base or local_path_normalized.startswith(downloads_base + os.sep)
+            ):
+                warnings.append(
+                    f"Path pair '{self.name}': Local path '{self.local_path}' is not under "
+                    f"'{DOCKER_DOWNLOADS_BASE}'. In Docker, all local paths should be "
+                    f"subdirectories of '{DOCKER_DOWNLOADS_BASE}' (e.g., "
+                    f"'{DOCKER_DOWNLOADS_BASE}/movies'). Mount additional volumes or use "
+                    f"subdirectories under '{DOCKER_DOWNLOADS_BASE}'."
+                )
+
+        return warnings
 
 
 @dataclass
@@ -85,21 +136,38 @@ class PathPairCollection:
                 return pair
         return None
 
-    def add_pair(self, pair: PathPair) -> None:
-        """Add a new path pair."""
-        pair.validate()
+    def add_pair(self, pair: PathPair) -> List[str]:
+        """
+        Add a new path pair.
+
+        Returns:
+            List of warning messages from validation
+
+        Raises:
+            PathPairError: If validation fails or duplicate ID exists
+        """
+        warnings = pair.validate()
         # Check for duplicate IDs
         if self.get_pair_by_id(pair.id):
             raise PathPairError(f"Path pair with id '{pair.id}' already exists")
         self.path_pairs.append(pair)
+        return warnings
 
-    def update_pair(self, pair: PathPair) -> None:
-        """Update an existing path pair."""
-        pair.validate()
+    def update_pair(self, pair: PathPair) -> List[str]:
+        """
+        Update an existing path pair.
+
+        Returns:
+            List of warning messages from validation
+
+        Raises:
+            PathPairError: If validation fails or pair not found
+        """
+        warnings = pair.validate()
         for i, existing in enumerate(self.path_pairs):
             if existing.id == pair.id:
                 self.path_pairs[i] = pair
-                return
+                return warnings
         raise PathPairError(f"Path pair with id '{pair.id}' not found")
 
     def remove_pair(self, pair_id: str) -> None:

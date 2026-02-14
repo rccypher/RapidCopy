@@ -72,9 +72,9 @@ class PathPairsHandler(IHandler):
                 auto_queue=data.get("auto_queue", True),
             )
 
-            self._manager.add_pair(pair)
+            warnings = self._manager.add_pair(pair)
 
-            return json.dumps({"success": True, "data": asdict(pair)})
+            return json.dumps({"success": True, "data": asdict(pair), "warnings": warnings})
 
         except json.JSONDecodeError as e:
             bottle.response.status = 400
@@ -108,9 +108,9 @@ class PathPairsHandler(IHandler):
                 auto_queue=data.get("auto_queue", existing.auto_queue),
             )
 
-            self._manager.update_pair(pair)
+            warnings = self._manager.update_pair(pair)
 
-            return json.dumps({"success": True, "data": asdict(pair)})
+            return json.dumps({"success": True, "data": asdict(pair), "warnings": warnings})
 
         except json.JSONDecodeError as e:
             bottle.response.status = 400

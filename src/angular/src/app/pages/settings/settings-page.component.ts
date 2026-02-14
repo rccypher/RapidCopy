@@ -114,13 +114,52 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     }
 
     onCommandRestart() {
+        // Show immediate feedback that restart is being initiated
+        const restartingNotif = new Notification({
+            level: Notification.Level.INFO,
+            text: "Restarting server...",
+            dismissible: false
+        });
+        this._notifService.show(restartingNotif);
+
         this._commandService.restart().subscribe({
             next: reaction => {
+                // Hide the "restarting" notification
+                this._notifService.hide(restartingNotif);
+
                 if (reaction.success) {
                     this._logger.info(reaction.data);
+                    // Show success notification
+                    this._notifService.show(new Notification({
+                        level: Notification.Level.SUCCESS,
+                        text: "Server restart initiated successfully. The page will reconnect automatically.",
+                        dismissible: true
+                    }));
+                    // Hide the config restart notification since we just restarted
+                    this._notifService.hide(this._configRestartNotif);
                 } else {
                     this._logger.error(reaction.errorMessage);
+                    // Show error notification
+                    this._notifService.show(new Notification({
+                        level: Notification.Level.DANGER,
+                        text: `Restart failed: ${reaction.errorMessage}`,
+                        dismissible: true
+                    }));
                 }
+            },
+            error: (err) => {
+                // Hide the "restarting" notification
+                this._notifService.hide(restartingNotif);
+
+                // Connection error during restart is expected (server went down)
+                // Show informational message instead of error
+                this._notifService.show(new Notification({
+                    level: Notification.Level.INFO,
+                    text: "Server is restarting. The page will reconnect automatically when ready.",
+                    dismissible: true
+                }));
+                // Hide the config restart notification since we just restarted
+                this._notifService.hide(this._configRestartNotif);
             }
         });
     }

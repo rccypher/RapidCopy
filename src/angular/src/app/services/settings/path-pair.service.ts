@@ -19,6 +19,15 @@ export interface PathPairResponse {
     success: boolean;
     data?: PathPair | PathPair[];
     error?: string;
+    warnings?: string[];
+}
+
+/**
+ * Result of a create/update operation, including any validation warnings
+ */
+export interface PathPairResult {
+    pathPair: PathPair;
+    warnings: string[];
 }
 
 /**
@@ -79,12 +88,16 @@ export class PathPairService {
 
     /**
      * Create a new path pair
+     * Returns the created path pair along with any validation warnings
      */
-    create(pair: Omit<PathPair, "id">): Observable<PathPair> {
+    create(pair: Omit<PathPair, "id">): Observable<PathPairResult> {
         return this.http.post<PathPairResponse>(this.baseUrl, pair).pipe(
             map(response => {
                 if (response.success && response.data && !Array.isArray(response.data)) {
-                    return response.data;
+                    return {
+                        pathPair: response.data,
+                        warnings: response.warnings || []
+                    };
                 }
                 throw new Error(response.error || "Failed to create path pair");
             }),
@@ -94,12 +107,16 @@ export class PathPairService {
 
     /**
      * Update an existing path pair
+     * Returns the updated path pair along with any validation warnings
      */
-    update(pair: PathPair): Observable<PathPair> {
+    update(pair: PathPair): Observable<PathPairResult> {
         return this.http.put<PathPairResponse>(`${this.baseUrl}/${pair.id}`, pair).pipe(
             map(response => {
                 if (response.success && response.data && !Array.isArray(response.data)) {
-                    return response.data;
+                    return {
+                        pathPair: response.data,
+                        warnings: response.warnings || []
+                    };
                 }
                 throw new Error(response.error || "Failed to update path pair");
             }),

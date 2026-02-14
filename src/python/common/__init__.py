@@ -11,7 +11,14 @@ from .localization import Localization
 from .multiprocessing_logger import MultiprocessingLogger
 from .status import Status, IStatusListener, StatusComponent, IStatusComponentListener
 from .app_process import AppProcess, AppOneShotProcess
-from .path_pair import PathPair, PathPairCollection, PathPairManager, PathPairError
+from .path_pair import (
+    PathPair,
+    PathPairCollection,
+    PathPairManager,
+    PathPairError,
+    is_running_in_docker,
+    DOCKER_DOWNLOADS_BASE,
+)
 from .validation_models import (
     ChunkStatus,
     ChunkInfo,

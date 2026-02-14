@@ -4,7 +4,7 @@ import {FormsModule} from "@angular/forms";
 import {Subject} from "rxjs";
 import {takeUntil} from "rxjs/operators";
 
-import {PathPairService, PathPair} from "../../services/settings/path-pair.service";
+import {PathPairService, PathPair, PathPairResult} from "../../services/settings/path-pair.service";
 import {NotificationService} from "../../services/utils/notification.service";
 import {Notification} from "../../services/utils/notification";
 
@@ -91,8 +91,9 @@ export class PathPairsComponent implements OnInit, OnDestroy {
                 enabled: this.formEnabled,
                 auto_queue: this.formAutoQueue
             }).subscribe({
-                next: () => {
+                next: (result: PathPairResult) => {
                     this.showSuccess("Path pair created");
+                    this.showWarnings(result.warnings);
                     this.cancel();
                 },
                 error: (err) => this.showError(`Failed to create: ${err.message}`)
@@ -106,8 +107,9 @@ export class PathPairsComponent implements OnInit, OnDestroy {
                 enabled: this.formEnabled,
                 auto_queue: this.formAutoQueue
             }).subscribe({
-                next: () => {
+                next: (result: PathPairResult) => {
                     this.showSuccess("Path pair updated");
+                    this.showWarnings(result.warnings);
                     this.cancel();
                 },
                 error: (err) => this.showError(`Failed to update: ${err.message}`)
@@ -187,5 +189,15 @@ export class PathPairsComponent implements OnInit, OnDestroy {
             text: message,
             dismissible: true
         }));
+    }
+
+    private showWarnings(warnings: string[]): void {
+        for (const warning of warnings) {
+            this.notificationService.show(new Notification({
+                level: Notification.Level.WARNING,
+                text: warning,
+                dismissible: true
+            }));
+        }
     }
 }

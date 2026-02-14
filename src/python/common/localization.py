@@ -8,3 +8,4 @@ class Localization:
         REMOTE_SERVER_INSTALL = "An error occurred while installing scanner script to remote server: '{}'."
         LOCAL_SERVER_SCAN = "An error occurred while scanning the local system."
         SETTINGS_INCOMPLETE = "The settings are not fully configured."
+        SETTINGS_INCOMPLETE_FIELDS = "Please configure the following settings: {}"
