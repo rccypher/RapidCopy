@@ -5,14 +5,56 @@
             <span><b>Rapid</b>Copy</span>
         </div>
         <div id="version">v{{version}}</div>
-        <div id="copyright">Copyright © 2017-2020 Inderpreet Singh</div>
+        <div id="copyright">Copyright © 2017-2025 Inderpreet Singh, rccypher</div>
         <div id="github">
             Source available on
-            <a target="_blank" href="https://github.com/ipsingh06/rapidcopy">Github</a>
+            <a target="_blank" href="https://github.com/rccypher/RapidCopy">GitHub</a>
         </div>
         <div id="icons">
             Icons by Freepik, Yannick, Dave Gandy, Google and Smashicons from
             <a target="_blank" href="https://www.flaticon.com/">Flaticon</a>
+        </div>
+
+        <!-- Update Section -->
+        <div id="update-section" *ngIf="updateAvailable">
+            <hr class="update-divider" />
+            <div class="update-header">Software Update</div>
+            
+            <div class="update-status" *ngIf="updateStatus">
+                <span [class.status-idle]="updateStatus.status === 'idle'"
+                      [class.status-updating]="updateStatus.status === 'updating'"
+                      [class.status-success]="updateStatus.status === 'success'"
+                      [class.status-failed]="updateStatus.status === 'failed'">
+                    {{getStatusMessage()}}
+                </span>
+            </div>
+
+            <div class="update-error" *ngIf="updateError">
+                {{updateError}}
+            </div>
+
+            <button class="btn btn-primary update-btn"
+                    [disabled]="!canUpdate()"
+                    (click)="triggerUpdate()">
+                <span *ngIf="!isUpdating">Check for Updates & Install</span>
+                <span *ngIf="isUpdating">
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    Updating...
+                </span>
+            </button>
+
+            <div class="update-note">
+                This will pull the latest version from GitHub and rebuild the container.
+                RapidCopy will restart automatically.
+            </div>
+        </div>
+
+        <!-- Update Not Available -->
+        <div id="update-unavailable" *ngIf="!updateAvailable">
+            <hr class="update-divider" />
+            <div class="update-note">
+                Auto-update is not configured. See documentation for setup instructions.
+            </div>
         </div>
     </div>
 </div>

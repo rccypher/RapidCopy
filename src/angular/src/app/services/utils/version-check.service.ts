@@ -19,7 +19,7 @@ const { version: appVersion } = require("../../../../package.json");
 @Injectable()
 export class VersionCheckService {
     private readonly GITHUB_LATEST_RELEASE_URL =
-        "https://api.github.com/repos/ipsingh06/rapidcopy/releases/latest";
+        "https://api.github.com/repos/rccypher/RapidCopy/releases/latest";
 
     constructor(private _restService: RestService,
                 private _notifService: NotificationService,
