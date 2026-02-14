@@ -161,13 +161,14 @@ const ConfigRecord = Record(DefaultConfig);
 export class Config extends ConfigRecord implements IConfig {
     constructor(props) {
         // Create immutable members
+        // Use empty objects as fallback if sections are missing (backwards compatibility)
         super({
-            general: GeneralRecord(props.general),
-            lftp: LftpRecord(props.lftp),
-            controller: ControllerRecord(props.controller),
-            web: WebRecord(props.web),
-            autoqueue: AutoQueueRecord(props.autoqueue),
-            validation: ValidationRecord(props.validation)
+            general: GeneralRecord(props.general || {}),
+            lftp: LftpRecord(props.lftp || {}),
+            controller: ControllerRecord(props.controller || {}),
+            web: WebRecord(props.web || {}),
+            autoqueue: AutoQueueRecord(props.autoqueue || {}),
+            validation: ValidationRecord(props.validation || {})
         });
     }
 
@@ -178,4 +179,16 @@ export class Config extends ConfigRecord implements IConfig {
     get web(): IWeb { return this.get("web"); }
     get autoqueue(): IAutoQueue { return this.get("autoqueue"); }
     get validation(): IValidation { return this.get("validation"); }
+
+    /**
+     * Safely get a nested config value by section and option name.
+     * Returns null if section or option doesn't exist.
+     */
+    getValue(section: string, option: string): any {
+        const sectionRecord = this.get(section as any);
+        if (sectionRecord && typeof sectionRecord.get === 'function') {
+            return sectionRecord.get(option);
+        }
+        return null;
+    }
 }

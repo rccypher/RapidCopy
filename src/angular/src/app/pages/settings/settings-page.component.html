@@ -16,7 +16,7 @@
                         [type]="option.type"
                         [label]="option.label"
                         [description]="option.description"
-                        [value]="(config | async)?.get(option.valuePath[0]).get(option.valuePath[1])"
+                        [value]="(config | async)?.getValue(option.valuePath[0], option.valuePath[1])"
                         (changeEvent)="onSetConfig(option.valuePath[0], option.valuePath[1], $event)">
                     </app-option>
                 </div>
