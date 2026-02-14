@@ -44,21 +44,17 @@ class Rapidcopy:
         args = self._parse_args(sys.argv[1:])
 
         # Create/load config
-        config = None
+        config: Config
         self.config_path = os.path.join(args.config_dir, Rapidcopy.__FILE_CONFIG)
-        create_default_config = False
         if os.path.isfile(self.config_path):
             try:
                 config = Config.from_file(self.config_path)
             except (ConfigError, PersistError):
                 Rapidcopy.__backup_file(self.config_path)
-                # set config to default
-                create_default_config = True
+                # Create default config since loading failed
+                config = Rapidcopy._create_default_config()
+                config.to_file(self.config_path)
         else:
-            create_default_config = True
-
-        if create_default_config:
-            # Create default config
             config = Rapidcopy._create_default_config()
             config.to_file(self.config_path)
 

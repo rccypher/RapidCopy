@@ -196,7 +196,7 @@ class PathPairCollection:
         self.path_pairs = [id_to_pair[pid] for pid in pair_ids]
 
 
-class PathPairManager(Persist):
+class PathPairManager:
     """
     Manages persistence and operations for path pairs.
 
@@ -234,11 +234,10 @@ class PathPairManager(Persist):
         try:
             with open(self._file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            self._collection = self.from_str(content)
+            self._collection = PathPairManager.parse_collection(content)
+            return self._collection
         except (IOError, json.JSONDecodeError) as e:
             raise PersistError(f"Failed to load path pairs: {e}") from e
-
-        return self._collection
 
     def save(self) -> None:
         """Save the current path pairs to the JSON file."""
@@ -259,7 +258,7 @@ class PathPairManager(Persist):
     def collection(self) -> PathPairCollection:
         """Get the current collection, loading if necessary."""
         if self._collection is None:
-            self.load()
+            self._collection = self.load()
         return self._collection
 
     def get_all_pairs(self) -> list[PathPair]:
@@ -295,7 +294,7 @@ class PathPairManager(Persist):
         self.save()
 
     @classmethod
-    def from_str(cls, content: str) -> PathPairCollection:
+    def parse_collection(cls, content: str) -> "PathPairCollection":
         """
         Parse a JSON string into a PathPairCollection.
         """

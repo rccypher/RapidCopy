@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { AutoQueuePage } from './pages/autoqueue.page';
 
 test.describe('AutoQueue Page - UI Elements', () => {
@@ -22,15 +22,15 @@ test.describe('AutoQueue Page - UI Elements', () => {
 
 /**
  * AutoQueue tests that require backend connection
- * These tests are skipped by default - run with: npx playwright test --grep @backend
+ * Run with: npx playwright test --project=with-backend
  */
-test.describe('AutoQueue Page - Pattern Management', () => {
+test.describe('AutoQueue Page - Pattern Management @backend', () => {
   let autoqueue: AutoQueuePage;
 
-  // Skip all tests in this describe block - they require backend
-  test.skip(({ }, testInfo) => true, 'AutoQueue pattern tests require backend connection');
-
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, backendAvailable }) => {
+    // Skip if backend is not available (safety check)
+    test.skip(!backendAvailable, 'Backend is not available');
+    
     autoqueue = new AutoQueuePage(page);
     await autoqueue.goto();
   });

@@ -10,6 +10,7 @@ import copy
 # my libs
 from .scan import (
     ScannerProcess,
+    IScanner,
     ActiveScanner,
     LocalScanner,
     RemoteScanner,
@@ -47,6 +48,11 @@ class Controller:
     """
     Top-level class that controls the behaviour of the app
     """
+
+    # Scanner instance variables with proper typing for multi-path support
+    __active_scanner: IScanner
+    __local_scanner: IScanner
+    __remote_scanner: IScanner
 
     class Command:
         """

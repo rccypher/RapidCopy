@@ -4,6 +4,16 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright configuration for RapidCopy E2E tests
  * 
  * @see https://playwright.dev/docs/test-configuration
+ * 
+ * Test Projects:
+ * - ui-only: Tests that don't require backend (default)
+ * - with-backend: Tests that require the RapidCopy backend to be running
+ * 
+ * Run commands:
+ *   npx playwright test                        # Run ui-only tests
+ *   npx playwright test --project=ui-only      # Run ui-only tests explicitly
+ *   npx playwright test --project=with-backend # Run backend-dependent tests
+ *   npx playwright test --project=all          # Run all tests (requires backend)
  */
 export default defineConfig({
   testDir: './tests',
@@ -41,11 +51,24 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for different test scenarios */
   projects: [
     {
-      name: 'chromium',
+      name: 'ui-only',
       use: { ...devices['Desktop Chrome'] },
+      // Only run tests NOT tagged with @backend
+      grepInvert: /@backend/,
+    },
+    {
+      name: 'with-backend',
+      use: { ...devices['Desktop Chrome'] },
+      // Only run tests tagged with @backend
+      grep: /@backend/,
+    },
+    {
+      name: 'all',
+      use: { ...devices['Desktop Chrome'] },
+      // Run all tests
     },
     // Uncomment to test on other browsers
     // {
@@ -68,8 +91,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   // webServer: {
-  //   command: 'docker-compose up',
+  //   command: 'docker-compose -f ../../docker-compose.qa.yml up',
   //   url: 'http://localhost:8800',
   //   reuseExistingServer: !process.env.CI,
+  //   timeout: 120000,
   // },
 });

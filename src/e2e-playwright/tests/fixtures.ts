@@ -101,10 +101,31 @@ export class BasePage {
 }
 
 /**
+ * Check if backend is available by making a health check request
+ */
+export async function isBackendAvailable(page: Page): Promise<boolean> {
+  try {
+    const response = await page.request.get('/server/status');
+    return response.ok();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Extended test fixtures with common setup
  */
-export const test = base.extend<{}>({
-  // Add custom fixtures here if needed
+export const test = base.extend<{
+  backendAvailable: boolean;
+}>({
+  /**
+   * Fixture that checks if backend is available
+   * Use this in tests to conditionally skip if backend is not running
+   */
+  backendAvailable: async ({ page }, use) => {
+    const available = await isBackendAvailable(page);
+    await use(available);
+  },
 });
 
 export { expect };

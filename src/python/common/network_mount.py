@@ -243,7 +243,7 @@ class NetworkMountCollection:
         raise NetworkMountError(f"Mount with id '{mount_id}' not found")
 
 
-class NetworkMountManager(Persist):
+class NetworkMountManager:
     """
     Manages persistence and operations for network mounts.
 
@@ -285,11 +285,10 @@ class NetworkMountManager(Persist):
         try:
             with open(self._file_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            self._collection = self.from_str(content)
+            self._collection = NetworkMountManager.parse_collection(content)
+            return self._collection
         except (IOError, json.JSONDecodeError) as e:
             raise PersistError(f"Failed to load network mounts: {e}") from e
-
-        return self._collection
 
     def save(self) -> None:
         """Save the current mounts to the JSON file."""
@@ -310,8 +309,8 @@ class NetworkMountManager(Persist):
     def collection(self) -> NetworkMountCollection:
         """Get the current collection, loading if necessary."""
         if self._collection is None:
-            self.load()
-        return self._collection  # type: ignore
+            self._collection = self.load()
+        return self._collection
 
     def get_all_mounts(self) -> list[NetworkMount]:
         """Get all mounts."""
@@ -343,7 +342,7 @@ class NetworkMountManager(Persist):
         self.save()
 
     @classmethod
-    def from_str(cls, content: str) -> NetworkMountCollection:
+    def parse_collection(cls, content: str) -> NetworkMountCollection:
         """
         Parse a JSON string into a NetworkMountCollection.
         """

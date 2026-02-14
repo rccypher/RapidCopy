@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { LogsPage } from './pages/logs.page';
 
 test.describe('Logs Page - UI Elements', () => {
@@ -22,15 +22,15 @@ test.describe('Logs Page - UI Elements', () => {
 
 /**
  * Logs tests that require backend connection
- * These tests are skipped by default - run with: npx playwright test --grep @backend
+ * Run with: npx playwright test --project=with-backend
  */
-test.describe('Logs Page - Log Content', () => {
+test.describe('Logs Page - Log Content @backend', () => {
   let logs: LogsPage;
 
-  // Skip all tests in this describe block - they require backend
-  test.skip(({ }, testInfo) => true, 'Logs content tests require backend connection');
-
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, backendAvailable }) => {
+    // Skip if backend is not available (safety check)
+    test.skip(!backendAvailable, 'Backend is not available');
+    
     logs = new LogsPage(page);
     await logs.goto();
   });
