@@ -107,10 +107,13 @@ export class BasePage {
 
 /**
  * Check if backend is available by making a health check request
+ * Note: /server/status endpoint can hang if the server is not fully configured,
+ * so we use /server/config/get which is always responsive.
  */
 export async function isBackendAvailable(page: Page): Promise<boolean> {
   try {
-    const response = await page.request.get('/server/status', { timeout: 5000 });
+    // Use config/get endpoint because /server/status can hang when server is not fully configured
+    const response = await page.request.get('/server/config/get', { timeout: 5000 });
     return response.ok();
   } catch {
     return false;
