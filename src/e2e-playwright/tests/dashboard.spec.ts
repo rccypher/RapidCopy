@@ -23,11 +23,15 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should display a list of files @backend', async () => {
+    // Wait for files to load via SSE stream (may take a moment)
+    await dashboard.waitForFileList();
     const files = await dashboard.getFiles();
     expect(files.length).toBeGreaterThan(0);
   });
 
   test('should have files with expected structure @backend', async () => {
+    // Wait for files to load via SSE stream
+    await dashboard.waitForFileList();
     const files = await dashboard.getFiles();
     
     // Check that each file has required properties
@@ -39,6 +43,8 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should show and hide action buttons on select @backend', async () => {
+    // Wait for files to load
+    await dashboard.waitForFileList();
     // Initially actions should not be visible
     const initiallyVisible = await dashboard.isFileActionsVisible(1);
     expect(initiallyVisible).toBe(false);
@@ -55,6 +61,8 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should show action buttons for most recently selected file only @backend', async () => {
+    // Wait for files to load
+    await dashboard.waitForFileList();
     // Select first file
     await dashboard.selectFile(1);
     expect(await dashboard.isFileActionsVisible(1)).toBe(true);
@@ -72,6 +80,8 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should have all action buttons @backend', async () => {
+    // Wait for files to load
+    await dashboard.waitForFileList();
     const actions = await dashboard.getFileActions(1);
     
     expect(actions.length).toBe(5);
@@ -83,6 +93,8 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should have Queue action enabled for default state @backend', async () => {
+    // Wait for files to load
+    await dashboard.waitForFileList();
     const files = await dashboard.getFiles();
     expect(files[1].status).toBe('');
 
@@ -92,6 +104,8 @@ test.describe('Dashboard Page @backend', () => {
   });
 
   test('should have Stop action disabled for default state @backend', async () => {
+    // Wait for files to load
+    await dashboard.waitForFileList();
     const files = await dashboard.getFiles();
     expect(files[1].status).toBe('');
 
@@ -121,6 +135,8 @@ test.describe('Dashboard Multi-Path Features @backend', () => {
   });
 
   test('should display files list @backend', async () => {
+    // Wait for files to load via SSE
+    await dashboard.waitForFileList();
     const fileCount = await dashboard.getFileCount();
     expect(fileCount).toBeGreaterThan(0);
   });

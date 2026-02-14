@@ -45,9 +45,11 @@ export class DashboardPage extends BasePage {
 
   /**
    * Wait for files to appear in the list (use only when files are expected)
+   * Handles SSE reconnection - may need to wait for connection to be established
    */
   async waitForFileList(): Promise<void> {
-    await this.page.locator('#file-list .file').first().waitFor({ state: 'visible', timeout: 10000 });
+    // Wait up to 30 seconds for files to appear (SSE may need time to reconnect)
+    await this.page.locator('#file-list .file').first().waitFor({ state: 'visible', timeout: 30000 });
   }
 
   /**
