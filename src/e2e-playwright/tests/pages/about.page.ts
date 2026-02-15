@@ -31,8 +31,10 @@ export class AboutPage extends BasePage {
    * Check if the about content is visible
    */
   async isContentVisible(): Promise<boolean> {
-    // Check if the RapidCopy title/logo is visible
-    return this.page.getByRole('img', { name: 'RapidCopy' }).isVisible();
+    // Check if the RapidCopy title/logo is visible (wait for it to load)
+    const img = this.page.getByRole('img', { name: 'RapidCopy' });
+    await img.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+    return img.isVisible();
   }
 
   /**

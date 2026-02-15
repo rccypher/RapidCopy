@@ -85,9 +85,12 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
     }
 
     private insertRecord(record: LogRecord) {
+        if (!this.container || !this.templateRecord) {
+            return;
+        }
         // Scroll down if the log is visible and already scrolled to the bottom
         const scrollToBottom = this._elementRef.nativeElement.offsetParent != null &&
-            LogsPageComponent.isElementInViewport(this.logTail.nativeElement);
+            this.logTail && LogsPageComponent.isElementInViewport(this.logTail.nativeElement);
         this.container.createEmbeddedView(this.templateRecord, {record: record});
         this._changeDetector.detectChanges();
 
@@ -98,6 +101,9 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
     }
 
     private refreshScrollButtonVisibility() {
+        if (!this.logHead || !this.logTail) {
+            return;
+        }
         // Show/hide the scroll buttons
         this.showScrollToTopButton = !LogsPageComponent.isElementInViewport(
             this.logHead.nativeElement
@@ -105,6 +111,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
         this.showScrollToBottomButton = !LogsPageComponent.isElementInViewport(
             this.logTail.nativeElement
         );
+        this._changeDetector.markForCheck();
     }
 
     // Source: https://stackoverflow.com/a/7557433

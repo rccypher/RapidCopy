@@ -233,8 +233,10 @@ class ValidationDispatch:
                     corrupt_chunks=[c.index for c in corrupt_chunks],
                 )
 
-            # Retries available - this should trigger re-download
-            # For now, just mark as needing re-download
+            # Reset retryable chunks to PENDING so they get re-validated
+            for chunk in retryable:
+                chunk.retry_count += 1
+                self._chunk_manager.reset_chunk(local_path, chunk.index)
             return None
 
         # All chunks valid!

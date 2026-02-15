@@ -1,4 +1,4 @@
-import {Component, Input, Output, ChangeDetectionStrategy, EventEmitter, OnInit} from "@angular/core";
+import {Component, Input, Output, ChangeDetectionStrategy, ChangeDetectorRef, EventEmitter, OnInit, OnChanges, SimpleChanges} from "@angular/core";
 import {Subject} from "rxjs";
 import {debounceTime, distinctUntilChanged} from "rxjs/operators";
 
@@ -10,7 +10,7 @@ import {debounceTime, distinctUntilChanged} from "rxjs/operators";
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class OptionComponent implements OnInit {
+export class OptionComponent implements OnInit, OnChanges {
     @Input() type: OptionType;
     @Input() label: string;
     @Input() value: any;
@@ -24,6 +24,14 @@ export class OptionComponent implements OnInit {
     private readonly DEBOUNCE_TIME_MS: number = 1000;
 
     private newValue = new Subject<any>();
+
+    constructor(private _changeDetector: ChangeDetectorRef) {}
+
+    ngOnChanges(changes: SimpleChanges): void {
+        if (changes['value']) {
+            this._changeDetector.markForCheck();
+        }
+    }
 
     // noinspection JSUnusedGlobalSymbols
     ngOnInit(): void {

@@ -27,8 +27,8 @@ test.describe('About Page', () => {
   test('should display copyright information', async () => {
     const copyright = await about.getCopyright();
     expect(copyright).toContain('Copyright');
-    expect(copyright).toContain('2017-2025');
-    expect(copyright).toContain('Inderpreet Singh');
+    expect(copyright).toContain('2017-2026');
+    expect(copyright).toContain('rccypher');
   });
 
   test('should have GitHub link', async () => {

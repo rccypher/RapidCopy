@@ -1,4 +1,4 @@
-import {ChangeDetectionStrategy, Component, OnDestroy, OnInit} from "@angular/core";
+import {ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit} from "@angular/core";
 import {Observable, Subject} from "rxjs";
 import {takeUntil} from "rxjs/operators";
 
@@ -46,7 +46,8 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
                 _streamServiceRegistry: StreamServiceRegistry,
                 private _configService: ConfigService,
                 private _notifService: NotificationService,
-                private _commandService: ServerCommandService) {
+                private _commandService: ServerCommandService,
+                private _changeDetector: ChangeDetectorRef) {
         this._connectedService = _streamServiceRegistry.connectedService;
         this.config = _configService.config;
         this.commandsEnabled = false;
@@ -70,6 +71,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
 
                     // Enable/disable commands based on server connection
                     this.commandsEnabled = connected;
+                    this._changeDetector.markForCheck();
                 }
             });
     }
