@@ -18,6 +18,41 @@ test.describe('AutoQueue Page - UI Elements', () => {
     const isVisible = await autoqueue.isAddPatternInputVisible();
     expect(isVisible).toBe(true);
   });
+
+  test('should display autoqueue container', async () => {
+    const container = autoqueue.page.locator('#autoqueue');
+    await expect(container).toBeVisible();
+  });
+
+  test('should display controls section', async () => {
+    const controls = autoqueue.page.locator('#autoqueue #controls');
+    await expect(controls).toBeVisible();
+  });
+
+  test('should display add pattern button', async () => {
+    const addBtn = autoqueue.page.locator('#add-pattern .button');
+    await expect(addBtn).toBeVisible();
+  });
+
+  test('should have add pattern input with search type', async () => {
+    const input = autoqueue.page.locator('#add-pattern input');
+    await expect(input).toHaveAttribute('type', 'search');
+  });
+
+  test('should disable add pattern input when backend not connected', async () => {
+    const input = autoqueue.page.locator('#add-pattern input');
+    await expect(input).toBeDisabled();
+  });
+
+  test('should highlight AutoQueue in sidebar as active', async () => {
+    const activeLink = autoqueue.page.locator('a.selected').filter({ hasText: 'AutoQueue' });
+    await expect(activeLink).toBeVisible();
+  });
+
+  test('should show connection error banner when backend not running', async () => {
+    const isErrorVisible = await autoqueue.isConnectionErrorVisible();
+    expect(isErrorVisible).toBe(true);
+  });
 });
 
 /**

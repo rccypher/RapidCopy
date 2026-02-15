@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 import { SettingsPage } from './pages/settings.page';
 
 test.describe('Settings Page - Layout', () => {
@@ -52,6 +52,21 @@ test.describe('Settings Page - Layout', () => {
   test('should have fields disabled when backend not connected', async () => {
     const isDisabled = await settings.isServerAddressDisabled();
     expect(isDisabled).toBe(true);
+  });
+
+  test('should highlight Settings in sidebar as active', async () => {
+    const activeLink = settings.page.locator('a.selected').filter({ hasText: 'Settings' });
+    await expect(activeLink).toBeVisible();
+  });
+
+  test('should show connection error banner when backend not running', async () => {
+    const isErrorVisible = await settings.isConnectionErrorVisible();
+    expect(isErrorVisible).toBe(true);
+  });
+
+  test('should display Restart button', async () => {
+    const isVisible = await settings.isRestartButtonVisible();
+    expect(isVisible).toBe(true);
   });
 });
 

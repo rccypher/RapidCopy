@@ -2,6 +2,70 @@ import { test, expect } from './fixtures';
 import { DashboardPage } from './pages/dashboard.page';
 
 /**
+ * Dashboard UI-only tests (no backend required)
+ */
+test.describe('Dashboard Page - UI Structure', () => {
+  let dashboard: DashboardPage;
+
+  test.beforeEach(async ({ page }) => {
+    dashboard = new DashboardPage(page);
+    await dashboard.goto();
+  });
+
+  test('should display file list container', async () => {
+    const fileList = dashboard.page.locator('#file-list');
+    await expect(fileList).toBeVisible();
+  });
+
+  test('should display file list header with all columns', async () => {
+    await expect(dashboard.page.locator('#file-list #header .name')).toHaveText('Filename');
+    await expect(dashboard.page.locator('#file-list #header .status')).toHaveText('Status');
+    await expect(dashboard.page.locator('#file-list #header .speed')).toHaveText('Speed');
+    await expect(dashboard.page.locator('#file-list #header .eta')).toHaveText('ETA');
+    await expect(dashboard.page.locator('#file-list #header .size')).toHaveText('Size');
+  });
+
+  test('should display filter search input', async () => {
+    const filterInput = dashboard.page.locator('#file-options #filter-search input');
+    await expect(filterInput).toBeVisible();
+    await expect(filterInput).toHaveAttribute('placeholder', 'Filter by name...');
+  });
+
+  test('should display status filter dropdown', async () => {
+    const statusFilter = dashboard.page.locator('#file-options #filter-status');
+    await expect(statusFilter).toBeVisible();
+    await expect(statusFilter.locator('.title')).toHaveText('Status:');
+  });
+
+  test('should display sort dropdown', async () => {
+    const sortDropdown = dashboard.page.locator('#file-options #sort-status');
+    await expect(sortDropdown).toBeVisible();
+    await expect(sortDropdown.locator('.title')).toHaveText('Sort:');
+  });
+
+  test('should display details toggle button', async () => {
+    const detailsBtn = dashboard.page.locator('#file-options #toggle-details');
+    await expect(detailsBtn).toBeVisible();
+    await expect(detailsBtn.locator('.title')).toHaveText('Details:');
+  });
+
+  test('should display pin filter button', async () => {
+    const pinBtn = dashboard.page.locator('#file-options #pin-filter');
+    await expect(pinBtn).toBeVisible();
+  });
+
+  test('should show connection error banner when backend not running', async () => {
+    const isErrorVisible = await dashboard.isConnectionErrorVisible();
+    expect(isErrorVisible).toBe(true);
+  });
+
+  test('should highlight Dashboard in sidebar as active', async () => {
+    const activeLink = dashboard.page.locator('a.selected').filter({ hasText: 'Dashboard' });
+    await expect(activeLink).toBeVisible();
+  });
+});
+
+/**
  * Dashboard tests that require backend connection
  * Run with: npx playwright test --project=with-backend
  * Or run all tests with: npx playwright test --project=all
