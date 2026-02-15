@@ -3,6 +3,8 @@
         <div class="status">
             <img src="assets/icons/default-remote.svg" id="default-remote"
                  *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize > 0" />
+            <img src="assets/icons/default-local.svg" id="default-local"
+                 *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize === 0 && file.localSize > 0" />
             <img src="assets/icons/queued.svg" id="queued"
                  *ngIf="file.status === ViewFile.Status.QUEUED" />
             <img src="assets/icons/downloading.svg" id="downloading"
@@ -23,9 +25,11 @@
                  *ngIf="file.status === ViewFile.Status.VALIDATED" />
             <img src="assets/icons/corrupt.svg" id="corrupt"
                  *ngIf="file.status === ViewFile.Status.CORRUPT" />
-            <!-- don't show text for default status -->
+            <!-- don't show text for default status, except local-only files -->
             <span *ngIf="file.status != ViewFile.Status.DEFAULT"
                   class="text">{{file.status | capitalize}}</span>
+            <span *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize === 0 && file.localSize > 0"
+                  class="text">Local Only</span>
         </div>
         <div class="name">
             <img src="assets/icons/file-light.svg" *ngIf="!file.isDir && !file.isArchive" />

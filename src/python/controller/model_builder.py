@@ -327,6 +327,18 @@ class ModelBuilder:
                     if all_downloaded:
                         model_file.state = ModelFile.State.DOWNLOADED
 
+            # Handle files that exist locally but remote was cleaned up.
+            # If a file was previously downloaded and still exists locally,
+            # it should be DOWNLOADED even if the remote copy is gone.
+            if (
+                model_file.state == ModelFile.State.DEFAULT
+                and model_file.local_size is not None
+                and model_file.local_size > 0
+                and model_file.remote_size is None
+                and model_file.name in self.__downloaded_files
+            ):
+                model_file.state = ModelFile.State.DOWNLOADED
+
             # next we determine if root was Deleted
             # root is Deleted if it does not exist locally, but was downloaded in the past
             if (
