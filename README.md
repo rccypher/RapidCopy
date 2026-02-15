@@ -7,6 +7,9 @@
     <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11">
   </a>
   <a href="https://github.com/rccypher/RapidCopy">
+    <img src="https://img.shields.io/badge/angular-18.2-red" alt="Angular 18.2">
+  </a>
+  <a href="https://github.com/rccypher/RapidCopy">
     <img src="https://img.shields.io/badge/code%20style-ruff-purple" alt="Ruff">
   </a>
   <a href="https://github.com/rccypher/RapidCopy">
@@ -17,60 +20,81 @@
   </a>
 </p>
 
-## What's New in RapidCopy
+## What is RapidCopy?
 
-This fork modernizes the original SeedSync codebase:
+RapidCopy automatically syncs files from a remote Linux server to your local machine. It connects via SSH, monitors remote directories for new files, and downloads them using [LFTP](http://lftp.tech/) - the fastest file transfer program available. Once downloaded, files are optionally validated and extracted, all managed through a modern web UI.
 
-- **Python 3.11** - Upgraded from Python 3.8
-- **Angular 18** - Frontend upgraded from Angular 4.x to 18.2
-- **Modern Type Hints** - Full mypy type checking with 0 errors
-- **Code Quality** - Ruff linting with 0 issues
-- **408 Unit Tests** - All passing
-- **Modern Python Syntax** - Using `|` union types, `list[]` instead of `List[]`, etc.
+You don't need to install anything on the remote server. All you need are SSH credentials.
 
-### Recent Additions
+## Features Added Since SeedSync
 
-- **Multiple Path Pairs** - Sync multiple remote/local directory pairs in a single instance
-- **Download Rate Limiting** - Control bandwidth usage with configurable rate limits
-- **Configurable Log Levels** - Set log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-- **JSON Log Format** - Optional structured logging for log aggregation systems
-- **Dark Mode** - Toggle between light and dark themes in the UI
+RapidCopy is a comprehensive rewrite and modernization of the original SeedSync project. The following features have been added since forking:
 
-## Features
+### Multiple Path Pairs
 
-* Built on top of [LFTP](http://lftp.tech/), the fastest file transfer program ever
-* Web UI - track and control your transfers from anywhere
-* **Multiple path pairs** - sync multiple remote/local directory combinations
-* **Download rate limiting** - control bandwidth usage
-* **Configurable logging** - debug, info, warning, error, or critical levels
-* **Dark mode** - comfortable viewing in low-light environments
-* Automatically extract your files after sync
-* Auto-Queue - only sync the files you want based on pattern matching
-* Delete local and remote files easily
-* Fully open source!
+Sync multiple remote/local directory combinations in a single RapidCopy instance. Each path pair operates independently with its own scanner, auto-queue settings, and file tracking. Files in the dashboard are tagged with their path pair for easy identification.
 
-## Screenshots
+- Configure pairs via the Settings UI or `path_pairs.json`
+- Enable/disable individual pairs without affecting others
+- Per-pair auto-queue control
+- Dashboard statistics showing file counts per path pair
 
-### Dashboard with Path Pair Statistics
-<!-- TODO: Add screenshot showing the dashboard with the path pair stats component -->
-<!-- Recommended: doc/images/dashboard_path_pairs.png -->
-*Dashboard showing file transfers grouped by path pair with progress indicators*
+### Post-Download File Validation
 
-### Path Pairs Management (Settings)
-<!-- TODO: Add screenshot showing the Settings > Path Pairs management UI -->
-<!-- Recommended: doc/images/settings_path_pairs.png -->
-*Settings page for managing multiple remote/local directory pairs*
+Automatically verify file integrity after download by comparing chunk-level checksums between remote and local copies. This catches silent corruption, incomplete transfers, and bit-rot before you rely on the downloaded files.
+
+- **Chunk-based validation** - Files are split into chunks and each chunk is checksummed independently, allowing identification of exactly which portions are corrupt
+- **Supported algorithms** - MD5 (default), SHA-256, SHA-1
+- **Adaptive chunk sizing** - Chunk size automatically scales based on file size (larger chunks for bigger files), network speed, and historical failure rate
+- **Automatic retry** - Corrupt chunks are re-downloaded and re-validated up to a configurable number of retries
+- **File states** - Files progress through VALIDATING, VALIDATED, or CORRUPT states with dedicated status icons in the UI
+- **Manual validation** - Trigger validation on any downloaded file via the dashboard
+
+### Network Mount Support (NFS/CIFS)
+
+Mount NFS or SMB/CIFS network shares directly from the RapidCopy UI. Download files straight to NAS or network storage without intermediate local copies.
+
+- Configure mounts via the Settings UI
+- Mount/unmount/test actions from the web interface
+- Supports both NFS and CIFS/SMB protocols
 
 ### Dark Mode
-<!-- TODO: Add screenshot showing dark mode theme -->
-<!-- Recommended: doc/images/dark_mode.png -->
-*Dark theme for comfortable viewing in low-light environments*
 
-## How it works
+Toggle between light and dark themes from the sidebar. Theme preference is persisted across sessions.
 
-Install RapidCopy on a local machine. RapidCopy will connect to your remote server and sync files to the local machine as they become available.
+### Download Rate Limiting
 
-You don't need to install anything on the remote server. All you need are the SSH credentials for the remote server.
+Control bandwidth usage with configurable rate limits to prevent saturating your connection. Set limits like `10M` (10 MB/s), `500K` (500 KB/s), or `0` for unlimited.
+
+### Configurable Logging
+
+Set log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL) and optionally enable JSON-formatted log output for integration with log aggregation systems like ELK or Splunk.
+
+### Modern Tech Stack
+
+- **Python 3.11** - Upgraded from Python 3.8 with modern syntax (`|` union types, `list[]` generics)
+- **Angular 18.2** - Frontend completely rewritten from Angular 4.x
+- **Full type safety** - Mypy type checking with 0 errors
+- **Ruff linting** - 0 issues
+- **Playwright E2E tests** - Migrated from Protractor (which is deprecated)
+- **Docker multi-stage build** - Single Dockerfile for streamlined deployment
+- **JSON-based remote scanning** - Replaced pickle serialization for security (prevents RCE)
+- **408 unit tests + 62 E2E tests** - All passing
+
+### Self-Update Service
+
+Optional auto-update support via an external update server. Check for and apply updates without manual intervention.
+
+## How It Works
+
+1. Install RapidCopy on your local machine (or run via Docker)
+2. Configure SSH credentials for your remote server
+3. Set up path pairs mapping remote directories to local destinations
+4. RapidCopy scans remote directories on a configurable interval
+5. New files are auto-queued for download (or manually queued)
+6. LFTP handles the actual transfer with parallel connections
+7. Downloaded files are optionally validated and/or extracted
+8. Monitor everything through the web UI
 
 ## Supported Platforms
 
@@ -87,58 +111,68 @@ You don't need to install anything on the remote server. All you need are the SS
 docker run -d \
   --name rapidcopy \
   -p 8800:8800 \
-  -v /path/to/downloads:/downloads \
   -v /path/to/config:/config \
+  -v /path/to/downloads:/downloads \
+  -v ~/.ssh:/home/rapidcopy/.ssh:ro \
+  rapidcopy:latest
+```
+
+For multiple download destinations, add additional volume mounts:
+
+```bash
+docker run -d \
+  --name rapidcopy \
+  -p 8800:8800 \
+  -v /path/to/config:/config \
+  -v /path/to/tv_downloads:/downloads/tv_shows \
+  -v /path/to/movie_downloads:/downloads/movies \
+  -v ~/.ssh:/home/rapidcopy/.ssh:ro \
   rapidcopy:latest
 ```
 
 Access the web UI at `http://localhost:8800`
 
+### Docker Compose
+
+```yaml
+services:
+  rapidcopy:
+    build: .
+    image: rapidcopy:latest
+    container_name: rapidcopy
+    restart: unless-stopped
+    ports:
+      - "8800:8800"
+    volumes:
+      - ./config:/config
+      - /path/to/downloads:/downloads
+      - ~/.ssh:/home/rapidcopy/.ssh:ro
+```
+
 ## Configuration
 
-RapidCopy can be configured via the web UI or by editing the config file directly.
+RapidCopy is configured via the web UI Settings page or by editing the config files directly.
 
-### Rate Limiting
+### Path Pairs
 
-Control download bandwidth to prevent saturating your connection:
-
-| Setting | Description | Example |
-|---------|-------------|---------|
-| `rate_limit` | Maximum download speed | `10M` (10 MB/s), `500K` (500 KB/s), `0` (unlimited) |
-
-### Logging
-
-Configure log verbosity and format:
-
-| Setting | Description | Values |
-|---------|-------------|--------|
-| `log_level` | Minimum log level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
-| `log_format` | Log output format | `standard`, `json` |
-
-**JSON log format** is useful for log aggregation systems like ELK stack or Splunk.
-
-### Multiple Path Pairs
-
-Sync multiple remote/local directory combinations in a single RapidCopy instance. This is useful when you have multiple source directories on your remote server that should sync to different local destinations.
-
-Path pairs are configured via a `path_pairs.json` file in your config directory:
+Configured via the Settings UI or `path_pairs.json` in your config directory:
 
 ```json
 {
   "version": 1,
   "path_pairs": [
     {
-      "id": "movies-001",
+      "id": "unique-id-001",
       "name": "Movies",
-      "remote_path": "/seedbox/movies",
+      "remote_path": "/seedbox/complete/movies",
       "local_path": "/downloads/movies",
       "enabled": true,
       "auto_queue": true
     },
     {
-      "id": "tvshows-002",
+      "id": "unique-id-002",
       "name": "TV Shows",
-      "remote_path": "/seedbox/tv",
+      "remote_path": "/seedbox/complete/tv",
       "local_path": "/downloads/tv",
       "enabled": true,
       "auto_queue": true
@@ -147,20 +181,30 @@ Path pairs are configured via a `path_pairs.json` file in your config directory:
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `id` | Unique identifier for the path pair |
-| `name` | Human-readable name (shown in UI) |
-| `remote_path` | Directory on the remote server |
-| `local_path` | Local destination directory |
-| `enabled` | Whether this path pair is active |
-| `auto_queue` | Auto-queue new files in this path pair |
+### Validation Settings
 
-Each path pair is scanned independently, and files are tagged with their path pair for proper routing during downloads.
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `True` | Enable post-download file validation |
+| `algorithm` | `md5` | Hash algorithm (`md5`, `sha256`, `sha1`) |
+| `default_chunk_size` | `52428800` (50MB) | Base chunk size for validation |
+| `max_chunk_size` | `104857600` (100MB) | Maximum chunk size after adaptive scaling |
+| `validate_after_file` | `True` | Validate immediately after each file completes |
+| `max_retries` | `3` | Number of retry attempts for corrupt chunks |
+| `enable_adaptive_sizing` | `True` | Automatically scale chunk size based on file size and network conditions |
 
-### From Source
+### Rate Limiting
 
-See the [Developer Guide](doc/DeveloperReadme.md) for building from source.
+| Setting | Description | Example |
+|---------|-------------|---------|
+| `rate_limit` | Maximum download speed | `10M` (10 MB/s), `500K` (500 KB/s), `0` (unlimited) |
+
+### Logging
+
+| Setting | Description | Values |
+|---------|-------------|--------|
+| `log_level` | Minimum log level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `log_format` | Log output format | `standard`, `json` |
 
 ## Development
 
@@ -168,51 +212,59 @@ See the [Developer Guide](doc/DeveloperReadme.md) for building from source.
 
 - Python 3.11+
 - Docker & Docker Compose
-- Node.js (for Angular frontend)
+- Node.js 18+ (for Angular frontend)
 
-### Python Backend
+### Running Tests
 
 ```bash
+# Python unit tests (via Docker)
 cd src/python
-
-# Run tests
 docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/unittests/ -q
 
-# Run linting
-docker run --rm -v "$(pwd):/src" -w /src python:3.11-slim bash -c "pip install -q ruff && ruff check ."
+# Angular unit tests
+cd src/angular
+npx ng test
 
-# Run type checking
-docker run --rm -v "$(pwd):/src" -w /src python:3.11-slim bash -c "pip install -q mypy types-requests && mypy ."
+# Playwright E2E tests (start dev server first)
+cd src/angular && npx ng serve --port 8800 &
+cd src/e2e-playwright && npx playwright test --project=ui-only
 ```
 
-### Code Quality Standards
+### Code Quality
 
 | Tool | Status | Description |
 |------|--------|-------------|
-| **Ruff** | 0 issues | Fast Python linter (replaces flake8, isort, etc.) |
+| **Ruff** | 0 issues | Fast Python linter |
 | **Mypy** | 0 errors | Static type checking |
-| **Pytest** | 408 passing | Unit test suite |
+| **Pytest** | 408 passing | Python unit tests |
+| **Playwright** | 62 passing | E2E UI tests |
 
 ## Project Structure
 
 ```
 RapidCopy/
 ├── src/
-│   ├── python/           # Python backend
-│   │   ├── common/       # Shared utilities
-│   │   ├── controller/   # Business logic
-│   │   ├── lftp/         # LFTP integration
-│   │   ├── model/        # Data models
-│   │   ├── ssh/          # SSH utilities
-│   │   ├── system/       # File system operations
-│   │   ├── web/          # Web server & API
-│   │   └── tests/        # Test suite
-│   ├── angular/          # Web frontend (Angular)
-│   ├── docker/           # Docker configurations
-│   └── e2e/              # End-to-end tests
-├── doc/                  # Documentation
-└── Makefile              # Build automation
+│   ├── python/              # Python backend
+│   │   ├── common/          # Shared utilities, config, models
+│   │   ├── controller/      # Business logic, scanning, validation
+│   │   ├── lftp/            # LFTP integration
+│   │   ├── model/           # Data models (ModelFile, states)
+│   │   ├── ssh/             # SSH utilities
+│   │   ├── system/          # File system operations
+│   │   ├── web/             # Web server, API, SSE streaming
+│   │   └── tests/           # Python test suite
+│   ├── angular/             # Web frontend (Angular 18)
+│   ├── e2e-playwright/      # Playwright E2E tests
+│   └── docker/              # Docker build configs
+├── doc/                     # Documentation
+├── Dockerfile               # Multi-stage Docker build
+└── docker-compose.yml       # Compose template
 ```
+
+## To-Do
+
+- [ ] Add file validation settings to the Settings UI (validation is currently only configurable via `settings.cfg`)
+- [ ] Review all config settings and ensure they are all available from the Settings UI
 
 ## Contributing
 
@@ -220,7 +272,7 @@ Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
-3. Ensure all tests pass (`make run-tests-python`)
+3. Ensure all tests pass
 4. Ensure code passes linting (`ruff check .`) and type checking (`mypy .`)
 5. Submit a pull request
 
