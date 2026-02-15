@@ -415,7 +415,7 @@ class Config(Persist):
                 {
                     "enabled": "True",
                     "algorithm": "md5",
-                    "default_chunk_size": "10485760",
+                    "default_chunk_size": "52428800",
                     "min_chunk_size": "1048576",
                     "max_chunk_size": "104857600",
                     "validate_after_chunk": "False",

@@ -160,7 +160,7 @@ class ValidationConfig:
 
     enabled: bool = True
     algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5
-    default_chunk_size: int = 10 * 1024 * 1024  # 10MB
+    default_chunk_size: int = 50 * 1024 * 1024  # 50MB
     min_chunk_size: int = 1 * 1024 * 1024  # 1MB
     max_chunk_size: int = 100 * 1024 * 1024  # 100MB
     validate_after_chunk: bool = False
