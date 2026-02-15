@@ -146,6 +146,8 @@ class ValidationDispatch:
                     self._chunk_manager.set_full_file_checksums(local_path, remote_checksum=full_checksum)
                 except ChecksumError:
                     # Complete failure, mark as invalid
+                    self._chunk_manager.remove_file(local_path)
+                    self._active_file = None
                     return ValidationCompletedResult(
                         timestamp=datetime.now(),
                         name=command.file.name,
@@ -174,6 +176,7 @@ class ValidationDispatch:
                 local_checksum = self._local_checksum.compute_file_checksum(local_path)
                 self._chunk_manager.set_full_file_checksums(local_path, local_checksum=local_checksum)
                 is_valid = self._chunk_manager.validate_full_file(local_path)
+                self._chunk_manager.remove_file(local_path)
                 self._active_file = None
 
                 return ValidationCompletedResult(
@@ -184,6 +187,7 @@ class ValidationDispatch:
                     corrupt_chunks=[],
                 )
             except ChecksumError:
+                self._chunk_manager.remove_file(local_path)
                 self._active_file = None
                 return ValidationCompletedResult(
                     timestamp=datetime.now(),
@@ -223,6 +227,7 @@ class ValidationDispatch:
             if not retryable:
                 # No more retries, validation failed
                 self._chunk_manager.mark_file_complete(local_path, False)
+                self._chunk_manager.remove_file(local_path)
                 self._active_file = None
 
                 return ValidationCompletedResult(
@@ -241,6 +246,7 @@ class ValidationDispatch:
 
         # All chunks valid!
         self._chunk_manager.mark_file_complete(local_path, True)
+        self._chunk_manager.remove_file(local_path)
         self._active_file = None
 
         return ValidationCompletedResult(
@@ -252,11 +258,11 @@ class ValidationDispatch:
         )
 
     def get_status(self) -> dict[str, FileValidationInfo]:
-        """Get current validation status for all files."""
+        """Get current validation status for in-progress files only."""
         result = {}
         for file_path in self._chunk_manager.get_all_files():
             info = self._chunk_manager.get_validation_info(file_path)
-            if info:
+            if info and not info.is_complete:
                 result[file_path] = info
         return result
 

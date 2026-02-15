@@ -740,11 +740,16 @@ class Controller:
                                 1 for chunk in validation_info.chunks if chunk.status.name in ("VALID", "CORRUPT")
                             )
                             progress = validated_chunks / len(validation_info.chunks)
-                            # Update file state and progress
+                            # Only transition DOWNLOADED -> VALIDATING for this specific file
+                            # Guard: do not touch files in terminal states (VALIDATED, CORRUPT)
+                            # or files that are being re-downloaded (QUEUED, DOWNLOADING)
                             if file.state == ModelFile.State.DOWNLOADED:
                                 file.state = ModelFile.State.VALIDATING
-                            file.validation_progress = progress
-                            self.__model.update_file(file)
+                                file.validation_progress = progress
+                                self.__model.update_file(file)
+                            elif file.state == ModelFile.State.VALIDATING:
+                                file.validation_progress = progress
+                                self.__model.update_file(file)
 
         # Process completed validations
         if completed_validations:
@@ -757,6 +762,21 @@ class Controller:
 
                     if file_name in self.__model.get_file_names():
                         file = self.__model.get_file(file_name)
+
+                        # Only apply validation results if the file is still in a
+                        # validation-related state. If it was re-queued for download
+                        # while validation was running, don't overwrite its state.
+                        if file.state not in (
+                            ModelFile.State.VALIDATING,
+                            ModelFile.State.DOWNLOADED,
+                            ModelFile.State.CORRUPT,
+                        ):
+                            self.logger.debug(
+                                "Skipping validation result for '{}' - file state is {}".format(
+                                    file_name, file.state
+                                )
+                            )
+                            continue
 
                         if result.is_valid:
                             # File passed validation
