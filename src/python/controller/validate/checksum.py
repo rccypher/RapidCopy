@@ -226,20 +226,43 @@ class RemoteChecksumGenerator(ChecksumGenerator):
                 f"Remote chunk checksum failed for {file_path} (offset={offset}, size={size}): {e}"
             ) from e
 
+    # Maximum number of chunk checksum commands per SSH call.
+    # Each dd|checksum command is ~120 chars. Batching avoids exceeding
+    # the OS argument list limit (ARG_MAX, typically 128-256 KB) which
+    # causes "OSError: Argument list too long" for large files with
+    # thousands of chunks.
+    _MAX_CHUNKS_PER_BATCH = 100
+
     def compute_chunk_checksums(self, file_path: str, chunks: list[ChunkInfo]) -> list[str]:
         """
         Compute checksums for multiple chunks of a remote file.
 
-        For efficiency, this generates a single script that computes
-        all chunk checksums in one SSH session.
+        Chunks are batched into groups to avoid exceeding the OS
+        argument list limit. Each batch is computed in a single SSH
+        session for efficiency.
         """
         if not chunks:
             return []
 
+        all_checksums = []
+        total_batches = (len(chunks) + self._MAX_CHUNKS_PER_BATCH - 1) // self._MAX_CHUNKS_PER_BATCH
+        for batch_num, batch_start in enumerate(range(0, len(chunks), self._MAX_CHUNKS_PER_BATCH), 1):
+            batch = chunks[batch_start : batch_start + self._MAX_CHUNKS_PER_BATCH]
+            self.logger.debug(
+                f"Computing checksums batch {batch_num}/{total_batches} "
+                f"({len(batch)} chunks) for {file_path}"
+            )
+            batch_checksums = self._compute_chunk_batch(file_path, batch)
+            all_checksums.extend(batch_checksums)
+
+        return all_checksums
+
+    def _compute_chunk_batch(self, file_path: str, chunks: list[ChunkInfo]) -> list[str]:
+        """Compute checksums for a batch of chunks in a single SSH session."""
         cmd = self._get_checksum_command()
         escaped_path = file_path.replace("'", "'\\''")
 
-        # Build a shell script that computes all checksums
+        # Build a shell script that computes all checksums in this batch
         script_parts = []
         for chunk in chunks:
             if chunk.offset % 4096 == 0 and chunk.size % 4096 == 0:
@@ -257,7 +280,6 @@ class RemoteChecksumGenerator(ChecksumGenerator):
         # Join with semicolons to run sequentially
         command = "; ".join(script_parts)
 
-        self.logger.debug(f"Remote batch checksum command: {command}")
         try:
             output = self._sshcp.shell(command)
             # Parse multiple checksum lines
@@ -273,6 +295,8 @@ class RemoteChecksumGenerator(ChecksumGenerator):
             return checksums
         except SshcpError as e:
             raise ChecksumError(f"Remote batch checksum failed for {file_path}: {e}") from e
+        except OSError as e:
+            raise ChecksumError(f"Remote batch checksum OS error for {file_path}: {e}") from e
 
     def check_remote_command_available(self) -> bool:
         """Check if the remote checksum command is available."""
