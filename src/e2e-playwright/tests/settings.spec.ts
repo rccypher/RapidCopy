@@ -64,9 +64,9 @@ test.describe('Settings Page - Layout', () => {
     expect(isErrorVisible).toBe(true);
   });
 
-  test('should display Restart button', async () => {
-    const isVisible = await settings.isRestartButtonVisible();
-    expect(isVisible).toBe(true);
+  test('should display Restart link in sidebar', async () => {
+    const restartLink = settings.page.locator('a').filter({ hasText: 'Restart' });
+    await expect(restartLink).toBeVisible();
   });
 });
 
