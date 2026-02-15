@@ -1,11 +1,25 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
-import pickle
+import json
 import sys
 import argparse
 
 # my libs
 from system import SystemScanner, SystemFile, SystemScannerError
+
+
+def file_to_dict(file: SystemFile) -> dict:
+    """Convert a SystemFile to a JSON-serializable dict."""
+    d = {
+        "name": file.name,
+        "size": file.size,
+        "is_dir": file.is_dir,
+        "timestamp_created": file.timestamp_created.timestamp() if file.timestamp_created else None,
+        "timestamp_modified": file.timestamp_modified.timestamp() if file.timestamp_modified else None,
+    }
+    if file.is_dir and file.children:
+        d["children"] = [file_to_dict(c) for c in file.children]
+    return d
 
 
 if __name__ == "__main__":
@@ -40,5 +54,5 @@ if __name__ == "__main__":
         for root_file in root_files:
             print_file(root_file, 0)
     else:
-        bytes_out = pickle.dumps(root_files)
-        sys.stdout.buffer.write(bytes_out)
+        json_out = json.dumps([file_to_dict(f) for f in root_files])
+        sys.stdout.write(json_out)
