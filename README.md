@@ -265,6 +265,7 @@ RapidCopy/
 
 - [ ] Add file validation settings to the Settings UI (validation is currently only configurable via `settings.cfg`)
 - [ ] Review all config settings and ensure they are all available from the Settings UI
+- [ ] Publish Docker image to Docker Hub for easier deployment
 
 ## Contributing
 
