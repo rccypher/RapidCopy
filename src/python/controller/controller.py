@@ -448,6 +448,29 @@ class Controller:
             new_model = self.__model_builder.build_model()
 
             with self.__model_lock:
+                # Preserve validation states from the current model.
+                # The model builder doesn't know about validation states (VALIDATING,
+                # VALIDATED, CORRUPT) — those are applied by __process_validation_results.
+                # Without this, every model rebuild would generate spurious UPDATED diffs
+                # (e.g. VALIDATED→DOWNLOADED→VALIDATED) causing the UI to refresh all files.
+                _VALIDATION_STATES = (
+                    ModelFile.State.VALIDATING,
+                    ModelFile.State.VALIDATED,
+                    ModelFile.State.CORRUPT,
+                )
+                for file_name in new_model.get_file_names():
+                    if file_name in self.__model.get_file_names():
+                        old_file = self.__model.get_file(file_name)
+                        if old_file.state in _VALIDATION_STATES:
+                            new_file = new_model.get_file(file_name)
+                            # Only carry over if the new model has it as DOWNLOADED
+                            # (i.e. the model builder hasn't moved it to a different state)
+                            if new_file.state == ModelFile.State.DOWNLOADED:
+                                new_file.state = old_file.state
+                                new_file.validation_progress = old_file.validation_progress
+                                new_file.validation_error = old_file.validation_error
+                                new_file.corrupt_chunks = old_file.corrupt_chunks
+
                 # Diff the new model with old model
                 model_diff = ModelDiffUtil.diff_models(self.__model, new_model)
 
