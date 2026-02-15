@@ -29,6 +29,7 @@ class ValidationAlgorithm(Enum):
     MD5 = "md5"
     SHA256 = "sha256"
     SHA1 = "sha1"
+    XXH128 = "xxh128"
 
 
 @dataclass
@@ -99,7 +100,7 @@ class FileValidationInfo:
 
     file_path: str
     file_size: int
-    algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5
+    algorithm: ValidationAlgorithm = ValidationAlgorithm.XXH128
     chunks: list[ChunkInfo] = field(default_factory=list)
     full_file_checksum: Optional[str] = None
     local_full_checksum: Optional[str] = None
@@ -159,7 +160,7 @@ class ValidationConfig:
     """
 
     enabled: bool = True
-    algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5
+    algorithm: ValidationAlgorithm = ValidationAlgorithm.XXH128
     default_chunk_size: int = 50 * 1024 * 1024  # 50MB
     min_chunk_size: int = 1 * 1024 * 1024  # 1MB
     max_chunk_size: int = 100 * 1024 * 1024  # 100MB

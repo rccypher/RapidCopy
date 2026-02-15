@@ -314,7 +314,7 @@ class Config(Persist):
     class Validation(InnerConfig):
         # Enable/disable download validation
         enabled = PROP("enabled", Checkers.null, Converters.bool)
-        # Checksum algorithm: md5, sha256, sha1
+        # Checksum algorithm: xxh128, md5, sha256, sha1
         algorithm = PROP("algorithm", Checkers.string_nonempty, Converters.null)
         # Default chunk size in bytes (default: 10485760 = 10MB)
         default_chunk_size = PROP("default_chunk_size", Checkers.int_positive, Converters.int)
@@ -414,7 +414,7 @@ class Config(Persist):
             config.validation = Config.Validation.from_dict(
                 {
                     "enabled": "True",
-                    "algorithm": "md5",
+                    "algorithm": "xxh128",
                     "default_chunk_size": "52428800",
                     "min_chunk_size": "1048576",
                     "max_chunk_size": "104857600",

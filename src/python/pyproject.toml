@@ -18,6 +18,7 @@ pytz = ">=2020.4"
 requests = "^2.25.1"
 tblib = "^1.7.0"
 timeout-decorator = "^0.5.0"
+xxhash = "^3.4"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = { version = "^6.0", python = ">=3.11,<3.15" }

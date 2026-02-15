@@ -239,7 +239,7 @@ class Controller:
         validation_cfg = self.__context.config.validation
         self.__validation_config = ValidationConfig(
             enabled=validation_cfg.enabled or False,
-            algorithm=ValidationAlgorithm(validation_cfg.algorithm or "md5"),
+            algorithm=ValidationAlgorithm(validation_cfg.algorithm or "xxh128"),
             default_chunk_size=validation_cfg.default_chunk_size or 52428800,
             min_chunk_size=validation_cfg.min_chunk_size or 1048576,
             max_chunk_size=validation_cfg.max_chunk_size or 104857600,

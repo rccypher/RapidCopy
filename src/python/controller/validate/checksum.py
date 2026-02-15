@@ -15,6 +15,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 
+import xxhash
+
 from common import ValidationAlgorithm, ChunkInfo, AppError
 from ssh import Sshcp, SshcpError
 
@@ -28,7 +30,7 @@ class ChecksumError(AppError):
 class ChecksumGenerator(ABC):
     """Abstract base class for checksum generation."""
 
-    def __init__(self, algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5):
+    def __init__(self, algorithm: ValidationAlgorithm = ValidationAlgorithm.XXH128):
         self.algorithm = algorithm
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -81,7 +83,7 @@ class ChecksumGenerator(ABC):
 class LocalChecksumGenerator(ChecksumGenerator):
     """Generate checksums for local files."""
 
-    def __init__(self, algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5, buffer_size: int = 8192):
+    def __init__(self, algorithm: ValidationAlgorithm = ValidationAlgorithm.XXH128, buffer_size: int = 1048576):
         super().__init__(algorithm)
         self.buffer_size = buffer_size
 
@@ -93,6 +95,8 @@ class LocalChecksumGenerator(ChecksumGenerator):
             return hashlib.sha256()
         elif self.algorithm == ValidationAlgorithm.SHA1:
             return hashlib.sha1()
+        elif self.algorithm == ValidationAlgorithm.XXH128:
+            return xxhash.xxh128()
         else:
             raise ChecksumError(f"Unsupported algorithm: {self.algorithm}")
 
@@ -150,7 +154,7 @@ class LocalChecksumGenerator(ChecksumGenerator):
 class RemoteChecksumGenerator(ChecksumGenerator):
     """Generate checksums for remote files via SSH."""
 
-    def __init__(self, sshcp: Sshcp, algorithm: ValidationAlgorithm = ValidationAlgorithm.MD5):
+    def __init__(self, sshcp: Sshcp, algorithm: ValidationAlgorithm = ValidationAlgorithm.XXH128):
         super().__init__(algorithm)
         self._sshcp = sshcp
 
@@ -162,6 +166,8 @@ class RemoteChecksumGenerator(ChecksumGenerator):
             return "sha256sum"
         elif self.algorithm == ValidationAlgorithm.SHA1:
             return "sha1sum"
+        elif self.algorithm == ValidationAlgorithm.XXH128:
+            return "xxh128sum"
         else:
             raise ChecksumError(f"Unsupported algorithm: {self.algorithm}")
 
