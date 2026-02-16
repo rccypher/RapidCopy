@@ -19,14 +19,17 @@ import {ViewFileOptions} from "./view-file-options";
 const StatusComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
     if (a.status !== b.status) {
         const statusPriorities = {
-            [ViewFile.Status.EXTRACTING]: 0,
-            [ViewFile.Status.DOWNLOADING]: 1,
-            [ViewFile.Status.QUEUED]: 2,
-            [ViewFile.Status.EXTRACTED]: 3,
-            [ViewFile.Status.DOWNLOADED]: 4,
-            [ViewFile.Status.STOPPED]: 5,
-            [ViewFile.Status.DEFAULT]: 6,
-            [ViewFile.Status.DELETED]: 6  // intermix deleted and default
+            [ViewFile.Status.CORRUPT]: 0,
+            [ViewFile.Status.VALIDATING]: 1,
+            [ViewFile.Status.EXTRACTING]: 2,
+            [ViewFile.Status.DOWNLOADING]: 3,
+            [ViewFile.Status.QUEUED]: 4,
+            [ViewFile.Status.EXTRACTED]: 5,
+            [ViewFile.Status.VALIDATED]: 6,
+            [ViewFile.Status.DOWNLOADED]: 7,
+            [ViewFile.Status.STOPPED]: 8,
+            [ViewFile.Status.DEFAULT]: 9,
+            [ViewFile.Status.DELETED]: 9  // intermix deleted and default
         };
         if (statusPriorities[a.status] !== statusPriorities[b.status]) {
             return statusPriorities[a.status] - statusPriorities[b.status];
