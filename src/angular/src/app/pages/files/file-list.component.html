@@ -1,10 +1,25 @@
 <div id="file-list">
     <div id="header">
-        <div class="name">Filename</div>
-        <div class="status">Status</div>
-        <div class="speed">Speed</div>
-        <div class="eta">ETA</div>
-        <div class="size">Size</div>
+        <div class="name sortable" (click)="onHeaderSort('name')">
+            Filename
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'name'">{{sortAscending ? '▲' : '▼'}}</span>
+        </div>
+        <div class="status sortable" (click)="onHeaderSort('status')">
+            Status
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'status'">▲</span>
+        </div>
+        <div class="speed sortable" (click)="onHeaderSort('speed')">
+            Speed
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'speed'">▼</span>
+        </div>
+        <div class="eta sortable" (click)="onHeaderSort('eta')">
+            ETA
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'eta'">▲</span>
+        </div>
+        <div class="size sortable" (click)="onHeaderSort('size')">
+            Size
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'size'">{{sortAscending ? '▲' : '▼'}}</span>
+        </div>
     </div>
     <div *ngFor="let file of files | async; trackBy: identify">
         <app-file

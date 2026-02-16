@@ -1,4 +1,4 @@
-import {Component, ChangeDetectionStrategy} from "@angular/core";
+import {Component, ChangeDetectionStrategy, ChangeDetectorRef} from "@angular/core";
 import {Observable} from "rxjs";
 
 import {List} from "immutable";
@@ -22,11 +22,45 @@ export class FileListComponent {
     public identify = FileListComponent.identify;
     public options: Observable<ViewFileOptions>;
 
+    // Column header sort state
+    public activeSortColumn: string = null;
+    public sortAscending = true;
+
+    // Maps column names to their sort method(s)
+    private static readonly COLUMN_SORT_MAP: Record<string, {asc: ViewFileOptions.SortMethod, desc: ViewFileOptions.SortMethod}> = {
+        name:   {asc: ViewFileOptions.SortMethod.NAME_ASC,   desc: ViewFileOptions.SortMethod.NAME_DESC},
+        status: {asc: ViewFileOptions.SortMethod.STATUS,     desc: ViewFileOptions.SortMethod.STATUS},
+        speed:  {asc: ViewFileOptions.SortMethod.SPEED_DESC, desc: ViewFileOptions.SortMethod.SPEED_DESC},
+        eta:    {asc: ViewFileOptions.SortMethod.ETA_ASC,    desc: ViewFileOptions.SortMethod.ETA_ASC},
+        size:   {asc: ViewFileOptions.SortMethod.SIZE_ASC,   desc: ViewFileOptions.SortMethod.SIZE_DESC},
+    };
+
     constructor(private _logger: LoggerService,
                 private viewFileService: ViewFileService,
-                private viewFileOptionsService: ViewFileOptionsService) {
+                private viewFileOptionsService: ViewFileOptionsService,
+                private _changeDetector: ChangeDetectorRef) {
         this.files = viewFileService.filteredFiles;
         this.options = this.viewFileOptionsService.options;
+    }
+
+    onHeaderSort(column: string): void {
+        const mapping = FileListComponent.COLUMN_SORT_MAP[column];
+        if (!mapping) return;
+
+        if (this.activeSortColumn === column) {
+            // Toggle direction if same column clicked again (only for columns with two directions)
+            if (mapping.asc !== mapping.desc) {
+                this.sortAscending = !this.sortAscending;
+            }
+        } else {
+            // New column: default to ascending
+            this.activeSortColumn = column;
+            this.sortAscending = true;
+        }
+
+        const sortMethod = this.sortAscending ? mapping.asc : mapping.desc;
+        this.viewFileOptionsService.setSortMethod(sortMethod);
+        this._changeDetector.markForCheck();
     }
 
     // noinspection JSUnusedLocalSymbols

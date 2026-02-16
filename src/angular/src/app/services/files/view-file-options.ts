@@ -70,6 +70,10 @@ export module ViewFileOptions {
     export enum SortMethod {
         STATUS,
         NAME_ASC,
-        NAME_DESC
+        NAME_DESC,
+        SIZE_ASC,
+        SIZE_DESC,
+        SPEED_DESC,
+        ETA_ASC
     }
 }

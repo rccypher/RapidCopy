@@ -42,4 +42,20 @@
         color: var(--color-text-inverse);
         background-color: var(--color-text-primary);
     }
+
+    /* clickable sort headers */
+    #header div.sortable {
+        cursor: pointer;
+        user-select: none;
+
+        &:hover {
+            background-color: var(--color-accent-primary);
+        }
+
+        .sort-indicator {
+            margin-left: 4px;
+            font-size: 0.7em;
+            opacity: 0.9;
+        }
+    }
 }

@@ -60,6 +60,60 @@ const NameDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile):
 };
 
 /**
+ * Sort by size ascending (smallest first), nulls last, then by name
+ */
+const SizeAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const sizeA = a.remoteSize ?? a.localSize ?? -1;
+    const sizeB = b.remoteSize ?? b.localSize ?? -1;
+    if (sizeA !== sizeB) {
+        if (sizeA < 0) return 1;
+        if (sizeB < 0) return -1;
+        return sizeA - sizeB;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
+ * Sort by size descending (largest first), nulls last, then by name
+ */
+const SizeDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const sizeA = a.remoteSize ?? a.localSize ?? -1;
+    const sizeB = b.remoteSize ?? b.localSize ?? -1;
+    if (sizeA !== sizeB) {
+        if (sizeA < 0) return 1;
+        if (sizeB < 0) return -1;
+        return sizeB - sizeA;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
+ * Sort by download speed descending (fastest first), zero/null last, then by name
+ */
+const SpeedDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const speedA = a.downloadingSpeed ?? 0;
+    const speedB = b.downloadingSpeed ?? 0;
+    if (speedA !== speedB) {
+        return speedB - speedA;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
+ * Sort by ETA ascending (shortest first), zero/null last, then by name
+ */
+const EtaAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const etaA = a.eta ?? 0;
+    const etaB = b.eta ?? 0;
+    if (etaA > 0 && etaB <= 0) return -1;
+    if (etaA <= 0 && etaB > 0) return 1;
+    if (etaA !== etaB) {
+        return etaA - etaB;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
  * ViewFileSortService class provides sorting services for
  * view files
  *
@@ -86,6 +140,18 @@ export class ViewFileSortService {
                 } else if (this._sortMethod === ViewFileOptions.SortMethod.NAME_ASC) {
                     this._viewFileService.setComparator(NameAscendingComparator);
                     this._logger.debug("Comparator set to: Name Asc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SIZE_ASC) {
+                    this._viewFileService.setComparator(SizeAscendingComparator);
+                    this._logger.debug("Comparator set to: Size Asc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SIZE_DESC) {
+                    this._viewFileService.setComparator(SizeDescendingComparator);
+                    this._logger.debug("Comparator set to: Size Desc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_DESC) {
+                    this._viewFileService.setComparator(SpeedDescendingComparator);
+                    this._logger.debug("Comparator set to: Speed Desc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.ETA_ASC) {
+                    this._viewFileService.setComparator(EtaAscendingComparator);
+                    this._logger.debug("Comparator set to: ETA Asc");
                 } else {
                     this._viewFileService.setComparator(null);
                     this._logger.debug("Comparator set to: null");
