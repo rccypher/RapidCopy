@@ -357,9 +357,13 @@ export class ViewFileService {
         }
         let percentDownloaded: number = null;
         if (remoteSize > 0) {
-            percentDownloaded = Math.trunc(100.0 * localSize / remoteSize);
-        } else {
+            percentDownloaded = Math.round(100.0 * localSize / remoteSize);
+        } else if (localSize > 0) {
+            // Local-only file: no remote size known, treat as 100%
             percentDownloaded = 100;
+        } else {
+            // No local or remote data yet — show 0%
+            percentDownloaded = 0;
         }
 
         // Translate the status

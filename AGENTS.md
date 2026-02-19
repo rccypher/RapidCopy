@@ -253,6 +253,8 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 | 5 | Add pre-bundled RAR test fixtures (fix integration tests) | MEDIUM | ~2 hrs | Pending |
 | 6 | Update MODERNIZATION-PLAN.md to reflect current state | LOW | 15 min | Pending |
 | 7 | Fix 6 pre-existing unit test failures (config/validation/scanner) | MEDIUM | ~1-2 hrs | Pending |
+| 8 | Fix checkbox alignment on Settings page (checkbox should be inline with its label) | LOW | ~15 min | Pending |
+| 9 | Fix dashboard download percentages | MEDIUM | ~30 min | Pending |
 
 ### Completed This Session (Feb 18–19 2026)
 

@@ -229,7 +229,12 @@ describe("Testing view file service", () => {
             [5, 10, 50],
             [10, 10, 100],
             [null, 10, 0],
-            [10, null, 100]
+            [10, null, 100],
+            [null, null, 0],   // no local or remote size yet — should show 0%, not 100%
+            [0, null, 0],      // remote size not yet known, nothing downloaded — 0%
+            [5, 10, 50],       // rounds correctly (50.0 → 50)
+            [1, 3, 33],        // rounds: 33.33 → 33
+            [2, 3, 67],        // rounds: 66.67 → 67 (was 66 with Math.trunc)
         ];
 
         let count = -1;

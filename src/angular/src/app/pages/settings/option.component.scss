@@ -40,6 +40,7 @@ span.description {
         width: 1.2em;
         height: 1.2em;
         margin-top: 0.15em;
+        margin-left: 0;  // reset Bootstrap's -1.5em pull-left margin
         margin-right: 0.5em;
         flex-shrink: 0;
         cursor: pointer;
