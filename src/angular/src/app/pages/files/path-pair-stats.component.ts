@@ -23,7 +23,9 @@ export interface PathPairStat {
     queuedCount: number;
     downloadedCount: number;
     totalRemoteSize: number;
-    totalLocalSize: number;
+    // Bytes transferred: remoteSize of completed files + localSize of in-progress files.
+    // Does NOT use raw local disk usage (which can exceed remote size due to extraction, stale files etc.)
+    totalTransferredSize: number;
     totalSpeed: number;
     overallProgress: number;
 }
@@ -123,32 +125,38 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
         let queuedCount = 0;
         let downloadedCount = 0;
         let totalRemoteSize = 0;
-        let totalLocalSize = 0;
+        let totalTransferredSize = 0;
         let totalSpeed = 0;
 
         for (const file of files) {
             totalRemoteSize += file.remoteSize || 0;
-            totalLocalSize += file.localSize || 0;
 
             switch (file.status) {
                 case ViewFile.Status.DOWNLOADING:
                     downloadingCount++;
                     totalSpeed += file.downloadingSpeed || 0;
+                    // Count bytes actually on disk for in-progress files (capped at remoteSize)
+                    totalTransferredSize += Math.min(file.localSize || 0, file.remoteSize || 0);
                     break;
                 case ViewFile.Status.QUEUED:
                     queuedCount++;
                     break;
                 case ViewFile.Status.DOWNLOADED:
+                case ViewFile.Status.EXTRACTING:
                 case ViewFile.Status.EXTRACTED:
+                case ViewFile.Status.VALIDATING:
                 case ViewFile.Status.VALIDATED:
                     downloadedCount++;
+                    // Count the remote size (the actual amount transferred) not local disk size
+                    // (local disk may be larger after extraction, or smaller if file was deleted)
+                    totalTransferredSize += file.remoteSize || 0;
                     break;
             }
         }
 
-        // Calculate overall progress
-        const overallProgress = totalRemoteSize > 0 
-            ? Math.round((totalLocalSize / totalRemoteSize) * 100) 
+        // Progress = transferred bytes / total remote bytes, capped at 100%
+        const overallProgress = totalRemoteSize > 0
+            ? Math.min(100, Math.round((totalTransferredSize / totalRemoteSize) * 100))
             : 0;
 
         return {
@@ -161,7 +169,7 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
             queuedCount,
             downloadedCount,
             totalRemoteSize,
-            totalLocalSize,
+            totalTransferredSize,
             totalSpeed,
             overallProgress
         };
