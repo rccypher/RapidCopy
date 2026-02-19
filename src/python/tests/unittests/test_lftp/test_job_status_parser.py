@@ -1004,7 +1004,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_2(self):
         # Double quote
-        output = r"""
+        output = """
         [0] queue (sftp://someone:@localhost)  -- 12 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_w8d2q1ot/remote/aaa"aaa /tmp/test_lftp_w8d2q1ot/local/ -- 19/128 (14%) 12 B/s
@@ -1057,7 +1057,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_3(self):
         # Mix of single quotes, double quotes and spaces
-        output = r"""
+        output = """
         [0] queue (sftp://someone:@localhost)  -- 15 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_m9mxjip7/remote/a' aa"aaa /tmp/test_lftp_m9mxjip7/local/ -- 48/128 (37%) 15 B/s
