@@ -242,28 +242,28 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 
 ## Pending Work
 
-### Active To-Dos (as of Feb 2026)
+### Active To-Dos
 
 | # | Task | Priority | Est. Effort | Status |
 |---|------|----------|-------------|--------|
 | 1 | Log file persistence + UI text search | HIGH | ~40-50% session | Pending |
-| 2 | Inline validation during download (chunk hashing) | HIGH | ~60-80% session | Pending |
-| 3 | Close GitHub issue #1 (superseded by #2 above) | LOW | 5 min | Blocked — needs GH PAT |
-| 4 | Publish Docker image to Docker Hub | MEDIUM | ~1 session | Pending |
-| 5 | Add validation settings to Settings UI | MEDIUM | ~20-30% session | Pending |
-| 6 | Pin Python dependencies to tighter version ranges | MEDIUM | ~1 hr | Pending |
-| 7 | Add pre-bundled RAR test fixtures (fix integration tests) | MEDIUM | ~2 hrs | Pending |
-| 8 | Update MODERNIZATION-PLAN.md to reflect current state | LOW | 15 min | Pending |
+| 2 | Close GitHub issue #1 (inline validation done — just needs closing) | LOW | 5 min | Blocked — needs GH PAT |
+| 3 | Publish Docker image to Docker Hub | MEDIUM | ~1 session | Pending |
+| 4 | Add validation settings to Settings UI | MEDIUM | ~20-30% session | Pending |
+| 5 | Add pre-bundled RAR test fixtures (fix integration tests) | MEDIUM | ~2 hrs | Pending |
+| 6 | Update MODERNIZATION-PLAN.md to reflect current state | LOW | 15 min | Pending |
+| 7 | Fix 6 pre-existing unit test failures (config/validation/scanner) | MEDIUM | ~1-2 hrs | Pending |
 
-### Completed This Session (Feb 18 2026)
+### Completed This Session (Feb 18–19 2026)
 
-- **Housekeeping**: Committed `docker-compose.yml` with correct production volume mounts (stripped unused NFS/auto-update config)
-- **Task 11 done**: Fixed `SyntaxWarning: invalid escape sequence` in `src/python/tests/unittests/test_lftp/test_job_status_parser.py` — converted 36 output string literals to raw strings (`r"""..."""`) and escaped `\mirror` in 3 docstrings
-- **Tasks 7+8 already done**: Python 3.11 upgrade and DEB build Dockerfile (now Ubuntu 22.04) were already committed prior to this session — MODERNIZATION-PLAN.md items were outdated
+- **Housekeeping**: Committed `docker-compose.yml` with correct production volume mounts
+- **Deprecation warnings**: Fixed `SyntaxWarning: invalid escape sequence` in `test_job_status_parser.py`
+- **Git remote**: Switched to SSH (`git@github.com:rccypher/RapidCopy.git`)
+- **Dep pinning (Task 6)**: `poetry update` — updated 32 packages, removed 10 stale deps (waitress 1.4→3.0, requests 2.25→2.32, urllib3 1.26→2.6, etc.). 437 tests pass.
+- **Inline validation (Task 2)**: Implemented `validate_after_chunk` — chunks are now hashed as they arrive during download. Wire-up in `ValidationDispatch`, `ValidationProcess`, and `Controller`. No new test failures.
 
 ### Session Capacity Notes
 
-- **Task 1 (log persistence)** and **Task 2 (inline validation)** are each large enough to fill a full session on their own. Do not combine them.
-- **Task 6 (dep pinning)**: Low risk, can be done at start of any session as a warm-up (~1 hr).
-- **Task 7 (RAR fixtures)**: Self-contained, good standalone session task (~2 hrs).
-- **Inline validation (Task 2)** is the highest-value item — it also resolves GitHub issue #1.
+- **Task 1 (log persistence)**: Large — fills a full session on its own.
+- **Task 5 (RAR fixtures)**: Self-contained standalone session task (~2 hrs).
+- **Task 7 (pre-existing test failures)**: Good warm-up task; failures are in `test_config.py` (missing `General.log_level`, `Lftp.rate_limit` keys), `test_rapidcopy.py` (uninitialized `Validation.enabled`), and `test_remote_scanner.py` (stale error message string). All are application-level, not dep-related.
