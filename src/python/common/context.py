@@ -24,6 +24,7 @@ class Args:
         self.html_path = None
         self.debug = None
         self.exit = None
+        self.log_dir = None
 
     def as_dict(self) -> dict:
         dct = collections.OrderedDict()
@@ -31,6 +32,7 @@ class Args:
         dct["html_path"] = str(self.html_path)
         dct["debug"] = str(self.debug)
         dct["exit"] = str(self.exit)
+        dct["log_dir"] = str(self.log_dir)
         return dct
 
 

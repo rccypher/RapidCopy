@@ -82,7 +82,7 @@ class LogStreamHandler(IStreamHandler):
     starts.
     """
 
-    _CACHE_HISTORY_SIZE_IN_MS = 3000
+    _CACHE_HISTORY_SIZE_IN_MS = 30000
 
     # Cache of logs
     _cache = None

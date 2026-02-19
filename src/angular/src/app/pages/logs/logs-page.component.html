@@ -11,11 +11,44 @@
             {{record.level}} -
             {{record.loggerName}} -
             {{record.message}}
-
             <!-- Don't break this span into multiple lines, newlines show up -->
             <span class="traceback" *ngIf="record.exceptionTraceback">{{record.exceptionTraceback}}</span>
         </p>
     </ng-template>
+
+    <!-- Search toolbar -->
+    <div class="search-toolbar">
+        <input
+            class="search-input"
+            type="text"
+            placeholder="Search logs..."
+            [(ngModel)]="searchText"
+            (ngModelChange)="onSearchChange()" />
+        <select
+            class="level-select"
+            [(ngModel)]="levelFilter"
+            (ngModelChange)="onLevelChange()">
+            <option value="">All levels</option>
+            <option value="DEBUG">DEBUG+</option>
+            <option value="INFO">INFO+</option>
+            <option value="WARNING">WARNING+</option>
+            <option value="ERROR">ERROR+</option>
+            <option value="CRITICAL">CRITICAL</option>
+        </select>
+        <button
+            *ngIf="isFiltered"
+            class="clear-btn"
+            type="button"
+            (click)="clearSearch()">
+            Clear
+        </button>
+        <span class="search-status" *ngIf="isFiltered && !isSearching && !searchError">
+            <ng-container *ngIf="searchTruncated">First 500 matches shown</ng-container>
+            <ng-container *ngIf="!searchTruncated">{{searchResults.length}} result<ng-container *ngIf="searchResults.length !== 1">s</ng-container></ng-container>
+        </span>
+        <span class="search-status searching" *ngIf="isSearching">Searching...</span>
+        <span class="search-error" *ngIf="searchError">{{searchError}}</span>
+    </div>
 
     <button id="btn-scroll-top"
             type="button"
@@ -28,8 +61,31 @@
 
     <div #logHead class="log-marker"></div>
 
-    <!-- marks where template should be copied -->
-    <ng-container #container></ng-container>
+    <!-- Search results (shown when a filter is active) -->
+    <ng-container *ngIf="isFiltered">
+        <p *ngFor="let record of searchResults"
+           class="record"
+           [class.debug]="record.level == LogRecord.Level.DEBUG"
+           [class.info]="record.level == LogRecord.Level.INFO"
+           [class.warning]="record.level == LogRecord.Level.WARNING"
+           [class.error]="record.level == LogRecord.Level.ERROR"
+           [class.critical]="record.level == LogRecord.Level.CRITICAL">
+            {{record.time | date: 'yyyy/MM/dd HH:mm:ss'}} -
+            {{record.level}} -
+            {{record.loggerName}} -
+            {{record.message}}
+            <span class="traceback" *ngIf="record.exceptionTraceback">{{record.exceptionTraceback}}</span>
+        </p>
+        <p class="no-results" *ngIf="!isSearching && !searchError && searchResults.length === 0">
+            No matching log records found.
+        </p>
+    </ng-container>
+
+    <!-- Live stream (shown when no filter is active) -->
+    <ng-container *ngIf="!isFiltered">
+        <!-- marks where live template should be copied -->
+        <ng-container #container></ng-container>
+    </ng-container>
 
     <div #logTail class="log-marker"></div>
 

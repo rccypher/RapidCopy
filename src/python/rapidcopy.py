@@ -67,6 +67,7 @@ class Rapidcopy:
         ctx_args.html_path = args.html
         ctx_args.debug = is_debug
         ctx_args.exit = args.exit
+        ctx_args.log_dir = args.logdir
 
         # Logger setup using LogManager
         # Determine log level from config (defaults to INFO, ignored if debug=True)

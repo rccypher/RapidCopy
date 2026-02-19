@@ -15,6 +15,7 @@ from .handler.path_pairs import PathPairsHandler
 from .handler.validation import ValidationHandler
 from .handler.update import UpdateHandler
 from .handler.mounts import MountsHandler
+from .handler.logs import LogsHandler
 
 
 class WebAppBuilder:
@@ -41,6 +42,10 @@ class WebAppBuilder:
         self.mounts_handler = None
         if context.network_mount_manager:
             self.mounts_handler = MountsHandler(context.network_mount_manager, context.logger)
+        # Log search handler (only available when log_dir is configured)
+        self.logs_handler = None
+        if context.args.log_dir:
+            self.logs_handler = LogsHandler(log_dir=context.args.log_dir)
 
     def build(self) -> WebApp:
         web_app = WebApp(context=self.__context, controller=self.__controller)
@@ -66,6 +71,10 @@ class WebAppBuilder:
         # Add network mounts routes if available
         if self.mounts_handler:
             self.mounts_handler.add_routes(web_app)
+
+        # Add log search routes if available
+        if self.logs_handler:
+            self.logs_handler.add_routes(web_app)
 
         web_app.add_default_routes()
 

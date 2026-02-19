@@ -125,9 +125,11 @@ RUN groupadd -g 1000 rapidcopy && \
     mkdir /config && \
     mkdir /downloads && \
     mkdir /mounts && \
+    mkdir /logs && \
     chown rapidcopy:rapidcopy /config && \
     chown rapidcopy:rapidcopy /downloads && \
-    chown rapidcopy:rapidcopy /mounts
+    chown rapidcopy:rapidcopy /mounts && \
+    chown rapidcopy:rapidcopy /logs
 
 USER rapidcopy
 
@@ -139,7 +141,8 @@ CMD [ \
     "/app/python/rapidcopy.py", \
     "-c", "/config", \
     "--html", "/app/html", \
-    "--scanfs", "/app/scanfs" \
+    "--scanfs", "/app/scanfs", \
+    "--logdir", "/logs" \
 ]
 
 EXPOSE 8800
