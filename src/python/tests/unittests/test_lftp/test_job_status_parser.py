@@ -48,14 +48,14 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(0, len(statuses))
 
     def test_empty_output_2(self):
-        output = """
+        output = r"""
         """
         parser = LftpJobStatusParser()
         statuses = parser.parse(output)
         self.assertEqual(0, len(statuses))
 
     def test_empty_output_3(self):
-        output = """
+        output = r"""
         [1] Done (queue (sftp://someone:@localhost))
         """
         parser = LftpJobStatusParser()
@@ -63,7 +63,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(0, len(statuses))
 
     def test_empty_output_4(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         [0] Done (queue (sftp://someone:@localhost))
@@ -74,7 +74,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_queued_items(self):
         """Queued items, no jobs running"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)
         sftp://someone:@localhost/home/someone
         Queue is stopped.
@@ -119,7 +119,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_queued_items_with_quotes(self):
         """Queue with quotes"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)
         sftp://someone:@localhost/home/someone
         Queue is stopped.
@@ -182,7 +182,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_queue_and_jobs_1(self):
         """Queued items, parallel jobs running, multiple files, multiple chunks"""
-        output = """
+        output = r"""
         [1] queue (sftp://someone:@localhost)  -- 15.8 KiB/s
         sftp://someone:@localhost/home/someone
         Now executing: [2] mirror -c /tmp/test_lftp/remote/a /tmp/test_lftp/local/ -- 17k/26M (0%) 5.0 KiB/s
@@ -292,7 +292,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_queue_and_jobs_2(self):
         """Queued items, parallel jobs running, multiple files, multiple chunks"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 15.6 KiB/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp/remote/a /tmp/test_lftp/local/ -- 152k/26M (0%) 3.9 KiB/s
@@ -391,7 +391,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_queue_and_jobs_3(self):
         """Queued items, parallel jobs running, 'cd' line in queued pget"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_n_l73hx8/remote/a /tmp/test_lftp_n_l73hx8/local/
@@ -445,8 +445,8 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_queue_and_jobs_4(self):
-        """Queued items, parallel jobs running, '\mirror' line with 'Getting file list'"""
-        output = """
+        """Queued items, parallel jobs running, '\\mirror' line with 'Getting file list'"""
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_controller_zph2s53/remote/ra /tmp/test_controller_zph2s53/local/ -- 0/1.1k (0%)
@@ -496,9 +496,9 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_queue_and_jobs_5(self):
-        """Queued items, parallel jobs running, '\mirror' line with 'cd'"""
+        """Queued items, parallel jobs running, '\\mirror' line with 'cd'"""
         # noinspection PyPep8
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_controllerw0sbqxe_/remote/ra /tmp/test_controllerw0sbqxe_/local/ -- 0/1.1k (0%)
@@ -548,8 +548,8 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_queue_and_jobs_6(self):
-        """Queued items, parallel jobs running, '\mirror' line with no units for local_size"""
-        output = """
+        """Queued items, parallel jobs running, '\\mirror' line with no units for local_size"""
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 252 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_controllerbsn4wlu2/remote/ra /tmp/test_controllerbsn4wlu2/local/ -- 249/8.2k (3%) 100 B/s
@@ -605,7 +605,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_1(self):
         """1 job, 1 file, no chunks"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)
         sftp://someone:@localhost/home/someone
         Now executing: [1] pget -c /tmp/test_lftp/remote/c -o /tmp/test_lftp/local/
@@ -628,7 +628,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_2(self):
         """1 job, 1 dir, no units in local size"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 90 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_rm_s6oau/remote/a /tmp/test_lftp_rm_s6oau/local/ -- 345/26M (0%) 90 B/s
@@ -654,7 +654,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_3(self):
         """1 job, 1 file, chunks"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         Now executing: [1] pget -c /tmp/test_lftp/remote/A.b.C.rar -o /tmp/lftp/
@@ -686,7 +686,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_quotes(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp/remote/e e /tmp/test_lftp/local/ -- 0/132k (0%)
@@ -721,7 +721,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_getting_file_list(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp/remote/e e /tmp/test_lftp/local/
@@ -752,7 +752,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_mirror_empty(self):
         # '-o' in filename
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 59 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [2] mirror -c /tmp/test_lftp_1d7axxcf/remote/a /tmp/test_lftp_1d7axxcf/local/ -- 100/100 (100%) 59 B/s
@@ -779,7 +779,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_mirror_mkdir(self):
-        output = """        
+        output = r"""        
         [0] queue (sftp://someone:@localhost:22) 
         sftp://someone:@localhost:22/home/someone
         Now executing: [1] mirror -c /tmp/test_controllerxnx7xw6x/remote/ra /tmp/test_controllerxnx7xw6x/local/ -- 0/1.1k (0%)
@@ -806,7 +806,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_connecting(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost
         Now executing: [1] pget -c /tmp/test_lftp_jsecvi6m/remote/c -o /tmp/test_lftp_jsecvi6m/local/
@@ -836,7 +836,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_almost_done(self):
         """Almost done job has a special shorter 'at' line for child file"""
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 98 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [3] mirror -c /tmp/test_lftp_sbz92f__/remote/c'c'c'c /tmp/test_lftp_sbz92f__/local/ -- 100/100 (100%) 98 B/s
@@ -861,7 +861,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_empty(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost
         Now executing: [2] mirror -c /tmp/test_lftp_yb58ogg6/remote/a /tmp/test_lftp_yb58ogg6/local/
@@ -880,7 +880,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_with_done_line(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 59 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [2] mirror -c /tmp/test_lftp_1d7axxcf/remote/a /tmp/test_lftp_1d7axxcf/local/ -- 100/100 (100%) 59 B/s
@@ -906,7 +906,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_missing_pget_data_line(self):
-        output = """
+        output = r"""
         [0] queue (sftp://seedsynctest:@localhost:22) 
         sftp://seedsynctest:@localhost:22/home/seedsynctest
         Now executing: [3] mirror -c /tmp/test_lftp_ns99k0im/remote/c -o c /tmp/test_lftp_ns99k0im/local/
@@ -936,7 +936,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_raises_error_on_bad_status(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost) 
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_controllerw0sbqxe_/remote/ra /tmp/test_controllerw0sbqxe_/local/ -- 0/1.1k (0%)
@@ -951,7 +951,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_1(self):
         # Apostrophe/single quote
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 18 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_g6z3_el7/remote/aaa'aaa /tmp/test_lftp_g6z3_el7/local/ -- 36/128 (28%) 18 B/s
@@ -1004,7 +1004,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_2(self):
         # Double quote
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 12 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_w8d2q1ot/remote/aaa"aaa /tmp/test_lftp_w8d2q1ot/local/ -- 19/128 (14%) 12 B/s
@@ -1057,7 +1057,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_3(self):
         # Mix of single quotes, double quotes and spaces
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 15 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_m9mxjip7/remote/a' aa"aaa /tmp/test_lftp_m9mxjip7/local/ -- 48/128 (37%) 15 B/s
@@ -1110,7 +1110,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
 
     def test_jobs_special_char_4(self):
         # '-o' in filename
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost)  -- 16 B/s
         sftp://someone:@localhost/home/someone
         Now executing: [1] mirror -c /tmp/test_lftp_xi6gkbhv/remote/a -o a /tmp/test_lftp_xi6gkbhv/local/ -- 60/128 (46%) 16 B/s
@@ -1162,7 +1162,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_chmod(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost:22)  -- 12.26 MiB/s
         sftp://someone:@localhost:22/remote/path
         Now executing: [3] mirror -c /remote/path/Space.Trek.S23E03.720p /local/path/ -- 985M/985M (100%)
@@ -1250,7 +1250,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_job2, statuses[1])
 
     def test_jobs_chmod_two_liner(self):
-        output = """
+        output = r"""
         [0] queue (sftp://someone:@localhost:22)  -- 1.8 KiB/s
         sftp://someone:@localhost:22/remote/path
         Now executing: [1] mirror -c /remote/path/Space.Trek /local/path/ -- 3.1k/617M (0%) 1.8 KiB/s
@@ -1293,7 +1293,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_job1, statuses[0])
 
     def test_jobs_chmod_2(self):
-        output = """
+        output = r"""
         jobs -v
         [0] queue (sftp://someone:@localhost:22)  -- 3.45 MiB/s
         sftp://someone:@localhost:22/remote/path
@@ -1335,7 +1335,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_job1, statuses[0])
 
     def test_removes_jobs_command(self):
-        output = """
+        output = r"""
         jobs -v
         [0] queue (sftp://someone:@localhost)  -- 90 B/s
         sftp://someone:@localhost/home/someone
@@ -1356,7 +1356,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_removes_multiple_jobs_lines(self):
-        output = """
+        output = r"""
         jobs -v
         jobs -v
         jobs -v
@@ -1379,7 +1379,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_removes_log_line(self):
-        output = """
+        output = r"""
         2020-06-09 04:25:46 sftp://user@example.com:22/path/on/server/file.nfo -> /path/on/local/file.nfo 0-1400 2.8 KiB/s
         [0] queue (sftp://someone:@localhost)  -- 90 B/s
         sftp://someone:@localhost/home/someone
@@ -1400,7 +1400,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_removes_lines_before_first_jobs(self):
-        output = """
+        output = r"""
         /path/on/local/file.nfo.lftp 914457562-997590066 436.5 KiB/s
         jobs -v
         [0] queue (sftp://someone:@localhost)  -- 90 B/s
@@ -1422,7 +1422,7 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(golden_jobs, statuses_jobs)
 
     def test_jobs_removes_multiple_jobs_lines(self):
-        output = """
+        output = r"""
         jobs -v
         [0] queue (sftp://user:password@server:22) -- 3.18 MiB/s
         sftp://user:password@server:22/home/someone
