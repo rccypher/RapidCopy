@@ -261,6 +261,7 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 - **Git remote**: Switched to SSH (`git@github.com:rccypher/RapidCopy.git`)
 - **Dep pinning (Task 6)**: `poetry update` — updated 32 packages, removed 10 stale deps (waitress 1.4→3.0, requests 2.25→2.32, urllib3 1.26→2.6, etc.). 437 tests pass.
 - **Inline validation (Task 2)**: Implemented `validate_after_chunk` — chunks are now hashed as they arrive during download. Wire-up in `ValidationDispatch`, `ValidationProcess`, and `Controller`. No new test failures.
+- **Corrupt chunk re-download (arch fix)**: Removed broken `validate_after_file` post-download path. Corrupt retryable chunks now trigger `Lftp.pget_range()` (new method) to re-fetch only that byte range. `ValidationDispatch` marks chunk as `DOWNLOADING` and emits `CorruptChunkRedownload`; controller issues `pget --range`, polls `os.path.getsize()`, then calls `resume_chunk()` to re-hash. `validate_after_chunk` defaults to `True`. 437 tests still pass.
 
 ### Session Capacity Notes
 
