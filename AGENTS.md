@@ -227,10 +227,21 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 - **Git remote**: `git@github.com:rccypher/RapidCopy.git` (SSH)
 - **GitHub access**: SSH key auth works (`ssh -T git@github.com`). No `gh` CLI installed. Use `curl` + GitHub REST API for issue management. No stored API token — GH API writes (closing issues, etc.) require a PAT provided at runtime.
 - **Production container**: Running at `http://miniplex:8800`
-- **Production volume mounts**:
-  - `/mnt/media/TV_Downloads` → `/downloads/tv_shows`
-  - `/mnt/MediaVaultV3/Movie_Downloads` → `/downloads/movies`
-  - `~/.ssh` → `/home/rapidcopy/.ssh` (read-only)
+- **Config location**: `/home/jemunos/rapidcopy-config/` (persists across rebuilds)
+  - `settings.cfg` — main config (server address, credentials, etc.)
+  - `path_pairs.json` — source/destination path mappings
+  - `backups/` — auto-backups created before every config/path-pairs write (10-file rotation)
+- **Correct `docker run` command** (must use exact paths):
+  ```
+  docker run -d --name rapidcopy --restart unless-stopped \
+    -v /mnt/media:/mnt/media \
+    -v /home/jemunos/rapidcopy-config:/config \
+    -v /home/jemunos/.ssh/whatbox_key:/home/rapidcopy/.ssh/id_rsa:ro \
+    -p 8800:8800 rapidcopy
+  ```
+- **WARNING**: Do NOT mount to `/root/.config/rapidcopy` — the container runs as uid 1000 (`rapidcopy`), not root. The config dir inside the container is `/config`.
+- **Production volume mounts** (media only):
+  - `/mnt/media` → `/mnt/media` (TV downloads land in `/mnt/media/TV_Downloads`)
 
 ### Dev Machine: local Mac (jemunos)
 

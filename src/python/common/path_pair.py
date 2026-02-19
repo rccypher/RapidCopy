@@ -10,8 +10,10 @@ This module provides:
 
 import json
 import os
+import shutil
 import uuid
 from dataclasses import dataclass, field, asdict
+from datetime import datetime
 from typing import Optional, List, Tuple
 from pathlib import Path
 
@@ -247,6 +249,22 @@ class PathPairManager:
         try:
             # Ensure directory exists
             os.makedirs(self._config_dir, exist_ok=True)
+
+            # Backup before overwriting
+            if os.path.isfile(self._file_path):
+                backup_dir = os.path.join(self._config_dir, "backups")
+                os.makedirs(backup_dir, exist_ok=True)
+                file_name = os.path.basename(self._file_path)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = os.path.join(backup_dir, f"{file_name}.{timestamp}.bak")
+                shutil.copy(self._file_path, backup_path)
+                # Rotate: keep only the 10 most recent backups for this file
+                prefix = file_name + "."
+                existing = sorted(
+                    [f for f in os.listdir(backup_dir) if f.startswith(prefix) and f.endswith(".bak")]
+                )
+                for old in existing[:-10]:
+                    os.remove(os.path.join(backup_dir, old))
 
             content = self.to_str()
             with open(self._file_path, "w", encoding="utf-8") as f:

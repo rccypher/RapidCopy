@@ -236,6 +236,7 @@ class Rapidcopy:
         self.context.logger.debug("Persisting states to file")
         self.controller_persist.to_file(self.controller_persist_path)
         self.auto_queue_persist.to_file(self.auto_queue_persist_path)
+        Rapidcopy.__backup_file(self.config_path)
         self.context.config.to_file(self.config_path)
 
     def _auto_mount_network_shares(self):
@@ -422,17 +423,25 @@ class Rapidcopy:
 
     @staticmethod
     def __backup_file(file_path: str):
+        """Back up file to a backups/ subdirectory with timestamp, keeping last 10."""
+        if not os.path.isfile(file_path):
+            return
         file_name = os.path.basename(file_path)
         file_dir = os.path.dirname(file_path)
-        i = 1
-        while True:
-            backup_path = os.path.join(file_dir, "{}.{}.bak".format(file_name, i))
-            if not os.path.exists(backup_path):
-                break
-            i += 1
+        backup_dir = os.path.join(file_dir, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, "{}.{}.bak".format(file_name, timestamp))
         if Rapidcopy.logger:
             Rapidcopy.logger.info("Backing up {} to {}".format(file_path, backup_path))
         shutil.copy(file_path, backup_path)
+        # Rotate: keep only the 10 most recent backups for this file
+        prefix = file_name + "."
+        existing = sorted(
+            [f for f in os.listdir(backup_dir) if f.startswith(prefix) and f.endswith(".bak")]
+        )
+        for old in existing[:-10]:
+            os.remove(os.path.join(backup_dir, old))
 
 
 if __name__ == "__main__":
