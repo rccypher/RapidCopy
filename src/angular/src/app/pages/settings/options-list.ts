@@ -206,3 +206,59 @@ export const OPTIONS_CONTEXT_EXTRACT: IOptionsContext = {
         },
     ]
 };
+
+export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
+    header: "Download Validation",
+    id: "validation",
+    options: [
+        {
+            type: OptionType.Checkbox,
+            label: "Enable download validation",
+            valuePath: ["validation", "enabled"],
+            description: "Validate chunk checksums during download. Corrupt chunks are automatically re-downloaded."
+        },
+        {
+            type: OptionType.Text,
+            label: "Checksum Algorithm",
+            valuePath: ["validation", "algorithm"],
+            description: "Hash algorithm used for chunk validation. Valid values: xxh128, md5, sha256, sha1.\n" +
+                         "xxh128 is fastest; sha256 is most secure."
+        },
+        {
+            type: OptionType.Checkbox,
+            label: "Enable adaptive chunk sizing",
+            valuePath: ["validation", "enable_adaptive_sizing"],
+            description: "Automatically adjust chunk size based on network conditions."
+        },
+        {
+            type: OptionType.Text,
+            label: "Default Chunk Size (bytes)",
+            valuePath: ["validation", "default_chunk_size"],
+            description: "Starting chunk size in bytes (default: 52428800 = 50 MB)."
+        },
+        {
+            type: OptionType.Text,
+            label: "Min Chunk Size (bytes)",
+            valuePath: ["validation", "min_chunk_size"],
+            description: "Minimum chunk size in bytes (default: 1048576 = 1 MB)."
+        },
+        {
+            type: OptionType.Text,
+            label: "Max Chunk Size (bytes)",
+            valuePath: ["validation", "max_chunk_size"],
+            description: "Maximum chunk size in bytes (default: 104857600 = 100 MB)."
+        },
+        {
+            type: OptionType.Text,
+            label: "Max Retries",
+            valuePath: ["validation", "max_retries"],
+            description: "Maximum re-download attempts for a corrupt chunk."
+        },
+        {
+            type: OptionType.Text,
+            label: "Retry Delay (ms)",
+            valuePath: ["validation", "retry_delay_ms"],
+            description: "Delay in milliseconds between retry attempts."
+        },
+    ]
+};

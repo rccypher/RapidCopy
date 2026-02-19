@@ -346,6 +346,16 @@ class Rapidcopy:
         config.autoqueue.patterns_only = False
         config.autoqueue.auto_extract = True
 
+        config.validation.enabled = True
+        config.validation.algorithm = "xxh128"
+        config.validation.default_chunk_size = 52428800
+        config.validation.min_chunk_size = 1048576
+        config.validation.max_chunk_size = 104857600
+        config.validation.validate_after_chunk = True
+        config.validation.max_retries = 3
+        config.validation.retry_delay_ms = 1000
+        config.validation.enable_adaptive_sizing = True
+
         return config
 
     # Human-readable names for config fields

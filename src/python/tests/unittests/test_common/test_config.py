@@ -192,17 +192,21 @@ class TestConfig(unittest.TestCase):
         good_dict = {
             "debug": "True",
             "verbose": "False",
+            "log_level": "INFO",
         }
         general = Config.General.from_dict(good_dict)
         self.assertEqual(True, general.debug)
         self.assertEqual(False, general.verbose)
+        self.assertEqual("INFO", general.log_level)
 
         self.check_common(Config.General,
                           good_dict,
                           {
                               "debug",
-                              "verbose"
+                              "verbose",
                           })
+        # log_level uses Checkers.null so empty is allowed — only test missing
+        self.__check_missing_error(Config.General, good_dict, "log_level")
 
         # bad values
         self.check_bad_value_error(Config.General, good_dict, "debug", "SomeString")
@@ -225,7 +229,8 @@ class TestConfig(unittest.TestCase):
             "num_max_connections_per_root_file": "4",
             "num_max_connections_per_dir_file": "6",
             "num_max_total_connections": "7",
-            "use_temp_file": "True"
+            "use_temp_file": "True",
+            "rate_limit": "0",
         }
         lftp = Config.Lftp.from_dict(good_dict)
         self.assertEqual("remote.server.com", lftp.remote_address)
@@ -242,6 +247,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(6, lftp.num_max_connections_per_dir_file)
         self.assertEqual(7, lftp.num_max_total_connections)
         self.assertEqual(True, lftp.use_temp_file)
+        self.assertEqual("0", lftp.rate_limit)
 
         self.check_common(Config.Lftp,
                           good_dict,
@@ -259,8 +265,10 @@ class TestConfig(unittest.TestCase):
                               "num_max_connections_per_root_file",
                               "num_max_connections_per_dir_file",
                               "num_max_total_connections",
-                              "use_temp_file"
+                              "use_temp_file",
                           })
+        # rate_limit uses Checkers.null so empty is allowed — only test missing
+        self.__check_missing_error(Config.Lftp, good_dict, "rate_limit")
 
         # bad values
         self.check_bad_value_error(Config.Lftp, good_dict, "remote_port", "-1")
@@ -365,6 +373,7 @@ class TestConfig(unittest.TestCase):
         [General]
         debug=False
         verbose=True
+        log_level=WARNING
 
         [Lftp]
         remote_address=remote.server.com
@@ -381,6 +390,7 @@ class TestConfig(unittest.TestCase):
         num_max_connections_per_dir_file=5
         num_max_total_connections=7
         use_temp_file=False
+        rate_limit=0
 
         [Controller]
         interval_ms_remote_scan=30000
@@ -402,6 +412,7 @@ class TestConfig(unittest.TestCase):
 
         self.assertEqual(False, config.general.debug)
         self.assertEqual(True, config.general.verbose)
+        self.assertEqual("WARNING", config.general.log_level)
 
         self.assertEqual("remote.server.com", config.lftp.remote_address)
         self.assertEqual("remote-user", config.lftp.remote_username)
@@ -417,6 +428,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(5, config.lftp.num_max_connections_per_dir_file)
         self.assertEqual(7, config.lftp.num_max_total_connections)
         self.assertEqual(False, config.lftp.use_temp_file)
+        self.assertEqual("0", config.lftp.rate_limit)
 
         self.assertEqual(30000, config.controller.interval_ms_remote_scan)
         self.assertEqual(10000, config.controller.interval_ms_local_scan)
@@ -450,6 +462,7 @@ class TestConfig(unittest.TestCase):
         config = Config()
         config.general.debug = True
         config.general.verbose = False
+        config.general.log_level = "INFO"
         config.lftp.remote_address = "server.remote.com"
         config.lftp.remote_username = "user-on-remote-server"
         config.lftp.remote_password = "pass-on-remote-server"
@@ -464,6 +477,7 @@ class TestConfig(unittest.TestCase):
         config.lftp.num_max_connections_per_dir_file = 3
         config.lftp.num_max_total_connections = 4
         config.lftp.use_temp_file = True
+        config.lftp.rate_limit = "0"
         config.controller.interval_ms_remote_scan = 1234
         config.controller.interval_ms_local_scan = 5678
         config.controller.interval_ms_downloading_scan = 9012
@@ -473,6 +487,15 @@ class TestConfig(unittest.TestCase):
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = True
         config.autoqueue.auto_extract = False
+        config.validation.enabled = True
+        config.validation.algorithm = "xxh128"
+        config.validation.default_chunk_size = 52428800
+        config.validation.min_chunk_size = 1048576
+        config.validation.max_chunk_size = 104857600
+        config.validation.validate_after_chunk = True
+        config.validation.max_retries = 3
+        config.validation.retry_delay_ms = 1000
+        config.validation.enable_adaptive_sizing = True
         config.to_file(config_file_path)
         with open(config_file_path) as f:
             actual_str = f.read()
@@ -482,6 +505,7 @@ class TestConfig(unittest.TestCase):
         [General]
         debug = True
         verbose = False
+        log_level = INFO
 
         [Lftp]
         remote_address = server.remote.com
@@ -498,6 +522,7 @@ class TestConfig(unittest.TestCase):
         num_max_connections_per_dir_file = 3
         num_max_total_connections = 4
         use_temp_file = True
+        rate_limit = 0
 
         [Controller]
         interval_ms_remote_scan = 1234
@@ -513,6 +538,17 @@ class TestConfig(unittest.TestCase):
         enabled = True
         patterns_only = True
         auto_extract = False
+
+        [Validation]
+        enabled = True
+        algorithm = xxh128
+        default_chunk_size = 52428800
+        min_chunk_size = 1048576
+        max_chunk_size = 104857600
+        validate_after_chunk = True
+        max_retries = 3
+        retry_delay_ms = 1000
+        enable_adaptive_sizing = True
         """
 
         golden_lines = [s.strip() for s in golden_str.splitlines()]

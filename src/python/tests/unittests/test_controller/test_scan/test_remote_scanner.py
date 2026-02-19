@@ -433,7 +433,7 @@ class TestRemoteScanner(unittest.TestCase):
 
         with self.assertRaises(ScannerError) as ctx:
             scanner.scan()
-        self.assertEqual(Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"), str(ctx.exception))
+        self.assertEqual(Localization.Error.REMOTE_SERVER_SCAN.format("Invalid scan data format"), str(ctx.exception))
         self.assertFalse(ctx.exception.recoverable)
 
     def test_raises_nonrecoverable_error_on_failed_scan(self):

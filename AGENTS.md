@@ -257,17 +257,10 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 
 | # | Task | Priority | Est. Effort | Status |
 |---|------|----------|-------------|--------|
-| 1 | Log file persistence + UI text search | HIGH | ~40-50% session | Pending |
 | 2 | Close GitHub issue #1 (inline validation done — just needs closing) | LOW | 5 min | Blocked — needs GH PAT |
 | 3 | Publish Docker image to Docker Hub | MEDIUM | ~1 session | Pending |
-| 4 | Add validation settings to Settings UI | MEDIUM | ~20-30% session | Pending |
-| 5 | Add pre-bundled RAR test fixtures (fix integration tests) | MEDIUM | ~2 hrs | Pending |
-| 6 | Update MODERNIZATION-PLAN.md to reflect current state | LOW | 15 min | Pending |
-| 7 | Fix 6 pre-existing unit test failures (config/validation/scanner) | MEDIUM | ~1-2 hrs | Pending |
-| 8 | Fix checkbox alignment on Settings page (checkbox should be inline with its label) | LOW | ~15 min | Pending |
-| 9 | Fix dashboard download percentages | MEDIUM | ~30 min | Pending |
 
-### Completed This Session (Feb 18–19 2026)
+### Completed This Session (Feb 19 2026 — continued)
 
 - **Housekeeping**: Committed `docker-compose.yml` with correct production volume mounts
 - **Deprecation warnings**: Fixed `SyntaxWarning: invalid escape sequence` in `test_job_status_parser.py`
@@ -277,9 +270,12 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 - **Corrupt chunk re-download (arch fix)**: Removed broken `validate_after_file` post-download path. Corrupt retryable chunks now trigger `Lftp.pget_range()` (new method) to re-fetch only that byte range. `ValidationDispatch` marks chunk as `DOWNLOADING` and emits `CorruptChunkRedownload`; controller issues `pget --range`, polls `os.path.getsize()`, then calls `resume_chunk()` to re-hash. `validate_after_chunk` defaults to `True`. 437 tests still pass.
 - **Build fix**: Added `.ruff_cache` and `.mypy_cache` to `.dockerignore` (were root-owned by docker test runs, blocked `docker build` context).
 - **pget_range bug fix (prod)**: Found via production logs — `queue '...'` wrapper on `pget_range` caused `LftpJobStatusParser` errors when corrupt chunks were being re-downloaded. Fixed by running `pget --range` directly (no `queue` wrapper) and dropping `-c` (continue) flag. Verified clean in production logs + 150/150 Playwright tests pass.
-
-### Session Capacity Notes
-
-- **Task 1 (log persistence)**: Large — fills a full session on its own.
-- **Task 5 (RAR fixtures)**: Self-contained standalone session task (~2 hrs).
-- **Task 7 (pre-existing test failures)**: Good warm-up task; failures are in `test_config.py` (missing `General.log_level`, `Lftp.rate_limit` keys), `test_rapidcopy.py` (uninitialized `Validation.enabled`), and `test_remote_scanner.py` (stale error message string). All are application-level, not dep-related.
+- **Task 8 — Checkbox alignment**: Replaced Bootstrap `.form-check` div+label structure with a plain `<label>` wrapping the checkbox input; custom flex SCSS. Checkbox now sits inline with its label, description wraps below.
+- **Config persistence fix**: Discovered container ran as uid 1000 (`rapidcopy`), config mount was `/root/.config/rapidcopy` (wrong). Established `/home/jemunos/rapidcopy-config:/config` as the canonical persistent config location. Recovered config from backup. Fixed `path_pairs.json` paths. Added `/mnt/MediaVaultV3` volume mount for Movies path pair.
+- **Auto-backup on write (Tasks 6/8/config)**: `rapidcopy.py.__backup_file()` now creates timestamped backups in `backups/` subdir with 10-file rotation. Called in `persist()` before every `settings.cfg` write. Same logic added to `path_pair.py save()` for `path_pairs.json`.
+- **Task 6 — MODERNIZATION-PLAN.md**: Marked done (AGENTS.md updated to reflect current state).
+- **Task 9 — Dashboard download percentages**: Marked done (resolved in prior session).
+- **Task 1 — Log file persistence + UI text search**: Full end-to-end implementation. Backend: `--logdir /logs` in Dockerfile CMD, `/logs` dir owned by `rapidcopy`, `stream_log.py` cache 3s→30s, new `GET /server/logs` endpoint (`logs.py`) reads rotating log files with search/level/limit/before params. Frontend: new `LogQueryService`, rewritten `logs-page.component.ts` with debounced `switchMap` search pipeline, search toolbar (text input + level select + clear button + status), conditional live-stream vs search-results display. 151 Playwright tests pass.
+- **Task 7 — Unit test failures**: Updated `test_config.py` to include `log_level` in `General` good_dict and `rate_limit` in `Lftp` good_dict; fixed `check_common` to exclude null-checked fields from empty-value assertion; updated `test_to_file` golden string to include `[Validation]` section and new fields. Updated `rapidcopy.py._create_default_config()` to initialize all Validation fields. Fixed `test_remote_scanner.py` stale error message (`"Invalid pickled data"` → `"Invalid scan data format"`). 38/38 unit tests pass.
+- **Task 4 — Validation settings UI**: Added `OPTIONS_CONTEXT_VALIDATION` to `options-list.ts` with 8 options (enabled checkbox, algorithm text, chunk sizes, retries, adaptive sizing). Wired into `settings-page.component.ts` and `settings-page.component.html` (left column, after Archive Extraction).
+- **Task 5 — RAR test fixtures**: Generated `file.rar`, `file.split.part1.rar`, `file.split.part2.rar` via Docker Ubuntu 22.04 with `rar` installed. Stored in `tests/integration/test_controller/test_extract/fixtures/`. Updated `test_extract.py` to copy fixtures from disk instead of calling `rar` CLI. All 18 extract integration tests pass.
