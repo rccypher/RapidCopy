@@ -224,8 +224,8 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 
 - **Working directory**: `~/RapidCopy/`
 - **Python version on host**: 3.12.3 (Docker builds use Python 3.11-slim)
-- **Git remote**: `https://github.com/rccypher/RapidCopy.git`
-- **GitHub access**: No `gh` CLI installed. Use `curl` + GitHub REST API for issue management. No stored API token — GH API writes (closing issues, etc.) require a PAT provided at runtime.
+- **Git remote**: `git@github.com:rccypher/RapidCopy.git` (SSH)
+- **GitHub access**: SSH key auth works (`ssh -T git@github.com`). No `gh` CLI installed. Use `curl` + GitHub REST API for issue management. No stored API token — GH API writes (closing issues, etc.) require a PAT provided at runtime.
 - **Production container**: Running at `http://miniplex:8800`
 - **Production volume mounts**:
   - `/mnt/media/TV_Downloads` → `/downloads/tv_shows`
