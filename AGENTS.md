@@ -213,3 +213,57 @@ src/
 - **Dataclasses**: Use `@dataclass` with `__post_init__` for validation
 - **Persistence**: Extend `Persist` for JSON serialization; use manager classes for CRUD + file I/O
 - **Custom errors**: Extend `AppError` (e.g., `PathPairError`, `ConfigError`)
+
+---
+
+## Build Environment
+
+### Primary Build Host: miniplex
+
+All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This machine is on the local network and resolves via mDNS/hosts as `miniplex.oysterbay.home`.
+
+- **Working directory**: `~/RapidCopy/`
+- **Python version on host**: 3.12.3 (Docker builds use Python 3.11-slim)
+- **Git remote**: `https://github.com/rccypher/RapidCopy.git`
+- **GitHub access**: No `gh` CLI installed. Use `curl` + GitHub REST API for issue management. No stored API token — GH API writes (closing issues, etc.) require a PAT provided at runtime.
+- **Production container**: Running at `http://miniplex:8800`
+- **Production volume mounts**:
+  - `/mnt/media/TV_Downloads` → `/downloads/tv_shows`
+  - `/mnt/MediaVaultV3/Movie_Downloads` → `/downloads/movies`
+  - `~/.ssh` → `/home/rapidcopy/.ssh` (read-only)
+
+### Dev Machine: local Mac (jemunos)
+
+- **Working directory**: `~/Documents/projects/RapidCopy/`
+- Same git repo, synced via push/pull
+- Claude Code runs here and SSHes to miniplex for builds/tests
+
+---
+
+## Pending Work
+
+### Active To-Dos (as of Feb 2026)
+
+| # | Task | Priority | Est. Effort | Status |
+|---|------|----------|-------------|--------|
+| 1 | Log file persistence + UI text search | HIGH | ~40-50% session | Pending |
+| 2 | Inline validation during download (chunk hashing) | HIGH | ~60-80% session | Pending |
+| 3 | Close GitHub issue #1 (superseded by #2 above) | LOW | 5 min | Blocked — needs GH PAT |
+| 4 | Publish Docker image to Docker Hub | MEDIUM | ~1 session | Pending |
+| 5 | Add validation settings to Settings UI | MEDIUM | ~20-30% session | Pending |
+| 6 | Pin Python dependencies to tighter version ranges | MEDIUM | ~1 hr | Pending |
+| 7 | Add pre-bundled RAR test fixtures (fix integration tests) | MEDIUM | ~2 hrs | Pending |
+| 8 | Update MODERNIZATION-PLAN.md to reflect current state | LOW | 15 min | Pending |
+
+### Completed This Session (Feb 18 2026)
+
+- **Housekeeping**: Committed `docker-compose.yml` with correct production volume mounts (stripped unused NFS/auto-update config)
+- **Task 11 done**: Fixed `SyntaxWarning: invalid escape sequence` in `src/python/tests/unittests/test_lftp/test_job_status_parser.py` — converted 36 output string literals to raw strings (`r"""..."""`) and escaped `\mirror` in 3 docstrings
+- **Tasks 7+8 already done**: Python 3.11 upgrade and DEB build Dockerfile (now Ubuntu 22.04) were already committed prior to this session — MODERNIZATION-PLAN.md items were outdated
+
+### Session Capacity Notes
+
+- **Task 1 (log persistence)** and **Task 2 (inline validation)** are each large enough to fill a full session on their own. Do not combine them.
+- **Task 6 (dep pinning)**: Low risk, can be done at start of any session as a warm-up (~1 hr).
+- **Task 7 (RAR fixtures)**: Self-contained, good standalone session task (~2 hrs).
+- **Inline validation (Task 2)** is the highest-value item — it also resolves GitHub issue #1.
