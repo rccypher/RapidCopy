@@ -25,3 +25,7 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ruff cache (may be owned by root from docker runs)
+**/.ruff_cache
+**/.mypy_cache
