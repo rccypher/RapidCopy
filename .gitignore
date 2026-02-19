@@ -13,3 +13,6 @@ id_rsa
 
 # Local runtime config (user-specific)
 config/
+
+# SSH keys directory (runtime secrets, never commit)
+ssh/
