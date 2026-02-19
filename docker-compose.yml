@@ -6,24 +6,8 @@ services:
     restart: unless-stopped
     ports:
       - "8800:8800"
-    # Required for network mount support (NFS/SMB/CIFS)
-    cap_add:
-      - SYS_ADMIN
-    security_opt:
-      - apparmor:unconfined
     volumes:
       - ./config:/config
-      - ./downloads:/downloads
-      - ./mounts:/mounts:shared  # Network mount point with shared propagation
-      # Uncomment to use custom paths:
-      # - /path/to/your/config:/config
-      # - /path/to/your/downloads:/downloads
-    # Enable host access for auto-update feature
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      # Auto-update configuration (optional)
-      # Set UPDATE_TOKEN to enable auto-update from the web UI
-      # Generate a secure token: openssl rand -hex 32
-      - UPDATE_TOKEN=${UPDATE_TOKEN:-}
-      - UPDATE_SERVER_URL=http://host.docker.internal:8801
+      - /mnt/media/TV_Downloads:/downloads/tv_shows
+      - /mnt/MediaVaultV3/Movie_Downloads:/downloads/movies
+      - /home/jemunos/.ssh:/home/rapidcopy/.ssh:ro
