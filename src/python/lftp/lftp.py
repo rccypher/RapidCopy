@@ -400,7 +400,10 @@ class Lftp:
 
         # lftp range syntax: offset-(end_offset-1)  (both inclusive)
         range_spec = "{}-{}".format(offset, end_offset - 1)
-        command = "queue ' pget -c --range={range_spec} \"{remote}\" -o \"{local}\" '".format(
+        # Run directly (not via queue) so it appears as a normal pget job in "jobs -v"
+        # and doesn't confuse the job status parser.
+        # No -c flag: we want to overwrite the specific byte range, not resume from existing offset.
+        command = 'pget --range={range_spec} "{remote}" -o "{local}"'.format(
             range_spec=range_spec,
             remote=escape(remote_path),
             local=escape(local_path),
