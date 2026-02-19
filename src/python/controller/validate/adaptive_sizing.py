@@ -203,7 +203,6 @@ class AdaptiveChunkSizer:
             Dictionary with recommended settings:
             - chunk_size: Recommended chunk size
             - validate_after_chunk: Whether to validate after each chunk
-            - validate_after_file: Whether to validate after full file
             - estimated_chunks: Number of chunks
         """
         stats = network_stats or self._network_stats
@@ -223,13 +222,9 @@ class AdaptiveChunkSizer:
             high_failure_rate or large_file or (slow_network and stats.recent_failure_rate > self.LOW_FAILURE_THRESHOLD)
         )
 
-        # Always validate after file for final confirmation
-        validate_after_file = True
-
         return {
             "chunk_size": chunk_size,
             "validate_after_chunk": validate_after_chunk,
-            "validate_after_file": validate_after_file,
             "estimated_chunks": estimated_chunks,
         }
 

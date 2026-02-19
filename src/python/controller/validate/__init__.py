@@ -13,7 +13,7 @@ This module provides:
 from .checksum import ChecksumGenerator, RemoteChecksumGenerator, LocalChecksumGenerator
 from .chunk_manager import ChunkManager
 from .adaptive_sizing import AdaptiveChunkSizer
-from .validation_process import ValidationProcess, ValidationStatusResult, ValidationCompletedResult
+from .validation_process import ValidationProcess, ValidationStatusResult, ValidationCompletedResult, CorruptChunkRedownload
 
 __all__ = [
     "ChecksumGenerator",
@@ -24,4 +24,5 @@ __all__ = [
     "ValidationProcess",
     "ValidationStatusResult",
     "ValidationCompletedResult",
+    "CorruptChunkRedownload",
 ]

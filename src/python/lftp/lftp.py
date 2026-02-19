@@ -375,6 +375,38 @@ class Lftp:
         )
         self.__run_command(command)
 
+    def pget_range(
+        self,
+        remote_path: str,
+        local_path: str,
+        offset: int,
+        end_offset: int,
+    ):
+        """
+        Download a byte range of a remote file and overwrite that range in the local file.
+
+        Uses lftp's pget with --range to fetch only offset..end_offset-1 bytes.
+        The local file must already exist (partially downloaded).
+
+        Args:
+            remote_path: Full path on the remote server (relative to sftp root)
+            local_path: Absolute path of the local file to patch
+            offset: First byte to fetch (inclusive)
+            end_offset: Byte after the last byte to fetch (exclusive)
+        """
+
+        def escape(s: str) -> str:
+            return s.replace("'", "\\'").replace('"', '\\"')
+
+        # lftp range syntax: offset-(end_offset-1)  (both inclusive)
+        range_spec = "{}-{}".format(offset, end_offset - 1)
+        command = "queue ' pget -c --range={range_spec} \"{remote}\" -o \"{local}\" '".format(
+            range_spec=range_spec,
+            remote=escape(remote_path),
+            local=escape(local_path),
+        )
+        self.__run_command(command)
+
     def kill(self, name: str) -> bool:
         """
         Kill a queued or running job

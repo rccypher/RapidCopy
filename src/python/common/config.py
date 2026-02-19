@@ -322,10 +322,8 @@ class Config(Persist):
         min_chunk_size = PROP("min_chunk_size", Checkers.int_positive, Converters.int)
         # Maximum chunk size in bytes (default: 104857600 = 100MB)
         max_chunk_size = PROP("max_chunk_size", Checkers.int_positive, Converters.int)
-        # Validate after each chunk downloads
+        # Validate chunks inline during download; corrupt chunks are re-downloaded via pget_range
         validate_after_chunk = PROP("validate_after_chunk", Checkers.null, Converters.bool)
-        # Validate after complete file download
-        validate_after_file = PROP("validate_after_file", Checkers.null, Converters.bool)
         # Maximum retry attempts for corrupt chunks
         max_retries = PROP("max_retries", Checkers.int_non_negative, Converters.int)
         # Delay between retries in milliseconds
@@ -341,7 +339,6 @@ class Config(Persist):
             self.min_chunk_size = None
             self.max_chunk_size = None
             self.validate_after_chunk = None
-            self.validate_after_file = None
             self.max_retries = None
             self.retry_delay_ms = None
             self.enable_adaptive_sizing = None
@@ -418,8 +415,7 @@ class Config(Persist):
                     "default_chunk_size": "52428800",
                     "min_chunk_size": "1048576",
                     "max_chunk_size": "104857600",
-                    "validate_after_chunk": "False",
-                    "validate_after_file": "True",
+                    "validate_after_chunk": "True",
                     "max_retries": "3",
                     "retry_delay_ms": "1000",
                     "enable_adaptive_sizing": "True",

@@ -151,8 +151,7 @@ class ValidationConfig:
         default_chunk_size: Default chunk size in bytes (10MB default)
         min_chunk_size: Minimum chunk size in bytes (1MB default)
         max_chunk_size: Maximum chunk size in bytes (100MB default)
-        validate_after_chunk: Whether to validate immediately after each chunk downloads
-        validate_after_file: Whether to validate after complete file download
+        validate_after_chunk: Whether to validate chunks inline during download (corrupt chunks are re-downloaded via pget_range)
         max_retries: Maximum number of retry attempts for corrupt chunks
         retry_delay_ms: Delay between retries in milliseconds
         enable_adaptive_sizing: Whether to use adaptive chunk sizing
@@ -164,8 +163,7 @@ class ValidationConfig:
     default_chunk_size: int = 50 * 1024 * 1024  # 50MB
     min_chunk_size: int = 1 * 1024 * 1024  # 1MB
     max_chunk_size: int = 100 * 1024 * 1024  # 100MB
-    validate_after_chunk: bool = False
-    validate_after_file: bool = True
+    validate_after_chunk: bool = True
     max_retries: int = 3
     retry_delay_ms: int = 1000
     enable_adaptive_sizing: bool = True
@@ -204,7 +202,6 @@ class ValidationConfig:
             "min_chunk_size": self.min_chunk_size,
             "max_chunk_size": self.max_chunk_size,
             "validate_after_chunk": self.validate_after_chunk,
-            "validate_after_file": self.validate_after_file,
             "max_retries": self.max_retries,
             "retry_delay_ms": self.retry_delay_ms,
             "enable_adaptive_sizing": self.enable_adaptive_sizing,

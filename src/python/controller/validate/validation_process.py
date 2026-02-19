@@ -75,6 +75,36 @@ class RetryCommand:
     file_path: str
 
 
+@dataclass
+class CorruptChunkRedownload:
+    """
+    Emitted by the validation process when a chunk is corrupt and needs re-downloading.
+
+    The controller should issue a partial pget for this byte range, then call
+    resume_chunk() once the bytes are confirmed on disk.
+    """
+
+    local_path: str  # Absolute path of the local file
+    remote_path: str  # Absolute path of the remote file
+    chunk_index: int
+    offset: int
+    size: int  # Number of bytes to re-download
+
+    @property
+    def end_offset(self) -> int:
+        return self.offset + self.size
+
+
+@dataclass
+class ResumeChunkCommand:
+    """
+    Command sent by the controller to resume validation of a chunk after re-download.
+    """
+
+    local_path: str  # Relative path (same as ValidationCommand.local_path)
+    chunk_index: int
+
+
 class ValidationDispatch:
     """
     Handles the actual validation logic.
@@ -98,9 +128,13 @@ class ValidationDispatch:
 
         # Track pending and active validations
         self._pending_files: list[ValidationCommand] = []
-        self._active_file: Optional[str] = None
+        self._active_file: str | None = None
+        self._active_remote_path: str | None = None
         self._active_inline: bool = False  # Whether active file is being inline-validated
         self._inline_local_sizes: dict[str, int] = {}  # local_path -> current bytes on disk
+
+        # Redownload requests emitted when a corrupt chunk needs a partial re-fetch
+        self._pending_redownloads: list[CorruptChunkRedownload] = []
 
     def set_base_logger(self, base_logger):
         """Set the base logger for all components."""
@@ -152,6 +186,7 @@ class ValidationDispatch:
         # Create chunk definitions
         self._chunk_manager.create_chunks(local_path, command.file_size, chunk_size)
         self._active_file = local_path
+        self._active_remote_path = remote_path
         self._active_inline = command.inline
 
         # Get remote checksums first (batched for efficiency)
@@ -265,6 +300,7 @@ class ValidationDispatch:
                 self._chunk_manager.mark_file_complete(local_path, False)
                 self._chunk_manager.remove_file(local_path)
                 self._active_file = None
+                self._active_remote_path = None
                 self._inline_local_sizes.pop(local_path, None)
 
                 return ValidationCompletedResult(
@@ -275,16 +311,28 @@ class ValidationDispatch:
                     corrupt_chunks=[c.index for c in corrupt_chunks],
                 )
 
-            # Reset retryable chunks to PENDING so they get re-validated
+            # Mark retryable chunks as DOWNLOADING and queue redownload requests.
+            # The controller will issue a partial pget for each byte range and call
+            # resume_chunk() once the bytes land on disk.
             for chunk in retryable:
-                chunk.retry_count += 1
-                self._chunk_manager.reset_chunk(local_path, chunk.index)
+                self._chunk_manager.mark_chunk_downloading(local_path, chunk.index)
+                if self._active_remote_path is not None:
+                    self._pending_redownloads.append(
+                        CorruptChunkRedownload(
+                            local_path=local_path,
+                            remote_path=self._active_remote_path,
+                            chunk_index=chunk.index,
+                            offset=chunk.offset,
+                            size=chunk.size,
+                        )
+                    )
             return None
 
         # All chunks valid!
         self._chunk_manager.mark_file_complete(local_path, True)
         self._chunk_manager.remove_file(local_path)
         self._active_file = None
+        self._active_remote_path = None
         self._inline_local_sizes.pop(local_path, None)
 
         return ValidationCompletedResult(
@@ -294,6 +342,27 @@ class ValidationDispatch:
             is_valid=True,
             corrupt_chunks=[],
         )
+
+    def pop_redownloads(self) -> list[CorruptChunkRedownload]:
+        """
+        Return and clear any pending chunk redownload requests.
+
+        Called by ValidationProcess.run_loop() each cycle to relay requests to the controller.
+        """
+        redownloads = self._pending_redownloads[:]
+        self._pending_redownloads.clear()
+        return redownloads
+
+    def resume_chunk(self, local_path: str, chunk_index: int):
+        """
+        Called after a partial re-download completes; resets the chunk to PENDING for re-hashing.
+
+        Args:
+            local_path: Relative local path (same as ValidationCommand.local_path)
+            chunk_index: Index of the chunk that was re-downloaded
+        """
+        abs_path = os.path.join(self._local_base_path, local_path)
+        self._chunk_manager.reset_chunk(abs_path, chunk_index)
 
     def get_status(self) -> dict[str, FileValidationInfo]:
         """Get current validation status for in-progress files only."""
@@ -344,11 +413,13 @@ class ValidationProcess(AppProcess):
         # Inter-process communication queues
         self._command_queue: multiprocessing.Queue[ValidationCommand] = multiprocessing.Queue()
         self._local_size_queue: multiprocessing.Queue[LocalSizeUpdate] = multiprocessing.Queue()
+        self._resume_chunk_queue: multiprocessing.Queue[ResumeChunkCommand] = multiprocessing.Queue()
         self._status_result_queue: multiprocessing.Queue[ValidationStatusResult] = multiprocessing.Queue()
         self._completed_result_queue: multiprocessing.Queue[ValidationCompletedResult] = multiprocessing.Queue()
+        self._redownload_result_queue: multiprocessing.Queue[CorruptChunkRedownload] = multiprocessing.Queue()
 
         # Dispatch is created in the subprocess
-        self._dispatch: Optional[ValidationDispatch] = None
+        self._dispatch: ValidationDispatch | None = None
 
     @overrides(AppProcess)
     def run_init(self):
@@ -393,11 +464,28 @@ class ValidationProcess(AppProcess):
         except queue.Empty:
             pass
 
+        # Process resume-chunk commands (chunk re-download completed, re-hash it)
+        try:
+            while True:
+                cmd = self._resume_chunk_queue.get(block=False)
+                self._dispatch.resume_chunk(cmd.local_path, cmd.chunk_index)
+                self.logger.debug(f"Resuming chunk {cmd.chunk_index} of {cmd.local_path} after re-download")
+        except queue.Empty:
+            pass
+
         # Process validations
         result = self._dispatch.process_next()
         if result:
             self._completed_result_queue.put(result)
             self.logger.info(f"Validation completed for {result.name}: {'VALID' if result.is_valid else 'CORRUPT'}")
+
+        # Relay any redownload requests emitted by the dispatch
+        for redownload in self._dispatch.pop_redownloads():
+            self._redownload_result_queue.put(redownload)
+            self.logger.info(
+                f"Chunk {redownload.chunk_index} of {os.path.basename(redownload.local_path)} "
+                f"is corrupt — requesting re-download of bytes {redownload.offset}-{redownload.end_offset}"
+            )
 
         # Queue status update
         status = ValidationStatusResult(timestamp=datetime.now(), file_statuses=self._dispatch.get_status())
@@ -464,3 +552,35 @@ class ValidationProcess(AppProcess):
         except queue.Empty:
             pass
         return completed
+
+    def pop_redownloads(self) -> list[CorruptChunkRedownload]:
+        """
+        Process-safe method to retrieve pending corrupt-chunk redownload requests.
+
+        The controller should issue a partial pget for each returned request and then
+        call resume_chunk() once the bytes are confirmed on disk.
+
+        Returns:
+            List of CorruptChunkRedownload requests (may be empty)
+        """
+        redownloads = []
+        try:
+            while True:
+                redownload = self._redownload_result_queue.get(block=False)
+                redownloads.append(redownload)
+        except queue.Empty:
+            pass
+        return redownloads
+
+    def resume_chunk(self, local_path: str, chunk_index: int):
+        """
+        Process-safe method to signal that a partial re-download has completed.
+
+        Call this after the pget_range() download finishes so the validation process
+        resets the chunk to PENDING and re-hashes it.
+
+        Args:
+            local_path: Relative local path (same as passed to validate())
+            chunk_index: Index of the chunk that was re-downloaded
+        """
+        self._resume_chunk_queue.put(ResumeChunkCommand(local_path=local_path, chunk_index=chunk_index))

@@ -19,7 +19,7 @@ from .scan import (
     MultiPathActiveScanner,
 )
 from .extract import ExtractProcess, ExtractStatus
-from .validate import ValidationProcess
+from .validate import ValidationProcess, CorruptChunkRedownload
 from .model_builder import ModelBuilder
 from common import (
     Context,
@@ -243,9 +243,8 @@ class Controller:
             default_chunk_size=validation_cfg.default_chunk_size or 52428800,
             min_chunk_size=validation_cfg.min_chunk_size or 1048576,
             max_chunk_size=validation_cfg.max_chunk_size or 104857600,
-            validate_after_chunk=validation_cfg.validate_after_chunk or False,
-            validate_after_file=validation_cfg.validate_after_file
-            if validation_cfg.validate_after_file is not None
+            validate_after_chunk=validation_cfg.validate_after_chunk
+            if validation_cfg.validate_after_chunk is not None
             else True,
             max_retries=validation_cfg.max_retries or 3,
             retry_delay_ms=validation_cfg.retry_delay_ms or 1000,
@@ -279,6 +278,11 @@ class Controller:
         # Track files currently being inline-validated (validate_after_chunk mode).
         # These files are validated chunk-by-chunk while still downloading.
         self.__inline_validating_file_names: set[str] = set()
+
+        # Track pending chunk re-downloads: local_path -> list of (chunk_index, end_offset)
+        # When a corrupt chunk is requested for re-download, we track the expected end_offset
+        # so we know when the bytes have arrived on disk (local_size >= end_offset).
+        self.__pending_chunk_redownloads: dict[str, list[tuple[int, int]]] = {}
 
         # Keep track of active command processes
         self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
@@ -546,25 +550,9 @@ class Controller:
                                 )
                             self.__inline_validating_file_names.discard(diff.new_file.name)
 
-                        # Auto-trigger validation if enabled.
-                        # Skip if this file was already queued for inline validation —
-                        # the validation process will complete the remaining chunks automatically.
-                        if (
-                            self.__validation_config.enabled
-                            and self.__validation_config.validate_after_file
-                            and diff.new_file.name not in self.__inline_validating_file_names
-                            and diff.new_file.local_size is not None
-                            and diff.new_file.remote_size is not None
-                        ):
-                            self.__validation_process.validate(
-                                file=diff.new_file,
-                                local_path=diff.new_file.name,
-                                remote_path=diff.new_file.name,
-                                file_size=diff.new_file.local_size,
-                            )
-                            self.logger.info(
-                                "Auto-queued '{}' for validation after download".format(diff.new_file.name)
-                            )
+                        # Note: post-download validation (validate_after_file) has been removed.
+                        # Validation is handled exclusively by inline validation (validate_after_chunk).
+                        # Corrupt chunks trigger partial pget re-downloads via lftp.pget_range().
 
                 # Prune the extracted files list of any files that were deleted locally
                 # This prevents these files from going to EXTRACTED state if they are re-downloaded
@@ -879,6 +867,64 @@ class Controller:
                         # Remove from active validating list
                         if file_name in self.__active_validating_file_names:
                             self.__active_validating_file_names.remove(file_name)
+
+        # Handle corrupt chunk redownload requests
+        redownload_requests = self.__validation_process.pop_redownloads()
+        for req in redownload_requests:
+            self.logger.info(
+                "Re-downloading corrupt chunk {} of '{}' (bytes {}-{})".format(
+                    req.chunk_index, req.local_path, req.offset, req.end_offset
+                )
+            )
+            try:
+                self.__lftp.pget_range(
+                    remote_path=req.remote_path,
+                    local_path=req.local_path,
+                    offset=req.offset,
+                    end_offset=req.end_offset,
+                )
+                # Track: once local_size reaches end_offset, signal resume_chunk
+                if req.local_path not in self.__pending_chunk_redownloads:
+                    self.__pending_chunk_redownloads[req.local_path] = []
+                self.__pending_chunk_redownloads[req.local_path].append(
+                    (req.chunk_index, req.end_offset)
+                )
+            except LftpError as e:
+                self.logger.error("Failed to queue chunk re-download: {}".format(e))
+
+        # Check if any pending re-downloads have completed (bytes on disk >= end_offset)
+        if self.__pending_chunk_redownloads:
+            import os as _os
+
+            done_paths = []
+            with self.__model_lock:
+                for local_path, chunks in list(self.__pending_chunk_redownloads.items()):
+                    try:
+                        on_disk = _os.path.getsize(local_path)
+                    except OSError:
+                        continue
+                    still_pending = []
+                    for chunk_index, end_offset in chunks:
+                        if on_disk >= end_offset:
+                            # Extract relative path from absolute path
+                            local_base = self.__context.config.lftp.local_path
+                            rel = local_path
+                            if local_path.startswith(local_base):
+                                rel = local_path[len(local_base):].lstrip(_os.sep)
+                            self.logger.debug(
+                                "Chunk {} re-download complete for '{}', resuming validation".format(
+                                    chunk_index, _os.path.basename(local_path)
+                                )
+                            )
+                            self.__validation_process.resume_chunk(rel, chunk_index)
+                        else:
+                            still_pending.append((chunk_index, end_offset))
+                    if still_pending:
+                        self.__pending_chunk_redownloads[local_path] = still_pending
+                    else:
+                        done_paths.append(local_path)
+            for p in done_paths:
+                del self.__pending_chunk_redownloads[p]
 
     def __extract_filename_from_path(self, file_path: str) -> str | None:
         """
