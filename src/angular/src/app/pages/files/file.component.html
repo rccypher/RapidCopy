@@ -87,7 +87,7 @@
                      [style.width]="
                         min(file.percentDownloaded,100) + '%'
                      ">
-                    {{file.percentDownloaded}}%
+                    {{min(file.percentDownloaded, 100)}}%
                 </div>
             </div>
             <div class="size_info">
@@ -100,6 +100,7 @@
     <div class="actions">
         <div class="button" appClickStopPropagation
              [attr.disabled]="isQueueable() ? null : true"
+             [title]="isQueueable() ? 'Queue for download' : 'Cannot queue: ' + file.status"
              (click)="!isQueueable() || onQueue(file)"
              [class.loading]="activeAction == FileAction.QUEUE">
             <div class="loader"></div>
@@ -108,6 +109,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isStoppable() ? null : true"
+             [title]="isStoppable() ? 'Stop download' : 'No active download to stop'"
              (click)="!isStoppable() || onStop(file)"
              [class.loading]="activeAction == FileAction.STOP">
             <div class="loader"></div>
@@ -116,6 +118,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isExtractable() ? null : true"
+             [title]="isExtractable() ? 'Extract archive' : (!file.isArchive ? 'Not an archive' : 'Cannot extract: ' + file.status)"
              (click)="!isExtractable() || onExtract(file)"
              [class.loading]="activeAction == FileAction.EXTRACT">
             <div class="loader"></div>
@@ -124,6 +127,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isLocallyDeletable() ? null : true"
+             [title]="isLocallyDeletable() ? 'Delete local copy' : 'No local copy to delete'"
              (click)="!isLocallyDeletable() || onDeleteLocal(file)"
              [class.loading]="activeAction == FileAction.DELETE_LOCAL">
             <div class="loader"></div>
@@ -132,6 +136,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isRemotelyDeletable() ? null : true"
+             [title]="isRemotelyDeletable() ? 'Delete from remote server' : 'Cannot delete: ' + file.status"
              (click)="!isRemotelyDeletable() || onDeleteRemote(file)"
              [class.loading]="activeAction == FileAction.DELETE_REMOTE">
             <div class="loader"></div>
@@ -140,6 +145,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isValidatable() ? null : true"
+             [title]="isValidatable() ? 'Run integrity validation' : 'Cannot validate: ' + file.status"
              (click)="!isValidatable() || onValidate(file)"
              [class.loading]="activeAction == FileAction.VALIDATE">
             <div class="loader"></div>

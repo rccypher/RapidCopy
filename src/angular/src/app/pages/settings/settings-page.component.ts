@@ -116,6 +116,9 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     }
 
     onCommandRestart() {
+        if (!confirm('Restart the server?\n\nThis will pause active downloads and briefly disconnect the page.')) {
+            return;
+        }
         // Show immediate feedback that restart is being initiated
         const restartingNotif = new Notification({
             level: Notification.Level.INFO,
