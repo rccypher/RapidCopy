@@ -18,6 +18,9 @@
   <a href="https://github.com/rccypher/RapidCopy/blob/master/LICENSE.txt">
     <img src="https://img.shields.io/github/license/rccypher/RapidCopy" alt="License">
   </a>
+  <a href="https://hub.docker.com/r/rccypher/rapidcopy">
+    <img src="https://img.shields.io/docker/v/rccypher/rapidcopy?label=docker" alt="Docker Hub">
+  </a>
 </p>
 
 ## What is RapidCopy?
@@ -114,7 +117,7 @@ docker run -d \
   -v /path/to/config:/config \
   -v /path/to/downloads:/downloads \
   -v ~/.ssh:/home/rapidcopy/.ssh:ro \
-  rapidcopy:latest
+  rccypher/rapidcopy:latest
 ```
 
 For multiple download destinations, add additional volume mounts:
@@ -127,7 +130,7 @@ docker run -d \
   -v /path/to/tv_downloads:/downloads/tv_shows \
   -v /path/to/movie_downloads:/downloads/movies \
   -v ~/.ssh:/home/rapidcopy/.ssh:ro \
-  rapidcopy:latest
+  rccypher/rapidcopy:latest
 ```
 
 Access the web UI at `http://localhost:8800`
@@ -261,11 +264,13 @@ RapidCopy/
 └── docker-compose.yml       # Compose template
 ```
 
-## To-Do
+## Docker Hub
 
-- [ ] Add file validation settings to the Settings UI (validation is currently only configurable via `settings.cfg`)
-- [ ] Review all config settings and ensure they are all available from the Settings UI
-- [ ] Publish Docker image to Docker Hub for easier deployment
+The official image is available at [hub.docker.com/r/rccypher/rapidcopy](https://hub.docker.com/r/rccypher/rapidcopy).
+
+```bash
+docker pull rccypher/rapidcopy:latest
+```
 
 ## Contributing
 
