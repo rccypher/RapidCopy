@@ -275,10 +275,6 @@ class Controller:
         self.__active_extracting_file_names: list[str] = []
         self.__active_validating_file_names: list[str] = []
 
-        # Track files currently being inline-validated (validate_after_chunk mode).
-        # These files are validated chunk-by-chunk while still downloading.
-        self.__inline_validating_file_names: set[str] = set()
-
         # Track pending chunk re-downloads: local_path -> list of (chunk_index, end_offset)
         # When a corrupt chunk is requested for re-download, we track the expected end_offset
         # so we know when the bytes have arrived on disk (local_size >= end_offset).
@@ -491,37 +487,6 @@ class Controller:
                     elif diff.change == ModelDiff.Change.UPDATED:
                         self.__model.update_file(diff.new_file)
 
-                    # Detect if a file just started Downloading (for inline validation).
-                    # Trigger inline chunk validation immediately so chunks are hashed
-                    # as they arrive, without waiting for the full download to complete.
-                    just_started_downloading = (
-                        self.__validation_config.enabled
-                        and self.__validation_config.validate_after_chunk
-                        and not diff.new_file.is_dir
-                        and diff.new_file.name not in self.__inline_validating_file_names
-                        and diff.new_file.state == ModelFile.State.DOWNLOADING
-                        and diff.new_file.remote_size is not None
-                        and (
-                            diff.change == ModelDiff.Change.ADDED
-                            or (
-                                diff.change == ModelDiff.Change.UPDATED
-                                and diff.old_file.state != ModelFile.State.DOWNLOADING
-                            )
-                        )
-                    )
-                    if just_started_downloading:
-                        self.__inline_validating_file_names.add(diff.new_file.name)
-                        self.__validation_process.validate(
-                            file=diff.new_file,
-                            local_path=diff.new_file.name,
-                            remote_path=diff.new_file.name,
-                            file_size=diff.new_file.remote_size,
-                            inline=True,
-                        )
-                        self.logger.info(
-                            "Auto-queued '{}' for inline validation (download in progress)".format(diff.new_file.name)
-                        )
-
                     # Detect if a file was just Downloaded
                     #   an Added file in Downloaded state
                     #   an Updated file transitioning to Downloaded state
@@ -541,18 +506,25 @@ class Controller:
                         self.__persist.downloaded_file_names.add(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
-                        # If this file was being inline-validated, send the final local size
-                        # so the validation process can flush any remaining chunks.
-                        if diff.new_file.name in self.__inline_validating_file_names:
-                            if diff.new_file.local_size is not None:
-                                self.__validation_process.update_local_size(
-                                    diff.new_file.name, diff.new_file.local_size
-                                )
-                            self.__inline_validating_file_names.discard(diff.new_file.name)
-
-                        # Note: post-download validation (validate_after_file) has been removed.
-                        # Validation is handled exclusively by inline validation (validate_after_chunk).
-                        # Corrupt chunks trigger partial pget re-downloads via lftp.pget_range().
+                        # Trigger post-download validation once the file is fully on disk.
+                        # Validating after download completes avoids false corrupt-chunk
+                        # detections caused by LFTP's parallel connections writing to
+                        # overlapping byte ranges while the download is still in progress.
+                        if (
+                            self.__validation_config.enabled
+                            and not diff.new_file.is_dir
+                            and diff.new_file.remote_size is not None
+                        ):
+                            self.__validation_process.validate(
+                                file=diff.new_file,
+                                local_path=diff.new_file.name,
+                                remote_path=diff.new_file.name,
+                                file_size=diff.new_file.remote_size,
+                                inline=False,
+                            )
+                            self.logger.info(
+                                "Queued '{}' for post-download validation".format(diff.new_file.name)
+                            )
 
                 # Prune the extracted files list of any files that were deleted locally
                 # This prevents these files from going to EXTRACTED state if they are re-downloaded
@@ -580,16 +552,6 @@ class Controller:
             self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
         if latest_local_scan is not None:
             self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
-
-        # Send updated local sizes for all inline-validated files still downloading.
-        # This lets the validation process advance to newly-available chunks each cycle.
-        if self.__inline_validating_file_names and self.__validation_config.enabled:
-            with self.__model_lock:
-                for name in list(self.__inline_validating_file_names):
-                    if name in self.__model.get_file_names():
-                        file = self.__model.get_file(name)
-                        if file.local_size is not None:
-                            self.__validation_process.update_local_size(name, file.local_size)
 
         # Process validation results (if validation is enabled)
         if self.__validation_config.enabled:
