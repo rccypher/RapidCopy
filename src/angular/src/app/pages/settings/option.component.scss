@@ -28,31 +28,20 @@ span.description {
     white-space: pre-line;  // renders newline as <br />
 }
 
-// Bootstrap 5 form-check structure
-.form-check {
+label.checkbox-label {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
-    align-items: flex-start;
-    padding-left: 0;
-    margin-bottom: 0;
+    align-items: center;
+    cursor: pointer;
 
-    .form-check-input {
+    .checkbox-input {
         width: 1.2em;
         height: 1.2em;
-        margin-top: 0.15em;
-        margin-left: 0;  // reset Bootstrap's -1.5em pull-left margin
-        margin-right: 0.5em;
         flex-shrink: 0;
+        margin-top: 0;
+        margin-right: 0.5em;
         cursor: pointer;
-
-        &:focus {
-            box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
-        }
-
-        &:checked {
-            background-color: var(--bs-primary, #0d6efd);
-            border-color: var(--bs-primary, #0d6efd);
-        }
 
         &:disabled {
             opacity: 0.5;
@@ -60,24 +49,14 @@ span.description {
         }
     }
 
-    .form-check-label {
+    .name {
         flex: 1;
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
+        line-height: 1.5;
+    }
 
-        .name {
-            line-height: 1.5;
-        }
-
-        .description {
-            color: var(--color-text-muted);
-            font-size: 80%;
-            line-height: initial;
-            width: 100%;
-            white-space: pre-line;
-            margin-top: 0.25em;
-        }
+    .description {
+        width: 100%;
+        padding-left: calc(1.2em + 0.5em);
     }
 }
 
