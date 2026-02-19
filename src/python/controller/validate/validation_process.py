@@ -57,6 +57,15 @@ class ValidationCommand:
     local_path: str
     remote_path: str
     file_size: int
+    inline: bool = False  # True = start validating chunks while file is still downloading
+
+
+@dataclass
+class LocalSizeUpdate:
+    """Update the known local size for an inline-validated file."""
+
+    local_path: str  # Relative path (same as ValidationCommand.local_path)
+    local_size: int  # Current bytes on disk
 
 
 @dataclass
@@ -90,6 +99,8 @@ class ValidationDispatch:
         # Track pending and active validations
         self._pending_files: list[ValidationCommand] = []
         self._active_file: Optional[str] = None
+        self._active_inline: bool = False  # Whether active file is being inline-validated
+        self._inline_local_sizes: dict[str, int] = {}  # local_path -> current bytes on disk
 
     def set_base_logger(self, base_logger):
         """Set the base logger for all components."""
@@ -100,7 +111,17 @@ class ValidationDispatch:
 
     def queue_validation(self, command: ValidationCommand):
         """Queue a file for validation."""
+        if command.inline:
+            # Seed initial local size (may be 0 at queue time; updated by update_local_size())
+            local_path = os.path.join(self._local_base_path, command.local_path)
+            self._inline_local_sizes[local_path] = 0
         self._pending_files.append(command)
+
+    def update_local_size(self, local_path: str, local_size: int):
+        """Update the known local bytes-on-disk for an inline-validated file."""
+        abs_path = os.path.join(self._local_base_path, local_path)
+        if abs_path in self._inline_local_sizes:
+            self._inline_local_sizes[abs_path] = local_size
 
     def process_next(self) -> Optional[ValidationCompletedResult]:
         """
@@ -131,6 +152,7 @@ class ValidationDispatch:
         # Create chunk definitions
         self._chunk_manager.create_chunks(local_path, command.file_size, chunk_size)
         self._active_file = local_path
+        self._active_inline = command.inline
 
         # Get remote checksums first (batched for efficiency)
         validation_info = self._chunk_manager.get_validation_info(local_path)
@@ -200,6 +222,11 @@ class ValidationDispatch:
         # Process chunks
         pending_chunks = self._chunk_manager.get_pending_chunks(local_path)
 
+        if self._active_inline and pending_chunks:
+            # In inline mode, only validate chunks whose bytes are fully on disk.
+            current_local_size = self._inline_local_sizes.get(local_path, 0)
+            pending_chunks = [c for c in pending_chunks if c.end_offset <= current_local_size]
+
         if pending_chunks:
             # Validate next pending chunk
             chunk = pending_chunks[0]
@@ -217,6 +244,15 @@ class ValidationDispatch:
 
             return None
 
+        # No pending chunks available right now.
+        # In inline mode, there may be chunks waiting for the download to catch up —
+        # check if any non-terminal chunks still exist before declaring completion.
+        if self._active_inline:
+            all_pending = self._chunk_manager.get_pending_chunks(local_path)
+            if all_pending:
+                # Download hasn't reached these chunks yet; wait
+                return None
+
         # All chunks processed, check results
         corrupt_chunks = self._chunk_manager.get_corrupt_chunks(local_path)
 
@@ -229,6 +265,7 @@ class ValidationDispatch:
                 self._chunk_manager.mark_file_complete(local_path, False)
                 self._chunk_manager.remove_file(local_path)
                 self._active_file = None
+                self._inline_local_sizes.pop(local_path, None)
 
                 return ValidationCompletedResult(
                     timestamp=datetime.now(),
@@ -248,6 +285,7 @@ class ValidationDispatch:
         self._chunk_manager.mark_file_complete(local_path, True)
         self._chunk_manager.remove_file(local_path)
         self._active_file = None
+        self._inline_local_sizes.pop(local_path, None)
 
         return ValidationCompletedResult(
             timestamp=datetime.now(),
@@ -305,6 +343,7 @@ class ValidationProcess(AppProcess):
 
         # Inter-process communication queues
         self._command_queue: multiprocessing.Queue[ValidationCommand] = multiprocessing.Queue()
+        self._local_size_queue: multiprocessing.Queue[LocalSizeUpdate] = multiprocessing.Queue()
         self._status_result_queue: multiprocessing.Queue[ValidationStatusResult] = multiprocessing.Queue()
         self._completed_result_queue: multiprocessing.Queue[ValidationCompletedResult] = multiprocessing.Queue()
 
@@ -342,7 +381,15 @@ class ValidationProcess(AppProcess):
             while True:
                 command = self._command_queue.get(block=False)
                 self._dispatch.queue_validation(command)
-                self.logger.debug(f"Queued validation for {command.file.name}")
+                self.logger.debug(f"Queued {'inline ' if command.inline else ''}validation for {command.file.name}")
+        except queue.Empty:
+            pass
+
+        # Process local-size updates (for inline validation)
+        try:
+            while True:
+                update = self._local_size_queue.get(block=False)
+                self._dispatch.update_local_size(update.local_path, update.local_size)
         except queue.Empty:
             pass
 
@@ -358,7 +405,7 @@ class ValidationProcess(AppProcess):
 
         time.sleep(self.__DEFAULT_SLEEP_INTERVAL_IN_SECS)
 
-    def validate(self, file: ModelFile, local_path: str, remote_path: str, file_size: int):
+    def validate(self, file: ModelFile, local_path: str, remote_path: str, file_size: int, inline: bool = False):
         """
         Process-safe method to queue a file for validation.
 
@@ -366,10 +413,26 @@ class ValidationProcess(AppProcess):
             file: ModelFile to validate
             local_path: Relative local path
             remote_path: Relative remote path
-            file_size: Size of the file in bytes
+            file_size: Total size of the file in bytes
+            inline: If True, start validating chunks as they arrive (file still downloading)
         """
-        command = ValidationCommand(file=file, local_path=local_path, remote_path=remote_path, file_size=file_size)
+        command = ValidationCommand(
+            file=file, local_path=local_path, remote_path=remote_path, file_size=file_size, inline=inline
+        )
         self._command_queue.put(command)
+
+    def update_local_size(self, local_path: str, local_size: int):
+        """
+        Process-safe method to report current bytes-on-disk for an inline-validated file.
+
+        Call this on each controller cycle while the file is still downloading so the
+        validation process can advance to newly-available chunks.
+
+        Args:
+            local_path: Relative local path (same as passed to validate())
+            local_size: Current number of bytes present on disk
+        """
+        self._local_size_queue.put(LocalSizeUpdate(local_path=local_path, local_size=local_size))
 
     def pop_latest_statuses(self) -> Optional[ValidationStatusResult]:
         """

@@ -276,6 +276,10 @@ class Controller:
         self.__active_extracting_file_names: list[str] = []
         self.__active_validating_file_names: list[str] = []
 
+        # Track files currently being inline-validated (validate_after_chunk mode).
+        # These files are validated chunk-by-chunk while still downloading.
+        self.__inline_validating_file_names: set[str] = set()
+
         # Keep track of active command processes
         self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
 
@@ -483,6 +487,37 @@ class Controller:
                     elif diff.change == ModelDiff.Change.UPDATED:
                         self.__model.update_file(diff.new_file)
 
+                    # Detect if a file just started Downloading (for inline validation).
+                    # Trigger inline chunk validation immediately so chunks are hashed
+                    # as they arrive, without waiting for the full download to complete.
+                    just_started_downloading = (
+                        self.__validation_config.enabled
+                        and self.__validation_config.validate_after_chunk
+                        and not diff.new_file.is_dir
+                        and diff.new_file.name not in self.__inline_validating_file_names
+                        and diff.new_file.state == ModelFile.State.DOWNLOADING
+                        and diff.new_file.remote_size is not None
+                        and (
+                            diff.change == ModelDiff.Change.ADDED
+                            or (
+                                diff.change == ModelDiff.Change.UPDATED
+                                and diff.old_file.state != ModelFile.State.DOWNLOADING
+                            )
+                        )
+                    )
+                    if just_started_downloading:
+                        self.__inline_validating_file_names.add(diff.new_file.name)
+                        self.__validation_process.validate(
+                            file=diff.new_file,
+                            local_path=diff.new_file.name,
+                            remote_path=diff.new_file.name,
+                            file_size=diff.new_file.remote_size,
+                            inline=True,
+                        )
+                        self.logger.info(
+                            "Auto-queued '{}' for inline validation (download in progress)".format(diff.new_file.name)
+                        )
+
                     # Detect if a file was just Downloaded
                     #   an Added file in Downloaded state
                     #   an Updated file transitioning to Downloaded state
@@ -502,10 +537,22 @@ class Controller:
                         self.__persist.downloaded_file_names.add(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
-                        # Auto-trigger validation if enabled
+                        # If this file was being inline-validated, send the final local size
+                        # so the validation process can flush any remaining chunks.
+                        if diff.new_file.name in self.__inline_validating_file_names:
+                            if diff.new_file.local_size is not None:
+                                self.__validation_process.update_local_size(
+                                    diff.new_file.name, diff.new_file.local_size
+                                )
+                            self.__inline_validating_file_names.discard(diff.new_file.name)
+
+                        # Auto-trigger validation if enabled.
+                        # Skip if this file was already queued for inline validation —
+                        # the validation process will complete the remaining chunks automatically.
                         if (
                             self.__validation_config.enabled
                             and self.__validation_config.validate_after_file
+                            and diff.new_file.name not in self.__inline_validating_file_names
                             and diff.new_file.local_size is not None
                             and diff.new_file.remote_size is not None
                         ):
@@ -545,6 +592,16 @@ class Controller:
             self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
         if latest_local_scan is not None:
             self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+
+        # Send updated local sizes for all inline-validated files still downloading.
+        # This lets the validation process advance to newly-available chunks each cycle.
+        if self.__inline_validating_file_names and self.__validation_config.enabled:
+            with self.__model_lock:
+                for name in list(self.__inline_validating_file_names):
+                    if name in self.__model.get_file_names():
+                        file = self.__model.get_file(name)
+                        if file.local_size is not None:
+                            self.__validation_process.update_local_size(name, file.local_size)
 
         # Process validation results (if validation is enabled)
         if self.__validation_config.enabled:
