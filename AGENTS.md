@@ -262,6 +262,8 @@ All builds, tests, and git operations run on **miniplex** (`ssh miniplex`). This
 - **Dep pinning (Task 6)**: `poetry update` — updated 32 packages, removed 10 stale deps (waitress 1.4→3.0, requests 2.25→2.32, urllib3 1.26→2.6, etc.). 437 tests pass.
 - **Inline validation (Task 2)**: Implemented `validate_after_chunk` — chunks are now hashed as they arrive during download. Wire-up in `ValidationDispatch`, `ValidationProcess`, and `Controller`. No new test failures.
 - **Corrupt chunk re-download (arch fix)**: Removed broken `validate_after_file` post-download path. Corrupt retryable chunks now trigger `Lftp.pget_range()` (new method) to re-fetch only that byte range. `ValidationDispatch` marks chunk as `DOWNLOADING` and emits `CorruptChunkRedownload`; controller issues `pget --range`, polls `os.path.getsize()`, then calls `resume_chunk()` to re-hash. `validate_after_chunk` defaults to `True`. 437 tests still pass.
+- **Build fix**: Added `.ruff_cache` and `.mypy_cache` to `.dockerignore` (were root-owned by docker test runs, blocked `docker build` context).
+- **pget_range bug fix (prod)**: Found via production logs — `queue '...'` wrapper on `pget_range` caused `LftpJobStatusParser` errors when corrupt chunks were being re-downloaded. Fixed by running `pget --range` directly (no `queue` wrapper) and dropping `-c` (continue) flag. Verified clean in production logs + 150/150 Playwright tests pass.
 
 ### Session Capacity Notes
 
