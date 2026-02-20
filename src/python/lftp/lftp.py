@@ -362,17 +362,23 @@ class Lftp:
         remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
         local_dir = local_path if local_path is not None else self.__base_local_dir_path
 
-        # Build the inner command using shlex.quote to safely handle
-        # filenames with spaces, quotes, or other shell metacharacters.
+        # Build the queue command using double-quoted paths to match the format
+        # that LFTP echoes back in "jobs -v" and that the job status parser expects.
+        # Escape backslashes and double-quotes inside paths.
+        def _dq_escape(s: str) -> str:
+            return s.replace("\\", "\\\\").replace('"', '\\"' )
+
         remote_full = "{}/{}".format(remote_dir.rstrip("/"), name)
         local_dest = "{}/".format(local_dir.rstrip("/"))
 
         if is_dir:
-            inner = "mirror -c {} {}".format(shlex.quote(remote_full), shlex.quote(local_dest))
+            command = "queue ' mirror -c \"{}\" \"{}\" '".format(
+                _dq_escape(remote_full), _dq_escape(local_dest)
+            )
         else:
-            inner = "pget -c {} -o {}".format(shlex.quote(remote_full), shlex.quote(local_dest))
-
-        command = "queue '{}'".format(inner.replace("'", "'\''"))
+            command = "queue ' pget -c \"{}\" -o \"{}\" '".format(
+                _dq_escape(remote_full), _dq_escape(local_dest)
+            )
         self.__run_command(command)
 
     def pget_range(
