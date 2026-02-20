@@ -39,6 +39,7 @@ export class FileComponent implements OnChanges {
     @Output() deleteLocalEvent = new EventEmitter<ViewFile>();
     @Output() deleteRemoteEvent = new EventEmitter<ViewFile>();
     @Output() validateEvent = new EventEmitter<ViewFile>();
+    @Output() checkboxEvent = new EventEmitter<{file: ViewFile, shiftKey: boolean}>();
 
     // Indicates an active action on-going
     activeAction: FileAction = null;
@@ -61,8 +62,6 @@ export class FileComponent implements OnChanges {
     }
 
     showDeleteConfirmation(title: string, message: string, callback: () => void) {
-        // Simple confirmation using native browser dialog
-        // Can be enhanced with NgbModal for a styled modal if needed
         if (confirm(`${title}\n\n${message}`)) {
             callback();
         }
@@ -92,21 +91,23 @@ export class FileComponent implements OnChanges {
         return this.activeAction == null && this.file.isValidatable;
     }
 
+    onCheckboxClick(event: MouseEvent) {
+        event.stopPropagation();
+        this.checkboxEvent.emit({file: this.file, shiftKey: event.shiftKey});
+    }
+
     onQueue(file: ViewFile) {
         this.activeAction = FileAction.QUEUE;
-        // Pass to parent component
         this.queueEvent.emit(file);
     }
 
     onStop(file: ViewFile) {
         this.activeAction = FileAction.STOP;
-        // Pass to parent component
         this.stopEvent.emit(file);
     }
 
     onExtract(file: ViewFile) {
         this.activeAction = FileAction.EXTRACT;
-        // Pass to parent component
         this.extractEvent.emit(file);
     }
 
@@ -116,7 +117,6 @@ export class FileComponent implements OnChanges {
             Localization.Modal.DELETE_LOCAL_MESSAGE(file.name),
             () => {
                 this.activeAction = FileAction.DELETE_LOCAL;
-                // Pass to parent component
                 this.deleteLocalEvent.emit(file);
             }
         );
@@ -128,7 +128,6 @@ export class FileComponent implements OnChanges {
             Localization.Modal.DELETE_REMOTE_MESSAGE(file.name),
             () => {
                 this.activeAction = FileAction.DELETE_REMOTE;
-                // Pass to parent component
                 this.deleteRemoteEvent.emit(file);
             }
         );
@@ -136,7 +135,6 @@ export class FileComponent implements OnChanges {
 
     onValidate(file: ViewFile) {
         this.activeAction = FileAction.VALIDATE;
-        // Pass to parent component
         this.validateEvent.emit(file);
     }
 
@@ -146,8 +144,8 @@ export class FileComponent implements OnChanges {
         return (
             rect.top >= 0 &&
             rect.left >= 0 &&
-            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) && /*or $(window).height() */
-            rect.right <= (window.innerWidth || document.documentElement.clientWidth) /*or $(window).width() */
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
         );
     }
 }

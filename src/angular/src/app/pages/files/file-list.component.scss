@@ -1,5 +1,126 @@
 @import '../../common/common';
 
+/* Multi-select bulk action toolbar */
+#multi-select-toolbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-inverse);
+    border-bottom: 2px solid var(--color-accent-primary-dark, #0056b3);
+
+    .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .count {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .clear-btn {
+            font-size: 12px;
+            padding: 2px 8px;
+            color: var(--color-text-inverse);
+            border-color: rgba(255,255,255,0.5);
+            background: transparent;
+
+            &:hover {
+                background: rgba(255,255,255,0.15);
+                border-color: white;
+            }
+        }
+    }
+
+    .toolbar-actions {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .bulk-btn {
+        @extend %button;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        height: 36px;
+        min-width: unset;
+        width: auto;
+        border-radius: 4px;
+        font-size: 12px;
+        background-color: rgba(255,255,255,0.15);
+        border-color: rgba(255,255,255,0.3);
+
+        img {
+            width: 16px;
+            height: 16px;
+            filter: invert(1.0);
+        }
+
+        span {
+            white-space: nowrap;
+        }
+
+        .loader {
+            display: none;
+            border: 3px solid rgba(255,255,255,0.4);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            min-width: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        &.loading {
+            opacity: 0.8;
+            img { display: none; }
+            .loader { display: block; }
+        }
+
+        &[disabled] {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        &:not([disabled]):hover {
+            background-color: rgba(255,255,255,0.28);
+            border-color: rgba(255,255,255,0.6);
+        }
+    }
+}
+
+/* Checkbox column */
+.checkbox-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    padding: 0 4px;
+}
+
+.file-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--color-accent-primary);
+}
+
 #file-list #header {
     display: none;
 }
@@ -18,15 +139,17 @@
 @media only screen and (min-width: $medium-min-width) {
     #file-list #header {
         display: flex;
+        align-items: center;
     }
 
     /* width */
     /* NOTE: make sure this is in-sync with ".file .content" */
-    #header .status     {width: 100px; min-width: 100px;}
-    #header .name       {flex-grow: 1;}
-    #header .speed      {width: 100px; min-width: 100px;}
-    #header .eta        {width: 100px; min-width: 100px;}
-    #header .size       {width: 30%; min-width: 30%;}
+    #header .checkbox-col  {width: 36px; min-width: 36px;}
+    #header .status        {width: 100px; min-width: 100px;}
+    #header .name          {flex-grow: 1;}
+    #header .speed         {width: 100px; min-width: 100px;}
+    #header .eta           {width: 100px; min-width: 100px;}
+    #header .size          {width: 30%; min-width: 30%;}
 
     /* header and content elements */
     #header > div, .content > div {
@@ -40,6 +163,11 @@
     #header div {
         font-weight: bold;
         color: var(--color-text-inverse);
+        background-color: var(--color-text-primary);
+    }
+
+    /* checkbox col in header should not inherit header bg */
+    #header .checkbox-col {
         background-color: var(--color-text-primary);
     }
 

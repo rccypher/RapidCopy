@@ -1,5 +1,78 @@
+<!-- Multi-select bulk action toolbar (visible when ≥1 file selected) -->
+<div id="multi-select-toolbar" *ngIf="multiSelectCount > 0">
+    <div class="toolbar-left">
+        <span class="count">{{multiSelectCount}} selected</span>
+        <button class="btn btn-sm btn-outline-secondary clear-btn" (click)="onClearSelection()">
+            ✕ Clear
+        </button>
+    </div>
+    <div class="toolbar-actions">
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canQueueAny && !bulkQueuing ? null : true"
+             [title]="canQueueAny ? 'Queue selected for download' : 'No selected files can be queued'"
+             (click)="onBulkQueue()"
+             [class.loading]="bulkQueuing">
+            <div class="loader"></div>
+            <img src="assets/icons/queue.svg" />
+            <span>Queue</span>
+        </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canStopAny && !bulkStopping ? null : true"
+             [title]="canStopAny ? 'Stop selected downloads' : 'No selected files are downloading'"
+             (click)="onBulkStop()"
+             [class.loading]="bulkStopping">
+            <div class="loader"></div>
+            <img src="assets/icons/stop.svg" />
+            <span>Stop</span>
+        </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canExtractAny && !bulkExtracting ? null : true"
+             [title]="canExtractAny ? 'Extract selected archives' : 'No selected files can be extracted'"
+             (click)="onBulkExtract()"
+             [class.loading]="bulkExtracting">
+            <div class="loader"></div>
+            <img src="assets/icons/extract.svg" />
+            <span>Extract</span>
+        </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canDeleteLocalAny && !bulkDeletingLocal ? null : true"
+             [title]="canDeleteLocalAny ? 'Delete local copies of selected' : 'No selected files have local copies'"
+             (click)="onBulkDeleteLocal()"
+             [class.loading]="bulkDeletingLocal">
+            <div class="loader"></div>
+            <img src="assets/icons/delete-local.svg" />
+            <span>Del Local</span>
+        </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canDeleteRemoteAny && !bulkDeletingRemote ? null : true"
+             [title]="canDeleteRemoteAny ? 'Delete selected from remote server' : 'No selected files can be deleted remotely'"
+             (click)="onBulkDeleteRemote()"
+             [class.loading]="bulkDeletingRemote">
+            <div class="loader"></div>
+            <img src="assets/icons/delete-remote.svg" />
+            <span>Del Remote</span>
+        </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="canValidateAny && !bulkValidating ? null : true"
+             [title]="canValidateAny ? 'Validate selected files' : 'No selected files can be validated'"
+             (click)="onBulkValidate()"
+             [class.loading]="bulkValidating">
+            <div class="loader"></div>
+            <img src="assets/icons/validate.svg" />
+            <span>Validate</span>
+        </div>
+    </div>
+</div>
+
 <div id="file-list">
     <div id="header">
+        <div class="checkbox-col" appClickStopPropagation>
+            <input type="checkbox"
+                   class="file-checkbox"
+                   [checked]="allVisibleSelected"
+                   [title]="allVisibleSelected ? 'Deselect all' : 'Select all'"
+                   (click)="onSelectAllToggle($event)" />
+        </div>
         <div class="name sortable" (click)="onHeaderSort('name')">
             Filename
             <span class="sort-indicator" *ngIf="activeSortColumn === 'name'">{{sortAscending ? '▲' : '▼'}}</span>
@@ -26,6 +99,7 @@
             [file]="file"
             [options]="options"
             (click)="onSelect(file)"
+            (checkboxEvent)="onCheckbox($event)"
             (queueEvent)="onQueue($event)"
             (stopEvent)="onStop($event)"
             (extractEvent)="onExtract($event)"

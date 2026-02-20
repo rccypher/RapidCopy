@@ -2,7 +2,6 @@
 
 import logging
 import re
-import shlex
 from functools import wraps
 from typing import Callable, Union, List, Optional
 
@@ -44,6 +43,7 @@ class Lftp:
     __SET_TEMP_FILE_NAME = "xfer:temp-file-name"
     __SET_SFTP_AUTO_CONFIRM = "sftp:auto-confirm"
     __SET_SFTP_CONNECT_PROGRAM = "sftp:connect-program"
+    __SET_XFER_UMASK = "xfer:umask"
 
     def __init__(self, address: str, port: int, user: str, password: str | None):
         self.__user = user
@@ -83,6 +83,8 @@ class Lftp:
         self.__set(Lftp.__SET_COMMAND_AT_EXIT, '"kill all"')
         # Auto-add server to known host file
         self.sftp_auto_confirm = True
+        # Ensure downloaded files are group-readable (umask 002 = files 664, dirs 775)
+        self.__set(Lftp.__SET_XFER_UMASK, "002")
 
     def with_check_process(method: Callable) -> Callable:  # type: ignore[misc]
         """
@@ -125,11 +127,7 @@ class Lftp:
     @with_check_process
     def __run_command(self, command: str):
         if self.__log_command_output:
-            # Redact password from logged command
-            safe_command = command
-            if self.__password:
-                safe_command = safe_command.replace(self.__password, "***")
-            self.logger.debug("command: {}".format(safe_command.encode("utf8", "surrogateescape").decode("utf8", "replace")))
+            self.logger.debug("command: {}".format(command.encode("utf8", "surrogateescape").decode("utf8", "replace")))
         self.__process.sendline(command)
         try:
             self.__process.expect(self.__expect_pattern, timeout=self.__timeout)
@@ -362,23 +360,22 @@ class Lftp:
         remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
         local_dir = local_path if local_path is not None else self.__base_local_dir_path
 
-        # Build the queue command using double-quoted paths to match the format
-        # that LFTP echoes back in "jobs -v" and that the job status parser expects.
-        # Escape backslashes and double-quotes inside paths.
-        def _dq_escape(s: str) -> str:
-            return s.replace("\\", "\\\\").replace('"', '\\"' )
+        # Escape single and double quotes in any string used in queue command
+        def escape(s: str) -> str:
+            return s.replace("'", "\\'").replace('"', '\\"')
 
-        remote_full = "{}/{}".format(remote_dir.rstrip("/"), name)
-        local_dest = "{}/".format(local_dir.rstrip("/"))
-
-        if is_dir:
-            command = "queue ' mirror -c \"{}\" \"{}\" '".format(
-                _dq_escape(remote_full), _dq_escape(local_dest)
-            )
-        else:
-            command = "queue ' pget -c \"{}\" -o \"{}\" '".format(
-                _dq_escape(remote_full), _dq_escape(local_dest)
-            )
+        command = " ".join(
+            [
+                "queue",
+                "'",
+                "pget" if not is_dir else "mirror",
+                "-c",
+                '"{remote_dir}/{filename}"'.format(remote_dir=escape(remote_dir), filename=escape(name)),
+                "-o" if not is_dir else "",
+                '"{local_dir}/"'.format(local_dir=escape(local_dir)),
+                "'",
+            ]
+        )
         self.__run_command(command)
 
     def pget_range(
@@ -401,16 +398,18 @@ class Lftp:
             end_offset: Byte after the last byte to fetch (exclusive)
         """
 
+        def escape(s: str) -> str:
+            return s.replace("'", "\\'").replace('"', '\\"')
+
         # lftp range syntax: offset-(end_offset-1)  (both inclusive)
         range_spec = "{}-{}".format(offset, end_offset - 1)
         # Run directly (not via queue) so it appears as a normal pget job in "jobs -v"
         # and doesn't confuse the job status parser.
         # No -c flag: we want to overwrite the specific byte range, not resume from existing offset.
-        # Use shlex.quote to safely handle paths with special characters.
-        command = "pget --range={} {} -o {}".format(
-            range_spec,
-            shlex.quote(remote_path),
-            shlex.quote(local_path),
+        command = 'pget --range={range_spec} "{remote}" -o "{local}"'.format(
+            range_spec=range_spec,
+            remote=escape(remote_path),
+            local=escape(local_path),
         )
         self.__run_command(command)
 

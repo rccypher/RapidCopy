@@ -1,5 +1,12 @@
-<div class="file" [class.selected]="file.isSelected" #fileElement>
+<div class="file" [class.selected]="file.isSelected" [class.multi-selected]="file.isMultiSelected" #fileElement>
     <div class="content">
+        <!-- Checkbox for multi-select -->
+        <div class="checkbox-col" appClickStopPropagation>
+            <input type="checkbox"
+                   class="file-checkbox"
+                   [checked]="file.isMultiSelected"
+                   (click)="onCheckboxClick($event)" />
+        </div>
         <div class="status">
             <img src="assets/icons/default-remote.svg" id="default-remote"
                  *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize > 0" />

@@ -16,6 +16,7 @@ interface IViewFile {
     fullPath: string;
     isArchive: boolean;  // corresponds to is_extractable in ModelFile
     isSelected: boolean;
+    isMultiSelected: boolean;
     isQueueable: boolean;
     isStoppable: boolean;
     // whether file can be queued for extraction (independent of isArchive)
@@ -50,6 +51,7 @@ const DefaultViewFile: IViewFile = {
     fullPath: null,
     isArchive: null,
     isSelected: null,
+    isMultiSelected: null,
     isQueueable: null,
     isStoppable: null,
     isExtractable: null,

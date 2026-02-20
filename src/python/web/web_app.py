@@ -106,6 +106,18 @@ class WebApp(bottle.Bottle):
         self.__stop = False
         self.__api_key: str = getattr(context.config.web, 'api_key', '') or ''
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
+
+        # Security headers applied to every response
+        @self.hook("after_request")
+        def _set_security_headers():
+            bottle.response.set_header("X-Content-Type-Options", "nosniff")
+            bottle.response.set_header("X-Frame-Options", "DENY")
+            bottle.response.set_header("X-XSS-Protection", "1; mode=block")
+            bottle.response.set_header("Referrer-Policy", "strict-origin-when-cross-origin")
+            bottle.response.set_header(
+                "Content-Security-Policy",
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            )
         self.__rate_limiter = _RateLimiter()
 
         # Security: auth + rate limit + CSRF on API endpoints

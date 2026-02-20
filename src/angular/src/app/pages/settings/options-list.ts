@@ -148,7 +148,7 @@ export const OPTIONS_CONTEXT_OTHER: IOptionsContext = {
             description: null
         },
         {
-            type: OptionType.Text,
+            type: OptionType.Password,
             label: "API Key",
             valuePath: ["web", "api_key"],
             description: "Protect the web UI with an API key. All API requests must include an " +

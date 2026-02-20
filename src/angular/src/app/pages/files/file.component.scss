@@ -9,6 +9,13 @@
     background-color: var(--color-accent-secondary);
 }
 
+/* multi-selected file */
+.file.multi-selected {
+    background-color: var(--color-accent-secondary);
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: -2px;
+}
+
 /* content */
 .content {
     display: flex;
@@ -25,6 +32,7 @@
 }
 
 /* width */
+.content .checkbox-col {width: 36px; min-width: 36px; padding: 0 4px;}
 .content .status   {width: 100px; min-width: 100px;}
 .content .name     {flex-grow: 1; flex-basis: calc(100% - 100px);}
 .content .speed    {width: 100px; min-width: 100px;}
@@ -243,6 +251,7 @@
 
     /* width */
     /* NOTE: make sure this is in-sync with "#file-list #header" */
+    .content .checkbox-col {width: 36px; min-width: 36px;}
     .content .status    {width: 100px; min-width: 100px;}
     .content .name      {flex-grow: 1;}
     .content .speed     {width: 100px; min-width: 100px;}
@@ -257,6 +266,7 @@
     }
 
     /* Re-order columns */
+    .content .checkbox-col {order: 0;}
     .content .status {order: 2;}
     .content .name {order: 1;}
     .content .speed {order: 3;}

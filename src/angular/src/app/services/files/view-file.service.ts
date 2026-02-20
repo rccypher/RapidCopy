@@ -1,5 +1,5 @@
 import {Injectable} from "@angular/core";
-import {Observable} from "rxjs";
+import {Observable, forkJoin, of} from "rxjs";
 import {BehaviorSubject} from "rxjs";
 
 import * as Immutable from "immutable";
@@ -81,6 +81,7 @@ export class ViewFileService {
     private _indices: Map<string, number> = new Map<string, number>();
 
     private _prevModelFiles: Immutable.Map<string, ModelFile> = Immutable.Map<string, ModelFile>();
+    private _multiSelectedNames: Set<string> = new Set<string>();
 
     private _filterCriteria: ViewFileFilterCriteria = null;
     private _sortComparator: ViewFileComparator = null;
@@ -192,6 +193,114 @@ export class ViewFileService {
 
     get filteredFiles(): Observable<Immutable.List<ViewFile>> {
         return this._filteredFilesSubject.asObservable();
+    }
+
+    /**
+     * Toggle multi-selection for a file (checkbox click)
+     * @param {ViewFile} file
+     */
+    public toggleMultiSelected(file: ViewFile) {
+        if (this._multiSelectedNames.has(file.name)) {
+            this._multiSelectedNames.delete(file.name);
+        } else {
+            this._multiSelectedNames.add(file.name);
+        }
+        this.applyMultiSelection();
+    }
+
+    /**
+     * Select a range of files (shift-click): selects all files between
+     * the last multi-selected file and the clicked file.
+     * @param {ViewFile} file
+     */
+    public rangeMultiSelect(file: ViewFile) {
+        const fileList = this._files;
+        if (this._multiSelectedNames.size === 0) {
+            this._multiSelectedNames.add(file.name);
+            this.applyMultiSelection();
+            return;
+        }
+        // Find last selected index
+        let lastIdx = -1;
+        for (let i = 0; i < fileList.size; i++) {
+            if (this._multiSelectedNames.has(fileList.get(i).name)) {
+                lastIdx = i;
+            }
+        }
+        const clickedIdx = fileList.findIndex(f => f.name === file.name);
+        if (lastIdx < 0 || clickedIdx < 0) {
+            this._multiSelectedNames.add(file.name);
+        } else {
+            const start = Math.min(lastIdx, clickedIdx);
+            const end = Math.max(lastIdx, clickedIdx);
+            for (let i = start; i <= end; i++) {
+                this._multiSelectedNames.add(fileList.get(i).name);
+            }
+        }
+        this.applyMultiSelection();
+    }
+
+    /**
+     * Clear all multi-selections
+     */
+    public clearMultiSelected() {
+        this._multiSelectedNames.clear();
+        this.applyMultiSelection();
+    }
+
+    /**
+     * Select all currently visible (filtered) files
+     */
+    public selectAllVisible() {
+        // Get filtered files
+        const filtered = this._filterCriteria != null
+            ? this._files.filter(f => this._filterCriteria.meetsCriteria(f))
+            : this._files;
+        filtered.forEach(f => this._multiSelectedNames.add(f.name));
+        this.applyMultiSelection();
+    }
+
+    /**
+     * Get the set of currently multi-selected names
+     */
+    get multiSelectedNames(): Set<string> {
+        return this._multiSelectedNames;
+    }
+
+    /**
+     * Get currently multi-selected ViewFiles
+     */
+    get multiSelectedFiles(): ViewFile[] {
+        return this._files.filter(f => this._multiSelectedNames.has(f.name)).toArray();
+    }
+
+    /**
+     * Execute a bulk action on all multi-selected files that support it.
+     * @param predicate - function that returns true if file supports the action
+     * @param action    - action to execute on the file
+     */
+    public bulkAction(
+        predicate: (f: ViewFile) => boolean,
+        action: (f: ViewFile) => Observable<WebReaction>
+    ): Observable<WebReaction[]> {
+        const eligible = this.multiSelectedFiles.filter(predicate);
+        if (eligible.length === 0) {
+            return of([]);
+        }
+        return forkJoin(eligible.map(f => action(f)));
+    }
+
+    private applyMultiSelection() {
+        let viewFiles = this._files;
+        for (let i = 0; i < viewFiles.size; i++) {
+            const f = viewFiles.get(i);
+            const shouldBeMultiSelected = this._multiSelectedNames.has(f.name);
+            if (f.isMultiSelected !== shouldBeMultiSelected) {
+                viewFiles = viewFiles.set(i, new ViewFile(f.set("isMultiSelected", shouldBeMultiSelected)));
+            }
+        }
+        this._files = viewFiles;
+        this.pushViewFiles();
     }
 
     /**
@@ -463,6 +572,7 @@ export class ViewFileService {
             fullPath: modelFile.full_path,
             isArchive: modelFile.is_extractable,
             isSelected: isSelected,
+            isMultiSelected: false,
             isQueueable: isQueueable,
             isStoppable: isStoppable,
             isExtractable: isExtractable,
