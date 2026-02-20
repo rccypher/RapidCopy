@@ -4,6 +4,9 @@ from typing import Type, Callable, Optional
 from abc import ABC, abstractmethod
 import time
 
+import time
+import collections
+import threading
 import bottle
 from bottle import static_file
 
@@ -54,6 +57,38 @@ class IStreamHandler(ABC):
         web_app.add_streaming_handler(cls, **kwargs)
 
 
+
+
+class _RateLimiter:
+    """
+    Simple sliding-window rate limiter keyed by client IP.
+    Default: 120 requests per 60 seconds per IP.
+    Static assets (/dashboard, /, /<file>.js etc.) are exempt.
+    """
+    _API_PREFIX = "/server/"
+    _WINDOW_SECONDS = 60
+    _MAX_REQUESTS = 120
+
+    def __init__(self):
+        self._counts: dict[str, collections.deque] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, ip: str) -> bool:
+        now = time.monotonic()
+        cutoff = now - self._WINDOW_SECONDS
+        with self._lock:
+            if ip not in self._counts:
+                self._counts[ip] = collections.deque()
+            dq = self._counts[ip]
+            # Evict old timestamps
+            while dq and dq[0] < cutoff:
+                dq.popleft()
+            if len(dq) >= self._MAX_REQUESTS:
+                return False
+            dq.append(now)
+            return True
+
+
 class WebApp(bottle.Bottle):
     """
     Web app implementation
@@ -70,6 +105,17 @@ class WebApp(bottle.Bottle):
         self.logger.info("Html path set to: {}".format(self.__html_path))
         self.__stop = False
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
+        self.__rate_limiter = _RateLimiter()
+
+        # Security: rate limit API endpoints
+        @self.hook("before_request")
+        def _rate_limit():
+            path = bottle.request.path
+            if path.startswith(_RateLimiter._API_PREFIX):
+                ip = bottle.request.environ.get("HTTP_X_FORWARDED_FOR", bottle.request.remote_addr)
+                ip = ip.split(",")[0].strip()  # take leftmost IP if proxied
+                if not self.__rate_limiter.is_allowed(ip):
+                    bottle.abort(429, "Too many requests. Please slow down.")
 
         # Security: apply headers to every response
         @self.hook("after_request")

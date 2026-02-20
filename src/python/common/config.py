@@ -97,6 +97,19 @@ class Checkers:
             raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(cls.__name__, name, value))
         return value
 
+    @staticmethod
+    def int_bounded(min_val: int, max_val: int) -> Callable:
+        """Factory: returns a checker that enforces min_val <= value <= max_val."""
+        def _checker(cls: type[T], name: str, value: int) -> int:
+            if value < min_val or value > max_val:
+                raise ConfigError(
+                    "Bad config: {}.{} ({}) must be between {} and {}".format(
+                        cls.__name__, name, value, min_val, max_val
+                    )
+                )
+            return value
+        return _checker
+
 
 class InnerConfig(ABC):
     """
@@ -317,17 +330,17 @@ class Config(Persist):
         # Checksum algorithm: xxh128, md5, sha256, sha1
         algorithm = PROP("algorithm", Checkers.string_nonempty, Converters.null)
         # Default chunk size in bytes (default: 10485760 = 10MB)
-        default_chunk_size = PROP("default_chunk_size", Checkers.int_positive, Converters.int)
+        default_chunk_size = PROP("default_chunk_size", Checkers.int_bounded(1 * 1024 * 1024, 500 * 1024 * 1024), Converters.int)
         # Minimum chunk size in bytes (default: 1048576 = 1MB)
-        min_chunk_size = PROP("min_chunk_size", Checkers.int_positive, Converters.int)
+        min_chunk_size = PROP("min_chunk_size", Checkers.int_bounded(64 * 1024, 100 * 1024 * 1024), Converters.int)
         # Maximum chunk size in bytes (default: 104857600 = 100MB)
-        max_chunk_size = PROP("max_chunk_size", Checkers.int_positive, Converters.int)
+        max_chunk_size = PROP("max_chunk_size", Checkers.int_bounded(1 * 1024 * 1024, 1024 * 1024 * 1024), Converters.int)
         # Validate chunks inline during download; corrupt chunks are re-downloaded via pget_range
         validate_after_chunk = PROP("validate_after_chunk", Checkers.null, Converters.bool)
         # Maximum retry attempts for corrupt chunks
-        max_retries = PROP("max_retries", Checkers.int_non_negative, Converters.int)
+        max_retries = PROP("max_retries", Checkers.int_bounded(0, 20), Converters.int)
         # Delay between retries in milliseconds
-        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_non_negative, Converters.int)
+        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_bounded(0, 60000), Converters.int)
         # Enable adaptive chunk sizing based on network conditions
         enable_adaptive_sizing = PROP("enable_adaptive_sizing", Checkers.null, Converters.bool)
 

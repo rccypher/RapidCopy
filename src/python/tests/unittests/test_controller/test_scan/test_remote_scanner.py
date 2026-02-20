@@ -6,7 +6,6 @@ import sys
 from unittest.mock import patch, call, ANY
 import tempfile
 import os
-import pickle
 import shutil
 
 from controller.scan import RemoteScanner, ScannerError
@@ -90,7 +89,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b""
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -125,7 +124,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b""
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -156,7 +155,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b""
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -187,7 +186,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b"d41d8cd98f00b204e9800998ecf8427e"
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -219,7 +218,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b"some output from md5sum"
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -250,7 +249,7 @@ class TestRemoteScanner(unittest.TestCase):
                 raise SshcpError("an ssh error")
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         with self.assertRaises(ScannerError) as ctx:
@@ -279,7 +278,7 @@ class TestRemoteScanner(unittest.TestCase):
                 return b''
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()
@@ -313,7 +312,7 @@ class TestRemoteScanner(unittest.TestCase):
                 raise SshcpError("an ssh error")
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         with self.assertRaises(ScannerError) as ctx:
@@ -343,13 +342,13 @@ class TestRemoteScanner(unittest.TestCase):
                 return b''
             elif self.ssh_run_command_count == 2:
                 # first try
-                return pickle.dumps([])
+                return b'[]'
             elif self.ssh_run_command_count == 3:
                 # second try
                 raise SshcpError("an ssh error")
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()  # no error first time
@@ -380,13 +379,13 @@ class TestRemoteScanner(unittest.TestCase):
                 return b''
             elif self.ssh_run_command_count == 2:
                 # first try
-                return pickle.dumps([])
+                return b'[]'
             elif self.ssh_run_command_count == 3:
                 # second try
                 raise SshcpError("an ssh error")
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         scanner.scan()  # no error first time
@@ -461,7 +460,7 @@ class TestRemoteScanner(unittest.TestCase):
                 raise SshcpError("SystemScannerError: something failed")
             else:
                 # later tries
-                return pickle.dumps([])
+                return b'[]'
         self.mock_ssh.shell.side_effect = ssh_shell
 
         with self.assertRaises(ScannerError) as ctx:

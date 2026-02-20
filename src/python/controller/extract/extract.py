@@ -49,6 +49,23 @@ class Extract:
             return False
 
     @staticmethod
+    def _check_zip_slip(out_dir_path: str) -> None:
+        """
+        Validate that all files extracted into out_dir_path stay within it.
+        Raises ExtractError if any extracted file escapes the output directory (zip slip).
+        """
+        real_out = os.path.realpath(out_dir_path)
+        for root, dirs, files in os.walk(real_out):
+            for name in files + dirs:
+                full_path = os.path.realpath(os.path.join(root, name))
+                if not full_path.startswith(real_out + os.sep) and full_path != real_out:
+                    raise ExtractError(
+                        "Zip slip detected: extracted path '{}' escapes output directory '{}'".format(
+                            full_path, real_out
+                        )
+                    )
+
+    @staticmethod
     def extract_archive(archive_path: str, out_dir_path: str):
         if not Extract.is_archive(archive_path):
             raise ExtractError("Path is not a valid archive: {}".format(archive_path))
@@ -57,6 +74,8 @@ class Extract:
             if not os.path.exists(out_dir_path):
                 os.makedirs(out_dir_path)
             patoolib.extract_archive(archive_path, outdir=out_dir_path, interactive=False)
+            # Security: verify no extracted file escaped the output directory (zip slip)
+            Extract._check_zip_slip(out_dir_path)
         except FileNotFoundError as e:
             raise ExtractError(str(e)) from e
         except patoolib.util.PatoolError as e:

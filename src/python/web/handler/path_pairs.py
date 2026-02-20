@@ -1,3 +1,4 @@
+import os
 # Copyright 2024, RapidCopy Contributors, All rights reserved.
 
 """
@@ -20,6 +21,28 @@ import bottle
 from common import PathPairManager, PathPair, PathPairError, PersistError
 from web.web_app import IHandler, WebApp
 
+
+
+
+# Directories that must never be used as local_path targets
+_FORBIDDEN_LOCAL_PATH_PREFIXES = (
+    "/etc", "/sys", "/proc", "/dev", "/boot", "/bin", "/sbin",
+    "/usr/bin", "/usr/sbin", "/lib", "/lib64", "/run",
+)
+
+def _validate_local_path(local_path: str) -> str | None:
+    """
+    Return an error string if local_path is dangerous, else None.
+    Checks for path traversal sequences and forbidden system directories.
+    """
+    # Reject traversal sequences
+    real = os.path.realpath(local_path)
+    if ".." in local_path:
+        return "local_path must not contain '..'"
+    for forbidden in _FORBIDDEN_LOCAL_PATH_PREFIXES:
+        if real == forbidden or real.startswith(forbidden + os.sep):
+            return f"local_path '{local_path}' targets a protected system directory"
+    return None
 
 class PathPairsHandler(IHandler):
     """
@@ -64,10 +87,15 @@ class PathPairsHandler(IHandler):
                 return json.dumps({"success": False, "error": "remote_path and local_path are required"})
 
             # Create the path pair (ID will be auto-generated)
+            local_path = data["local_path"]
+            if path_err := _validate_local_path(local_path):
+                bottle.response.status = 400
+                return json.dumps({"success": False, "error": path_err})
+
             pair = PathPair(
                 name=data.get("name", ""),
                 remote_path=data["remote_path"],
-                local_path=data["local_path"],
+                local_path=local_path,
                 enabled=data.get("enabled", True),
                 auto_queue=data.get("auto_queue", True),
             )
@@ -99,11 +127,16 @@ class PathPairsHandler(IHandler):
             data = json.loads(bottle.request.body.read().decode("utf-8"))
 
             # Update fields (keep existing values for unspecified fields)
+            local_path = data.get("local_path", existing.local_path)
+            if path_err := _validate_local_path(local_path):
+                bottle.response.status = 400
+                return json.dumps({"success": False, "error": path_err})
+
             pair = PathPair(
                 id=pair_id,
                 name=data.get("name", existing.name),
                 remote_path=data.get("remote_path", existing.remote_path),
-                local_path=data.get("local_path", existing.local_path),
+                local_path=local_path,
                 enabled=data.get("enabled", existing.enabled),
                 auto_queue=data.get("auto_queue", existing.auto_queue),
             )
