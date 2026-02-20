@@ -54,6 +54,45 @@ class MountOperationResult:
     exit_code: int = 0
 
 
+
+# Whitelisted mount options per mount type
+_NFS_ALLOWED_OPTIONS = {
+    "ro", "rw", "soft", "hard", "intr", "nolock", "noacl",
+    "nosuid", "noexec", "nodev", "sync", "async",
+    "nfsvers", "vers", "proto", "port", "timeo", "retrans",
+    "rsize", "wsize", "mountport", "sec",
+}
+_CIFS_ALLOWED_OPTIONS = {
+    "ro", "rw", "nosuid", "noexec", "nodev", "sync",
+    "uid", "gid", "file_mode", "dir_mode", "forceuid", "forcegid",
+    "sec", "vers", "iocharset", "noperm",
+}
+_LOCAL_ALLOWED_OPTIONS = {
+    "ro", "rw", "nosuid", "noexec", "nodev", "sync", "async",
+}
+
+
+def _validate_mount_options(options_str: str, allowed: set) -> str:
+    """
+    Validate and sanitize mount options against a whitelist.
+    Raises NetworkMountError if any option is not allowed.
+    Returns the original string if all options are valid.
+    """
+    if not options_str:
+        return options_str
+    for opt in options_str.split(","):
+        opt = opt.strip()
+        if not opt:
+            continue
+        # Allow key=value pairs where key is whitelisted
+        key = opt.split("=")[0].strip().lower()
+        if key not in allowed:
+            raise NetworkMountError(
+                f"Mount option '{key}' is not allowed. Permitted options: {sorted(allowed)}"
+            )
+    return options_str
+
+
 def get_key_file_path(config_dir: str) -> str:
     """Get the path to the encryption key file."""
     return os.path.join(config_dir, MOUNT_KEY_FILENAME)
@@ -245,7 +284,9 @@ def mount_nfs(mount: NetworkMount, logger: Optional[logging.Logger] = None) -> M
     except NetworkMountError as e:
         return MountOperationResult(MountResult.ERROR, str(e))
 
-    # Build mount command
+    # Validate and build mount command
+    if mount.mount_options:
+        _validate_mount_options(mount.mount_options, _NFS_ALLOWED_OPTIONS)
     cmd = ["mount", "-t", "nfs"]
     if mount.mount_options:
         cmd.extend(["-o", mount.mount_options])
@@ -268,6 +309,8 @@ def mount_nfs(mount: NetworkMount, logger: Optional[logging.Logger] = None) -> M
             else:
                 return MountOperationResult(MountResult.ERROR, error_msg, result.returncode)
 
+    except NetworkMountError as e:
+        return MountOperationResult(MountResult.ERROR, str(e))
     except subprocess.TimeoutExpired:
         return MountOperationResult(MountResult.TIMEOUT, "Mount operation timed out")
     except Exception as e:
@@ -313,8 +356,9 @@ def mount_cifs(
     else:
         options.append("guest")
 
-    # Add user-specified options
+    # Add user-specified options (validated against whitelist)
     if mount.mount_options:
+        _validate_mount_options(mount.mount_options, _CIFS_ALLOWED_OPTIONS)
         options.append(mount.mount_options)
 
     # Build mount command
@@ -379,7 +423,9 @@ def mount_local(mount: NetworkMount, logger: Optional[logging.Logger] = None) ->
     except NetworkMountError as e:
         return MountOperationResult(MountResult.ERROR, str(e))
 
-    # Build mount command
+    # Validate and build mount command
+    if mount.mount_options:
+        _validate_mount_options(mount.mount_options, _LOCAL_ALLOWED_OPTIONS)
     cmd = ["mount", "--bind"]
     if mount.mount_options:
         cmd.extend(["-o", mount.mount_options])

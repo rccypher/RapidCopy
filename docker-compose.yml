@@ -11,3 +11,13 @@ services:
       - /mnt/media/TV_Downloads:/downloads/tv_shows
       - /mnt/MediaVaultV3/Movie_Downloads:/downloads/movies
       - /home/jemunos/.ssh:/home/rapidcopy/.ssh:ro
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M

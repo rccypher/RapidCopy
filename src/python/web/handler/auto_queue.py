@@ -4,6 +4,7 @@ from bottle import HTTPResponse
 from urllib.parse import unquote
 
 from common import overrides
+from ..utils import check_length, MAX_PATTERN_LEN
 from controller import AutoQueuePersist, AutoQueuePattern
 from ..web_app import IHandler, WebApp
 from ..serialize import SerializeAutoQueue
@@ -28,6 +29,8 @@ class AutoQueueHandler(IHandler):
     def __handle_add_autoqueue(self, pattern: str):
         # value is double encoded
         pattern = unquote(pattern)
+        if err := check_length(pattern, MAX_PATTERN_LEN, "Pattern"):
+            return err
 
         aqp = AutoQueuePattern(pattern=pattern)
 
@@ -43,6 +46,8 @@ class AutoQueueHandler(IHandler):
     def __handle_remove_autoqueue(self, pattern: str):
         # value is double encoded
         pattern = unquote(pattern)
+        if err := check_length(pattern, MAX_PATTERN_LEN, "Pattern"):
+            return err
 
         aqp = AutoQueuePattern(pattern=pattern)
 

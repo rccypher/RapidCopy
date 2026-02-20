@@ -71,6 +71,18 @@ class WebApp(bottle.Bottle):
         self.__stop = False
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
 
+        # Security: apply headers to every response
+        @self.hook("after_request")
+        def _set_security_headers():
+            bottle.response.set_header("X-Content-Type-Options", "nosniff")
+            bottle.response.set_header("X-Frame-Options", "DENY")
+            bottle.response.set_header("X-XSS-Protection", "1; mode=block")
+            bottle.response.set_header("Referrer-Policy", "strict-origin-when-cross-origin")
+            bottle.response.set_header(
+                "Content-Security-Policy",
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            )
+
     def add_default_routes(self):
         """
         Add the default routes. This must be called after all the handlers have

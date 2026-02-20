@@ -137,14 +137,9 @@ class RemoteScanner(IScanner):
         """
         Parse scan output and convert to SystemFile objects.
 
-        Supports both JSON (preferred) and pickle (legacy) formats for backward
-        compatibility with older scanfs binaries.
-
-        SECURITY NOTE: JSON is preferred over pickle to prevent Remote Code
-        Execution (RCE) attacks. Pickle can deserialize arbitrary Python objects,
-        which could allow an attacker who controls the remote server to execute
-        arbitrary code on the local machine. The pickle fallback is provided only
-        for backward compatibility with existing scanfs binaries.
+        JSON is the only supported format. Pickle support was removed due to
+        Remote Code Execution (RCE) risk - pickle can deserialize arbitrary Python
+        objects, enabling RCE if an attacker controls the remote server.
 
         Expected JSON format:
         [
@@ -160,25 +155,16 @@ class RemoteScanner(IScanner):
         ]
         """
         from datetime import datetime
-        import pickle
 
-        # Try JSON first (preferred format)
+        # JSON is the only supported format - pickle was removed for security (RCE risk)
         try:
             data = json.loads(out.decode("utf-8"))
             return self._parse_json_files(data)
         except (json.JSONDecodeError, UnicodeDecodeError):
             pass
 
-        # Fall back to pickle for legacy scanfs binaries
-        # SECURITY WARNING: pickle is unsafe with untrusted data
-        self.logger.warning("Using legacy pickle format for scan output - consider updating scanfs binary")
-        try:
-            files = pickle.loads(out)
-            if isinstance(files, list) and all(isinstance(f, SystemFile) for f in files):
-                return files
-            raise ValueError("Invalid pickle data: expected list of SystemFile objects")
-        except (pickle.UnpicklingError, ValueError, AttributeError, ModuleNotFoundError) as e:
-            raise json.JSONDecodeError(f"Failed to parse scan output as JSON or pickle: {e}", "", 0) from e
+        # Pickle support removed - JSON is required. Update scanfs binary if needed.
+        raise json.JSONDecodeError("Scan output is not valid JSON. Ensure scanfs binary is up to date.", "", 0)
 
     def _parse_json_files(self, data: list) -> List[SystemFile]:
         """Parse JSON file data into SystemFile objects."""

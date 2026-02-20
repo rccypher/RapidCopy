@@ -3,7 +3,9 @@
 from bottle import HTTPResponse
 from urllib.parse import unquote
 
-from common import overrides, Config, ConfigError
+from common import overrides
+from common import Config, ConfigError
+from ..utils import check_length, MAX_CONFIG_VALUE_LEN
 from ..web_app import IHandler, WebApp
 from ..serialize import SerializeConfig
 
@@ -25,6 +27,8 @@ class ConfigHandler(IHandler):
     def __handle_set_config(self, section: str, key: str, value: str):
         # value is double encoded
         value = unquote(value)
+        if err := check_length(value, MAX_CONFIG_VALUE_LEN, "Config value"):
+            return err
 
         if not self.__config.has_section(section):
             return HTTPResponse(body="There is no section '{}' in config".format(section), status=400)

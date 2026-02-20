@@ -14,6 +14,7 @@ from urllib.parse import unquote
 from bottle import HTTPResponse
 
 from common import overrides
+from ..utils import check_length, MAX_FILENAME_LEN
 from controller import Controller
 from ..web_app import IHandler, WebApp
 from ..serialize import SerializeValidation
@@ -110,6 +111,8 @@ class ValidationHandler(IHandler):
         """
         # Value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.VALIDATE, file_name)
         callback = WebResponseActionCallback()

@@ -6,6 +6,7 @@ from urllib.parse import unquote
 from bottle import HTTPResponse
 
 from common import overrides
+from ..utils import check_length, MAX_FILENAME_LEN
 from controller import Controller
 from ..web_app import IHandler, WebApp
 
@@ -58,6 +59,8 @@ class ControllerHandler(IHandler):
         """
         # value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.QUEUE, file_name)
         callback = WebResponseActionCallback()
@@ -77,6 +80,8 @@ class ControllerHandler(IHandler):
         """
         # value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.STOP, file_name)
         callback = WebResponseActionCallback()
@@ -96,6 +101,8 @@ class ControllerHandler(IHandler):
         """
         # value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.EXTRACT, file_name)
         callback = WebResponseActionCallback()
@@ -115,6 +122,8 @@ class ControllerHandler(IHandler):
         """
         # value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.DELETE_LOCAL, file_name)
         callback = WebResponseActionCallback()
@@ -134,6 +143,8 @@ class ControllerHandler(IHandler):
         """
         # value is double encoded
         file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
 
         command = Controller.Command(Controller.Command.Action.DELETE_REMOTE, file_name)
         callback = WebResponseActionCallback()
