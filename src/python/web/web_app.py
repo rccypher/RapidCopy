@@ -107,15 +107,47 @@ class WebApp(bottle.Bottle):
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
         self.__rate_limiter = _RateLimiter()
 
-        # Security: rate limit API endpoints
+        # Security: rate limit API endpoints + CSRF check on mutating methods
         @self.hook("before_request")
-        def _rate_limit():
-            path = bottle.request.path
-            if path.startswith(_RateLimiter._API_PREFIX):
+        def _before_request():
+            req_path = bottle.request.path
+            method = bottle.request.method
+
+            # Rate limit all API endpoints
+            if req_path.startswith(_RateLimiter._API_PREFIX):
                 ip = bottle.request.environ.get("HTTP_X_FORWARDED_FOR", bottle.request.remote_addr)
                 ip = ip.split(",")[0].strip()  # take leftmost IP if proxied
                 if not self.__rate_limiter.is_allowed(ip):
                     bottle.abort(429, "Too many requests. Please slow down.")
+
+            # CSRF: verify Origin/Referer header on state-changing requests.
+            # GET/HEAD/OPTIONS are safe methods and exempt.
+            # The streaming endpoint uses GET and is also exempt.
+            if method in ("POST", "PUT", "DELETE", "PATCH") and req_path.startswith(_RateLimiter._API_PREFIX):
+                host = bottle.request.get_header("Host", "")
+                origin = bottle.request.get_header("Origin", "")
+                referer = bottle.request.get_header("Referer", "")
+
+                # Extract hostname from Origin or Referer
+                def _host_from_url(url: str) -> str:
+                    if "://" in url:
+                        url = url.split("://", 1)[1]
+                    return url.split("/")[0].split("?")[0]
+
+                allowed = False
+                if origin:
+                    allowed = _host_from_url(origin) == host
+                elif referer:
+                    # Fall back to Referer if Origin not present (e.g. same-origin GET redirect)
+                    allowed = _host_from_url(referer) == host
+                else:
+                    # No Origin or Referer — allow only if request looks local
+                    # (direct API clients like curl on localhost are still valid)
+                    remote = bottle.request.environ.get("REMOTE_ADDR", "")
+                    allowed = remote in ("127.0.0.1", "::1")
+
+                if not allowed:
+                    bottle.abort(403, "CSRF check failed: Origin mismatch.")
 
         # Security: apply headers to every response
         @self.hook("after_request")

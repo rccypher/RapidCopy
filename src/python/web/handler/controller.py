@@ -7,6 +7,20 @@ from bottle import HTTPResponse
 
 from common import overrides
 from ..utils import check_length, MAX_FILENAME_LEN
+
+
+def _validate_filename(file_name: str, controller) -> "HTTPResponse | None":
+    """
+    Return a 404 HTTPResponse if file_name is not in the known model file list.
+    This prevents acting on arbitrary filenames that don't correspond to tracked files.
+    """
+    known = {f.name for f in controller.get_model_files()}
+    if file_name not in known:
+        return HTTPResponse(
+            body="File '{}' not found in tracked files".format(file_name),
+            status=404
+        )
+    return None
 from controller import Controller
 from ..web_app import IHandler, WebApp
 
@@ -61,6 +75,8 @@ class ControllerHandler(IHandler):
         file_name = unquote(file_name)
         if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
             return err
+        if err := _validate_filename(file_name, self.__controller):
+            return err
 
         command = Controller.Command(Controller.Command.Action.QUEUE, file_name)
         callback = WebResponseActionCallback()
@@ -81,6 +97,8 @@ class ControllerHandler(IHandler):
         # value is double encoded
         file_name = unquote(file_name)
         if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
+        if err := _validate_filename(file_name, self.__controller):
             return err
 
         command = Controller.Command(Controller.Command.Action.STOP, file_name)
@@ -103,6 +121,8 @@ class ControllerHandler(IHandler):
         file_name = unquote(file_name)
         if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
             return err
+        if err := _validate_filename(file_name, self.__controller):
+            return err
 
         command = Controller.Command(Controller.Command.Action.EXTRACT, file_name)
         callback = WebResponseActionCallback()
@@ -124,6 +144,8 @@ class ControllerHandler(IHandler):
         file_name = unquote(file_name)
         if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
             return err
+        if err := _validate_filename(file_name, self.__controller):
+            return err
 
         command = Controller.Command(Controller.Command.Action.DELETE_LOCAL, file_name)
         callback = WebResponseActionCallback()
@@ -144,6 +166,8 @@ class ControllerHandler(IHandler):
         # value is double encoded
         file_name = unquote(file_name)
         if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
+        if err := _validate_filename(file_name, self.__controller):
             return err
 
         command = Controller.Command(Controller.Command.Action.DELETE_REMOTE, file_name)

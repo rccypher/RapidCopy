@@ -15,4 +15,4 @@ id_rsa
 config/
 
 # SSH keys directory (runtime secrets, never commit)
-ssh/
+/ssh/

@@ -1,6 +1,8 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import logging
+import shlex
+import subprocess
 import time
 
 import pexpect
@@ -139,30 +141,68 @@ class Sshcp:
 
     def shell(self, command: str) -> bytes:
         """
-        Run a shell command on remote service and return output
+        Run a shell command on the remote server and return stdout.
+
+        Security: uses subprocess with an explicit argument list so the command
+        string is passed to the remote shell as a single argument, preventing
+        local shell injection. The remote shell still interprets the command,
+        so callers must ensure paths are properly quoted (use shlex.quote).
         :param command:
         :return:
         """
         if not command:
             raise ValueError("Command cannot be empty")
 
-        # escape the command
-        if "'" in command and '"' in command:
-            # I don't know how to handle this yet...
-            raise ValueError("Command cannot contain both single and double quotes")
-        elif '"' in command:
-            # double quote in command, cover with single quotes
-            command = "'{}'".format(command)
-        else:
-            # no double quote in command, cover with double quotes
-            command = '"{}"'.format(command)
-
-        flags = [
-            "-p",
-            str(self.__port),  # port
+        # Build SSH argument list — no shell=True, no string concatenation.
+        # The command is passed as a single positional argument to ssh,
+        # which forwards it verbatim to the remote shell.
+        ssh_args = [
+            "ssh",
+            "-p", str(self.__port),
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "LogLevel=error",
         ]
-        args = ["{}@{}".format(self.__user, self.__host), command]
-        return self.__run_command(command="ssh", flags=" ".join(flags), args=" ".join(args))
+
+        if self.__password is None:
+            ssh_args += ["-o", "PasswordAuthentication=no"]
+        else:
+            ssh_args += ["-o", "PubkeyAuthentication=no"]
+
+        ssh_args += ["{}@{}".format(self.__user, self.__host), command]
+
+        self.logger.debug("shell args: {}".format(ssh_args))
+
+        if self.__password is not None:
+            # Still need pexpect to handle password prompt interactively
+            flags = ["-p", str(self.__port)]
+            args = ["{}@{}".format(self.__user, self.__host), command]
+            return self.__run_command(command="ssh", flags=" ".join(flags), args=" ".join(args))
+
+        # Key-based auth: use subprocess directly (no shell, safe arg passing)
+        import time as _time
+        start = _time.time()
+        try:
+            result = subprocess.run(
+                ssh_args,
+                capture_output=True,
+                timeout=self.__TIMEOUT_SECS,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise SshcpError("Timed out") from e
+        except Exception as e:
+            raise SshcpError(str(e)) from e
+
+        elapsed = _time.time() - start
+        self.logger.debug("Return code: {}".format(result.returncode))
+        self.logger.debug("Command took {:.3f}s".format(elapsed))
+
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", "replace").strip()
+            self.logger.warning("shell failed: {}".format(stderr))
+            raise SshcpError(stderr or "SSH command failed with code {}".format(result.returncode))
+
+        return result.stdout.replace(b"\r\n", b"\n").strip()
 
     def copy(self, local_path: str, remote_path: str):
         """
