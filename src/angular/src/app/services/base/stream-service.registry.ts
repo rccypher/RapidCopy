@@ -2,6 +2,7 @@ import {Injectable, NgZone} from "@angular/core";
 import {Observable} from "rxjs";
 
 import {ModelFileService} from "../files/model-file.service";
+import {ApiKeyInterceptor} from "../utils/api-key.interceptor";
 import {ServerStatusService} from "../server/server-status.service";
 import {LoggerService} from "../utils/logger.service";
 import {ConnectedService} from "../utils/connected.service";
@@ -81,7 +82,12 @@ export class StreamDispatchService {
 
     private createSseObserver() {
         const observable = new Observable(observer => {
-            const eventSource = EventSourceFactory.createEventSource(this.STREAM_URL);
+            // EventSource cannot set custom headers, so we pass the api_key as a query param
+            const apiKey = ApiKeyInterceptor.getApiKey();
+            const streamUrl = apiKey
+                ? `${this.STREAM_URL}?api_key=${encodeURIComponent(apiKey)}`
+                : this.STREAM_URL;
+            const eventSource = EventSourceFactory.createEventSource(streamUrl);
             for (let eventName of Array.from(this._eventNameToServiceMap.keys())) {
                 eventSource.addEventListener(eventName, event => observer.next(
                     {

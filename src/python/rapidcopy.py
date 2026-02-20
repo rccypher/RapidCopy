@@ -341,6 +341,7 @@ class Rapidcopy:
         config.controller.use_local_path_as_extract_path = True
 
         config.web.port = 8800
+        config.web.api_key = ""  # empty = auth disabled
 
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = False

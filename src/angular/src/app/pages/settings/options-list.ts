@@ -148,6 +148,13 @@ export const OPTIONS_CONTEXT_OTHER: IOptionsContext = {
             description: null
         },
         {
+            type: OptionType.Text,
+            label: "API Key",
+            valuePath: ["web", "api_key"],
+            description: "Protect the web UI with an API key. All API requests must include an " +
+                         "X-Api-Key header matching this value. Leave empty to disable authentication."
+        },
+        {
             type: OptionType.Checkbox,
             label: "Enable Debug",
             valuePath: ["general", "debug"],

@@ -49,6 +49,8 @@ import {PathPairStatsComponent} from "./pages/files/path-pair-stats.component";
 import {PathPairService} from "./services/settings/path-pair.service";
 import {NetworkMountsComponent} from "./pages/settings/network-mounts.component";
 import {NetworkMountService} from "./services/settings/network-mount.service";
+import {HTTP_INTERCEPTORS} from "@angular/common/http";
+import {ApiKeyInterceptor} from "./services/utils/api-key.interceptor";
 
 @NgModule({
     declarations: [
@@ -94,6 +96,9 @@ import {NetworkMountService} from "./services/settings/network-mount.service";
         UpdateService,
         PathPairService,
         NetworkMountService,
+
+        // API key auth interceptor
+        {provide: HTTP_INTERCEPTORS, useClass: ApiKeyInterceptor, multi: true},
 
         // Stream services
         StreamDispatchService,

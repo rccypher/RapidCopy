@@ -308,10 +308,13 @@ class Config(Persist):
 
     class Web(InnerConfig):
         port = PROP("port", Checkers.int_positive, Converters.int)
+        # api_key: if empty/None, authentication is disabled (backward compatible)
+        api_key = PROP("api_key", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
             self.port = None
+            self.api_key = None
 
     class AutoQueue(InnerConfig):
         enabled = PROP("enabled", Checkers.null, Converters.bool)

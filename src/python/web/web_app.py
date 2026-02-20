@@ -104,14 +104,30 @@ class WebApp(bottle.Bottle):
         self.__status = context.status
         self.logger.info("Html path set to: {}".format(self.__html_path))
         self.__stop = False
+        self.__api_key: str = getattr(context.config.web, 'api_key', '') or ''
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
         self.__rate_limiter = _RateLimiter()
 
-        # Security: rate limit API endpoints + CSRF check on mutating methods
+        # Security: auth + rate limit + CSRF on API endpoints
         @self.hook("before_request")
         def _before_request():
             req_path = bottle.request.path
             method = bottle.request.method
+
+            # API key authentication (if configured)
+            # Disabled when api_key is empty (backward compatible default)
+            if self.__api_key and req_path.startswith(_RateLimiter._API_PREFIX):
+                # SSE stream passes key as query param (EventSource can't set headers)
+                if req_path == "/server/stream":
+                    provided = bottle.request.query.get("api_key", "")
+                else:
+                    provided = (
+                        bottle.request.get_header("X-Api-Key", "")
+                        or bottle.request.query.get("api_key", "")
+                    )
+                if provided != self.__api_key:
+                    bottle.response.set_header("WWW-Authenticate", "ApiKey")
+                    bottle.abort(401, "Unauthorized: valid X-Api-Key header required.")
 
             # Rate limit all API endpoints
             if req_path.startswith(_RateLimiter._API_PREFIX):
@@ -192,6 +208,10 @@ class WebApp(bottle.Bottle):
         :return:
         """
         pass
+
+    def set_api_key(self, api_key: str):
+        """Update the API key at runtime (e.g. after config change)."""
+        self.__api_key = api_key or ""
 
     def stop(self):
         """
