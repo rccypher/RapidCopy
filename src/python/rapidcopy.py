@@ -365,6 +365,7 @@ class Rapidcopy:
         config.validation.max_retries = 3
         config.validation.retry_delay_ms = 1000
         config.validation.enable_adaptive_sizing = True
+        config.validation.settle_delay_secs = 5.0
 
         return config
 
