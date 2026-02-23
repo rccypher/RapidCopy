@@ -67,7 +67,7 @@ class Lftp:
             "{},{}".format(self.__user, self.__password if self.__password else ""),
             "sftp://{}".format(self.__address),
         ]
-        self.__process = pexpect.spawn("/usr/bin/lftp", args)
+        self.__process = pexpect.spawn("/usr/bin/lftp", args, dimensions=(24, 10000))
         self.__process.expect(self.__expect_pattern)
         self.__setup()
 

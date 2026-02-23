@@ -1466,3 +1466,32 @@ class TestLftpJobStatusParser(unittest.TestCase):
         self.assertEqual(len(golden_jobs), len(statuses))
         statuses_jobs = [j for j in statuses if j.state == LftpJobStatus.State.RUNNING]
         self.assertEqual(golden_jobs, statuses_jobs)
+
+    def test_queue_pty_line_wrap_raises(self):
+        """
+        Regression: narrow PTY (80 cols) causes LFTP to inject 'jobs -v' mid-line in a queue
+        entry when the path is long.  The truncated continuation line appears as an unrecognized
+        header in __parse_jobs and raises LftpJobStatusParserError.
+
+        The fix is to spawn the PTY with a very wide column count (dimensions=(24, 10000)) so
+        that wrapping never occurs.  This test documents the broken behaviour produced by a
+        narrow PTY so that future parser changes don't silently swallow the error.
+        """
+        # Simulate what LFTP emits when the PTY wraps mid-path:
+        #   111.  mirror -c ".../www.UIndejobs -v          <- PTY wrap injected here
+        #   x.org    -    Alias S03E14 ..."  "/downloads/tv_shows/"
+        output = (
+            'jobs -v\n'
+            '[0] queue (sftp://someone:@localhost)  -- 4.59 MiB/s\n'
+            '\tsftp://someone:@localhost/home/someone\n'
+            '\tNow executing: [7] mirror -c /remote/a /local/ -- 3.6G/20G (17%) 4.59 MiB/s\n'
+            '\tCommands queued:\n'
+            '\t 1.  mirror -c "/remote/short"  "/local/"\n'
+            '\t 2.  mirror -c "/remote/www.UIndejobs -v\n'
+            'x.org    -    Alias S03E14 MULTi 1080p WEB-DL DD5 1 H 264-KiNGS"  "/local/"\n'
+            ' [7] mirror -c /remote/a /local/  -- 3.6G/20G (17%) 4.59 MiB/s\n'
+            '\tGetting file list (0) [Receiving data]\n'
+        )
+        parser = LftpJobStatusParser()
+        with self.assertRaises(LftpJobStatusParserError):
+            parser.parse(output)
