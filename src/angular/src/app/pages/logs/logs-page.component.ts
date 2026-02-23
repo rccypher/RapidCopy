@@ -27,6 +27,12 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
     public readonly Localization = Localization;
     public readonly LEVELS = ["", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 
+    private static readonly MAX_LIVE_RECORDS = 500;
+
+    private static readonly LEVEL_ORDER: Record<string, number> = {
+        DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4
+    };
+
     public headerHeight: Observable<number>;
 
     @ViewChild("templateRecord") templateRecord;
@@ -40,7 +46,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
 
     // Search state
     public searchText = "";
-    public levelFilter = "";
+    public levelFilter = "INFO";
     public isSearching = false;
     public searchResults: LogRecord[] = [];
     public searchTruncated = false;
@@ -60,7 +66,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
     }
 
     get isFiltered(): boolean {
-        return this.searchText.trim().length > 0 || this.levelFilter.length > 0;
+        return this.searchText.trim().length > 0 || (this.levelFilter.length > 0 && this.levelFilter !== "INFO");
     }
 
     ngOnInit() {
@@ -70,6 +76,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
             .subscribe({
                 next: record => {
                     if (!this.isFiltered) {
+                        if (!this.passesLevelFilter(record)) { return; }
                         this.insertRecord(record);
                     }
                 }
@@ -135,7 +142,7 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
 
     clearSearch(): void {
         this.searchText = "";
-        this.levelFilter = "";
+        this.levelFilter = "INFO";
         this.searchResults = [];
         this.searchTruncated = false;
         this.searchError = "";
@@ -166,6 +173,13 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
         }
     }
 
+    private passesLevelFilter(record: LogRecord): boolean {
+        if (!this.levelFilter) { return true; }
+        const minOrder = LogsPageComponent.LEVEL_ORDER[this.levelFilter] ?? 0;
+        const recOrder = LogsPageComponent.LEVEL_ORDER[record.level as unknown as string] ?? 0;
+        return recOrder >= minOrder;
+    }
+
     private insertRecord(record: LogRecord) {
         if (!this.container || !this.templateRecord) {
             return;
@@ -173,6 +187,10 @@ export class LogsPageComponent implements OnInit, AfterContentChecked, OnDestroy
         const scrollToBottom = this._elementRef.nativeElement.offsetParent != null &&
             this.logTail && LogsPageComponent.isElementInViewport(this.logTail.nativeElement);
         this.container.createEmbeddedView(this.templateRecord, {record: record});
+        // Evict oldest entries to keep the DOM bounded
+        while (this.container.length > LogsPageComponent.MAX_LIVE_RECORDS) {
+            this.container.remove(0);
+        }
         this._changeDetector.detectChanges();
         if (scrollToBottom) {
             this.scrollToBottom();
