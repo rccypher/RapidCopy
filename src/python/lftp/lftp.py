@@ -14,7 +14,7 @@ from .job_status_parser import LftpJobStatus, LftpJobStatusParser, LftpJobStatus
 
 
 # How many status errors are allowed before error propagates out
-MAX_CONSECUTIVE_STATUS_ERRORS = 2
+MAX_CONSECUTIVE_STATUS_ERRORS = 10
 
 
 class LftpError(AppError):

@@ -551,7 +551,8 @@ class LftpJobStatusParser:
                             type_ = LftpJobStatus.Type.MIRROR
                             result = result_mirror
                         else:
-                            raise ValueError("Failed to parse queue line: {}".format(line))
+                            logging.getLogger("LftpJobStatusParser").warning("Failed to parse queue line, skipping: {}".format(line))
+                            continue
                         id_ = int(result.group("id"))
                         name = os.path.basename(os.path.normpath(result.group("remote")))
                         flags = result.group("flags")
