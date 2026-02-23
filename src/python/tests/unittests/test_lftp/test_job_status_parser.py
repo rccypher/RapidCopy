@@ -946,8 +946,12 @@ class TestLftpJobStatusParser(unittest.TestCase):
         bad string uh oh
         """
         parser = LftpJobStatusParser()
-        with self.assertRaises(LftpJobStatusParserError):
-            parser.parse(output)
+        # Parser now logs WARNING and returns partial results instead of raising
+        with self.assertLogs('LftpJobStatusParser', level='WARNING') as cm:
+            result = parser.parse(output)
+        self.assertTrue(any('skipping bad output' in msg for msg in cm.output))
+        # Parser returns whatever it successfully parsed before the bad line
+        self.assertIsInstance(result, list)
 
     def test_jobs_special_char_1(self):
         # Apostrophe/single quote
@@ -1471,11 +1475,11 @@ class TestLftpJobStatusParser(unittest.TestCase):
         """
         Regression: narrow PTY (80 cols) causes LFTP to inject 'jobs -v' mid-line in a queue
         entry when the path is long.  The truncated continuation line appears as an unrecognized
-        header in __parse_jobs and raises LftpJobStatusParserError.
+        header in __parse_jobs.
 
         The fix is to spawn the PTY with a very wide column count (dimensions=(24, 10000)) so
-        that wrapping never occurs.  This test documents the broken behaviour produced by a
-        narrow PTY so that future parser changes don't silently swallow the error.
+        that wrapping never occurs.  Previously the parser raised LftpJobStatusParserError on
+        this input; it now logs a WARNING and returns [] instead of crashing the controller.
         """
         # Simulate what LFTP emits when the PTY wraps mid-path:
         #   111.  mirror -c ".../www.UIndejobs -v          <- PTY wrap injected here
@@ -1493,5 +1497,9 @@ class TestLftpJobStatusParser(unittest.TestCase):
             '\tGetting file list (0) [Receiving data]\n'
         )
         parser = LftpJobStatusParser()
-        with self.assertRaises(LftpJobStatusParserError):
-            parser.parse(output)
+        # Parser now logs WARNING and returns partial results instead of raising
+        with self.assertLogs('LftpJobStatusParser', level='WARNING') as cm:
+            result = parser.parse(output)
+        self.assertTrue(any('skipping bad output' in msg for msg in cm.output))
+        # Parser returns whatever it successfully parsed before the bad line
+        self.assertIsInstance(result, list)

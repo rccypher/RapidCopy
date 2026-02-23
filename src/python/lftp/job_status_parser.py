@@ -91,9 +91,8 @@ class LftpJobStatusParser:
             statuses += self.__parse_queue(lines)
             statuses += self.__parse_jobs(lines)
         except ValueError as e:
-            self.logger.error("LftpJobStateParser error: {}".format(str(e)))
-            self.logger.error("Status:\n{}".format(output))
-            raise LftpJobStatusParserError("Error parsing lftp job status") from e
+            self.logger.warning("LftpJobStateParser skipping bad output: {}".format(str(e)))
+            self.logger.debug("Bad status output:\n{}".format(output))
         return statuses
 
     @staticmethod
