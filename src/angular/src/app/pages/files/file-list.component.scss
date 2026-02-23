@@ -1,6 +1,11 @@
 @import '../../common/common';
 
-/* Multi-select bulk action toolbar */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Combined bulk action / rescan toolbar — always visible */
 #multi-select-toolbar {
     display: flex;
     flex-direction: row;
@@ -8,15 +13,17 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 6px 12px;
     background-color: var(--color-accent-primary);
     color: var(--color-text-inverse);
     border-bottom: 2px solid var(--color-accent-primary-dark, #0056b3);
+    min-height: 46px;
 
     .toolbar-left {
         display: flex;
         align-items: center;
         gap: 10px;
+        min-width: 80px; /* reserve space so actions don't jump when count appears */
 
         .count {
             font-weight: 600;
@@ -42,6 +49,16 @@
         flex-direction: row;
         flex-wrap: wrap;
         gap: 6px;
+        align-items: center;
+    }
+
+    /* Vertical separator between bulk buttons and the Refresh button */
+    .toolbar-separator {
+        width: 1px;
+        height: 28px;
+        background-color: rgba(255,255,255,0.35);
+        margin: 0 4px;
+        flex-shrink: 0;
     }
 
     .bulk-btn {
@@ -51,7 +68,7 @@
         align-items: center;
         gap: 5px;
         padding: 4px 10px;
-        height: 36px;
+        height: 34px;
         min-width: unset;
         width: auto;
         border-radius: 4px;
@@ -80,19 +97,15 @@
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         &.loading {
             opacity: 0.8;
             img { display: none; }
+            .rescan-icon { display: none; }
             .loader { display: block; }
         }
 
         &[disabled] {
-            opacity: 0.4;
+            opacity: 0.35;
             cursor: not-allowed;
             pointer-events: none;
         }
@@ -100,6 +113,32 @@
         &:not([disabled]):hover {
             background-color: rgba(255,255,255,0.28);
             border-color: rgba(255,255,255,0.6);
+        }
+
+        /* Refresh Remote button: never fully faded, always clickable when not scanning */
+        &.rescan-btn {
+            background-color: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.4);
+
+            .rescan-icon {
+                font-size: 17px;
+                line-height: 1;
+                display: inline-block;
+            }
+
+            &[disabled] {
+                opacity: 0.6;
+                pointer-events: none;
+                cursor: not-allowed;
+
+                .rescan-icon {
+                    animation: spin 1s linear infinite;
+                }
+            }
+
+            &:not([disabled]):hover {
+                background-color: rgba(255,255,255,0.25);
+            }
         }
     }
 }
@@ -184,6 +223,74 @@
             margin-left: 4px;
             font-size: 0.7em;
             opacity: 0.9;
+        }
+    }
+}
+
+// ---- Pagination bar ----
+#pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-top: 1px solid rgba(128, 128, 128, 0.2);
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .pagination-info {
+        color: var(--text-muted, #888);
+        min-width: 120px;
+    }
+
+    .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        .page-btn {
+            background: none;
+            border: 1px solid rgba(128, 128, 128, 0.4);
+            border-radius: 4px;
+            padding: 3px 10px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: inherit;
+
+            &:hover:not([disabled]) {
+                border-color: #3a8eda;
+                color: #3a8eda;
+            }
+
+            &[disabled] {
+                opacity: 0.35;
+                cursor: default;
+            }
+        }
+
+        .page-indicator {
+            color: var(--text-muted, #888);
+            white-space: nowrap;
+        }
+    }
+
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        label {
+            color: var(--text-muted, #888);
+        }
+
+        select {
+            background: var(--bs-body-bg, #fff);
+            color: inherit;
+            border: 1px solid rgba(128, 128, 128, 0.4);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
         }
     }
 }

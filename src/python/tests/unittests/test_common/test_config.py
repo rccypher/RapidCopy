@@ -293,7 +293,8 @@ class TestConfig(unittest.TestCase):
             "interval_ms_local_scan": "10000",
             "interval_ms_downloading_scan": "2000",
             "extract_path": "/extract/path",
-            "use_local_path_as_extract_path": "True"
+            "use_local_path_as_extract_path": "True",
+            "deleted_age_off_secs": "1800"
         }
         controller = Config.Controller.from_dict(good_dict)
         self.assertEqual(30000, controller.interval_ms_remote_scan)
@@ -309,7 +310,8 @@ class TestConfig(unittest.TestCase):
                               "interval_ms_local_scan",
                               "interval_ms_downloading_scan",
                               "extract_path",
-                              "use_local_path_as_extract_path"
+                              "use_local_path_as_extract_path",
+                              "deleted_age_off_secs"
                           })
 
         # bad values
@@ -325,7 +327,6 @@ class TestConfig(unittest.TestCase):
     def test_web(self):
         good_dict = {
             "port": "1234",
-            "api_key": "",
         }
         web = Config.Web.from_dict(good_dict)
         self.assertEqual(1234, web.port)
@@ -335,8 +336,6 @@ class TestConfig(unittest.TestCase):
                           {
                               "port"
                           })
-        # api_key uses Checkers.null so empty is allowed — only test missing
-        self._TestConfig__check_missing_error(Config.Web, good_dict, "api_key")
 
         # bad values
         self.check_bad_value_error(Config.Web, good_dict, "port", "-1")
@@ -401,10 +400,10 @@ class TestConfig(unittest.TestCase):
         interval_ms_downloading_scan=2000
         extract_path=/path/where/to/extract/stuff
         use_local_path_as_extract_path=False
+        deleted_age_off_secs=1800
 
         [Web]
         port=88
-        api_key=
 
         [AutoQueue]
         enabled=False
@@ -487,8 +486,8 @@ class TestConfig(unittest.TestCase):
         config.controller.interval_ms_downloading_scan = 9012
         config.controller.extract_path = "/path/extract/stuff"
         config.controller.use_local_path_as_extract_path = True
+        config.controller.deleted_age_off_secs = 1800
         config.web.port = 13
-        config.web.api_key = ""
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = True
         config.autoqueue.auto_extract = False
@@ -536,10 +535,10 @@ class TestConfig(unittest.TestCase):
         interval_ms_downloading_scan = 9012
         extract_path = /path/extract/stuff
         use_local_path_as_extract_path = True
+        deleted_age_off_secs = 1800
 
         [Web]
         port = 13
-        api_key = 
 
         [AutoQueue]
         enabled = True
@@ -589,7 +588,6 @@ class TestConfig(unittest.TestCase):
         content = """
         [Web]
         port=88
-        api_key=
         what am i doing here
         """
         with self.assertRaises(PersistError):
@@ -630,10 +628,10 @@ interval_ms_local_scan=10000
 interval_ms_downloading_scan=2000
 extract_path=/extract
 use_local_path_as_extract_path=False
+deleted_age_off_secs=1800
 
 [Web]
 port=8800
-api_key=
 
 [AutoQueue]
 enabled=False

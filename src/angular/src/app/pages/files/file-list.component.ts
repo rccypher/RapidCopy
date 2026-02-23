@@ -1,5 +1,5 @@
 import {Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy} from "@angular/core";
-import {Observable, Subscription} from "rxjs";
+import {Observable, Subscription, combineLatest} from "rxjs";
 
 import {List} from "immutable";
 
@@ -8,6 +8,7 @@ import {ViewFile} from "../../services/files/view-file";
 import {LoggerService} from "../../services/utils/logger.service";
 import {ViewFileOptions} from "../../services/files/view-file-options";
 import {ViewFileOptionsService} from "../../services/files/view-file-options.service";
+import {ServerCommandService} from "../../services/server/server-command.service";
 
 @Component({
     selector: "app-file-list",
@@ -36,6 +37,9 @@ export class FileListComponent implements OnInit, OnDestroy {
     public canValidateAny = false;
     public allVisibleSelected = false;
 
+    // Remote scan state
+    public scanningRemote = false;
+
     // Bulk action in-progress flags
     public bulkQueuing = false;
     public bulkStopping = false;
@@ -45,6 +49,14 @@ export class FileListComponent implements OnInit, OnDestroy {
     public bulkValidating = false;
 
     private _filesSubscription: Subscription;
+
+    // Pagination state
+    public totalCount = 0;
+    public currentPage = 0;
+    public pageSize = 50;
+    public totalPages = 0;
+    public readonly PAGE_SIZES = [25, 50, 100];
+    private _paginationSubscription: Subscription;
 
     // Maps column names to their sort method(s)
     private static readonly COLUMN_SORT_MAP: Record<string, {asc: ViewFileOptions.SortMethod, desc: ViewFileOptions.SortMethod}> = {
@@ -58,7 +70,8 @@ export class FileListComponent implements OnInit, OnDestroy {
     constructor(private _logger: LoggerService,
                 private viewFileService: ViewFileService,
                 private viewFileOptionsService: ViewFileOptionsService,
-                private _changeDetector: ChangeDetectorRef) {
+                private _changeDetector: ChangeDetectorRef,
+                private serverCommandService: ServerCommandService) {
         this.files = viewFileService.filteredFiles;
         this.options = this.viewFileOptionsService.options;
     }
@@ -78,11 +91,34 @@ export class FileListComponent implements OnInit, OnDestroy {
             this.allVisibleSelected = files.size > 0 && files.every(f => f.isMultiSelected);
             this._changeDetector.markForCheck();
         });
+
+        // Load saved page size from localStorage
+        const savedPageSize = localStorage.getItem("dashboard_page_size");
+        if (savedPageSize && this.PAGE_SIZES.includes(+savedPageSize)) {
+            this.pageSize = +savedPageSize;
+            this.viewFileService.setPageSize(this.pageSize);
+        }
+
+        // Subscribe to pagination state
+        this._paginationSubscription = combineLatest([
+            this.viewFileService.totalFilteredCount,
+            this.viewFileService.currentPage,
+            this.viewFileService.pageSize,
+        ]).subscribe(([total, page, size]) => {
+            this.totalCount = total;
+            this.currentPage = page;
+            this.pageSize = size;
+            this.totalPages = size > 0 ? Math.ceil(total / size) : 1;
+            this._changeDetector.markForCheck();
+        });
     }
 
     ngOnDestroy() {
         if (this._filesSubscription) {
             this._filesSubscription.unsubscribe();
+        }
+        if (this._paginationSubscription) {
+            this._paginationSubscription.unsubscribe();
         }
     }
 
@@ -163,6 +199,28 @@ export class FileListComponent implements OnInit, OnDestroy {
 
     onValidate(file: ViewFile) {
         this.viewFileService.validate(file).subscribe(data => this._logger.info(data));
+    }
+
+    // --- Remote rescan ---
+
+    onScanRemote() {
+        if (this.scanningRemote) return;
+        this.scanningRemote = true;
+        this._changeDetector.markForCheck();
+        this.serverCommandService.scanRemote().subscribe({
+            next: reaction => {
+                this._logger.info("Remote scan triggered: %s", reaction.data);
+                // Brief visual feedback: keep spinner for 2s then reset
+                setTimeout(() => {
+                    this.scanningRemote = false;
+                    this._changeDetector.markForCheck();
+                }, 2000);
+            },
+            error: () => {
+                this.scanningRemote = false;
+                this._changeDetector.markForCheck();
+            }
+        });
     }
 
     // --- Bulk actions ---
@@ -247,5 +305,33 @@ export class FileListComponent implements OnInit, OnDestroy {
             next: () => { this.bulkValidating = false; this._changeDetector.markForCheck(); },
             error: () => { this.bulkValidating = false; this._changeDetector.markForCheck(); }
         });
+    }
+
+    onPageSizeChange(newSize: number) {
+        this.pageSize = newSize;
+        localStorage.setItem("dashboard_page_size", String(newSize));
+        this.viewFileService.setPageSize(newSize);
+    }
+
+    onPrevPage() {
+        this.viewFileService.prevPage();
+    }
+
+    onNextPage() {
+        this.viewFileService.nextPage();
+    }
+
+    onGoToPage(page: number) {
+        if (page >= 0 && page < this.totalPages) {
+            this.viewFileService.setPage(page);
+        }
+    }
+
+    get pageStart(): number {
+        return this.totalCount === 0 ? 0 : this.currentPage * this.pageSize + 1;
+    }
+
+    get pageEnd(): number {
+        return Math.min((this.currentPage + 1) * this.pageSize, this.totalCount);
     }
 }

@@ -1,5 +1,5 @@
 import {Injectable} from "@angular/core";
-import {Observable, forkJoin, of} from "rxjs";
+import {Observable, forkJoin} from "rxjs";
 import {BehaviorSubject} from "rxjs";
 
 import * as Immutable from "immutable";
@@ -81,10 +81,16 @@ export class ViewFileService {
     private _indices: Map<string, number> = new Map<string, number>();
 
     private _prevModelFiles: Immutable.Map<string, ModelFile> = Immutable.Map<string, ModelFile>();
-    private _multiSelectedNames: Set<string> = new Set<string>();
 
     private _filterCriteria: ViewFileFilterCriteria = null;
     private _sortComparator: ViewFileComparator = null;
+
+    // Pagination state
+    private _pageSize: number = 50;
+    private _currentPage: number = 0;
+    private _totalFilteredCountSubject: BehaviorSubject<number> = new BehaviorSubject(0);
+    private _pageSizeSubject: BehaviorSubject<number> = new BehaviorSubject(50);
+    private _currentPageSubject: BehaviorSubject<number> = new BehaviorSubject(0);
 
     constructor(private _logger: LoggerService,
                 private _streamServiceRegistry: StreamServiceRegistry) {
@@ -143,7 +149,7 @@ export class ViewFileService {
             name => {
                 const index = this._indices.get(name);
                 const oldViewFile = newViewFiles.get(index);
-                const newViewFile = ViewFileService.createViewFile(modelFiles.get(name), oldViewFile.isSelected);
+                const newViewFile = ViewFileService.createViewFile(modelFiles.get(name), oldViewFile.isSelected, oldViewFile.isMultiSelected);
                 newViewFiles = newViewFiles.set(index, newViewFile);
                 if (this._sortComparator != null && this._sortComparator(oldViewFile, newViewFile) !== 0) {
                     reSort = true;
@@ -195,112 +201,51 @@ export class ViewFileService {
         return this._filteredFilesSubject.asObservable();
     }
 
-    /**
-     * Toggle multi-selection for a file (checkbox click)
-     * @param {ViewFile} file
-     */
-    public toggleMultiSelected(file: ViewFile) {
-        if (this._multiSelectedNames.has(file.name)) {
-            this._multiSelectedNames.delete(file.name);
-        } else {
-            this._multiSelectedNames.add(file.name);
-        }
-        this.applyMultiSelection();
+    get totalFilteredCount(): Observable<number> {
+        return this._totalFilteredCountSubject.asObservable();
     }
 
-    /**
-     * Select a range of files (shift-click): selects all files between
-     * the last multi-selected file and the clicked file.
-     * @param {ViewFile} file
-     */
-    public rangeMultiSelect(file: ViewFile) {
-        const fileList = this._files;
-        if (this._multiSelectedNames.size === 0) {
-            this._multiSelectedNames.add(file.name);
-            this.applyMultiSelection();
-            return;
-        }
-        // Find last selected index
-        let lastIdx = -1;
-        for (let i = 0; i < fileList.size; i++) {
-            if (this._multiSelectedNames.has(fileList.get(i).name)) {
-                lastIdx = i;
-            }
-        }
-        const clickedIdx = fileList.findIndex(f => f.name === file.name);
-        if (lastIdx < 0 || clickedIdx < 0) {
-            this._multiSelectedNames.add(file.name);
-        } else {
-            const start = Math.min(lastIdx, clickedIdx);
-            const end = Math.max(lastIdx, clickedIdx);
-            for (let i = start; i <= end; i++) {
-                this._multiSelectedNames.add(fileList.get(i).name);
-            }
-        }
-        this.applyMultiSelection();
+    get pageSize(): Observable<number> {
+        return this._pageSizeSubject.asObservable();
     }
 
-    /**
-     * Clear all multi-selections
-     */
-    public clearMultiSelected() {
-        this._multiSelectedNames.clear();
-        this.applyMultiSelection();
+    get currentPage(): Observable<number> {
+        return this._currentPageSubject.asObservable();
     }
 
-    /**
-     * Select all currently visible (filtered) files
-     */
-    public selectAllVisible() {
-        // Get filtered files
-        const filtered = this._filterCriteria != null
-            ? this._files.filter(f => this._filterCriteria.meetsCriteria(f))
-            : this._files;
-        filtered.forEach(f => this._multiSelectedNames.add(f.name));
-        this.applyMultiSelection();
+    get currentPageSize(): number {
+        return this._pageSize;
     }
 
-    /**
-     * Get the set of currently multi-selected names
-     */
-    get multiSelectedNames(): Set<string> {
-        return this._multiSelectedNames;
+    get currentPageIndex(): number {
+        return this._currentPage;
     }
 
-    /**
-     * Get currently multi-selected ViewFiles
-     */
-    get multiSelectedFiles(): ViewFile[] {
-        return this._files.filter(f => this._multiSelectedNames.has(f.name)).toArray();
-    }
-
-    /**
-     * Execute a bulk action on all multi-selected files that support it.
-     * @param predicate - function that returns true if file supports the action
-     * @param action    - action to execute on the file
-     */
-    public bulkAction(
-        predicate: (f: ViewFile) => boolean,
-        action: (f: ViewFile) => Observable<WebReaction>
-    ): Observable<WebReaction[]> {
-        const eligible = this.multiSelectedFiles.filter(predicate);
-        if (eligible.length === 0) {
-            return of([]);
-        }
-        return forkJoin(eligible.map(f => action(f)));
-    }
-
-    private applyMultiSelection() {
-        let viewFiles = this._files;
-        for (let i = 0; i < viewFiles.size; i++) {
-            const f = viewFiles.get(i);
-            const shouldBeMultiSelected = this._multiSelectedNames.has(f.name);
-            if (f.isMultiSelected !== shouldBeMultiSelected) {
-                viewFiles = viewFiles.set(i, new ViewFile(f.set("isMultiSelected", shouldBeMultiSelected)));
-            }
-        }
-        this._files = viewFiles;
+    public setPageSize(size: number) {
+        this._pageSize = size;
+        this._currentPage = 0;
+        this._pageSizeSubject.next(size);
+        this._currentPageSubject.next(0);
         this.pushViewFiles();
+    }
+
+    public setPage(page: number) {
+        this._currentPage = page;
+        this._currentPageSubject.next(page);
+        this.pushViewFiles();
+    }
+
+    public nextPage() {
+        const totalPages = Math.ceil(this._totalFilteredCountSubject.getValue() / this._pageSize);
+        if (this._currentPage < totalPages - 1) {
+            this.setPage(this._currentPage + 1);
+        }
+    }
+
+    public prevPage() {
+        if (this._currentPage > 0) {
+            this.setPage(this._currentPage - 1);
+        }
     }
 
     /**
@@ -361,6 +306,114 @@ export class ViewFileService {
             this._files = viewFiles;
             this.pushViewFiles();
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Multi-select helpers
+    // -----------------------------------------------------------------------
+
+    /**
+     * Returns the currently multi-selected files as a plain array.
+     * Reads from the unfiltered list so selections are not lost when the
+     * filter changes.
+     */
+    get multiSelectedFiles(): ViewFile[] {
+        return this._files.filter(f => f.isMultiSelected).toArray();
+    }
+
+    /**
+     * Toggle the multi-select state of a single file.
+     */
+    public toggleMultiSelected(file: ViewFile) {
+        if (!this._indices.has(file.name)) { return; }
+        const index = this._indices.get(file.name);
+        const current = this._files.get(index);
+        this._files = this._files.set(
+            index,
+            new ViewFile(current.set("isMultiSelected", !current.isMultiSelected))
+        );
+        this.pushViewFiles();
+    }
+
+    /**
+     * Shift-click range selection: toggle all files between the last
+     * selected file and the given file (in the current filtered order).
+     */
+    public rangeMultiSelect(file: ViewFile) {
+        // Use the filtered list so range corresponds to what the user sees
+        const filtered = this._filteredFilesSubject.getValue();
+        const clickedIdx = filtered.findIndex(f => f.name === file.name);
+        if (clickedIdx < 0) { return; }
+
+        // Find nearest already-selected file in the filtered list
+        let anchorIdx = -1;
+        for (let i = clickedIdx - 1; i >= 0; i--) {
+            if (filtered.get(i).isMultiSelected) { anchorIdx = i; break; }
+        }
+        if (anchorIdx < 0) {
+            // No anchor above — just toggle the clicked file
+            this.toggleMultiSelected(file);
+            return;
+        }
+
+        // Select everything between anchor and clicked (inclusive)
+        const lo = Math.min(anchorIdx, clickedIdx);
+        const hi = Math.max(anchorIdx, clickedIdx);
+        let newFiles = this._files;
+        for (let i = lo; i <= hi; i++) {
+            const name = filtered.get(i).name;
+            if (this._indices.has(name)) {
+                const idx = this._indices.get(name);
+                const current = newFiles.get(idx);
+                newFiles = newFiles.set(idx, new ViewFile(current.set("isMultiSelected", true)));
+            }
+        }
+        this._files = newFiles;
+        this.pushViewFiles();
+    }
+
+    /**
+     * Clear all multi-selected flags.
+     */
+    public clearMultiSelected() {
+        this._files = this._files.map(
+            f => f.isMultiSelected ? new ViewFile(f.set("isMultiSelected", false)) : f
+        ).toList();
+        this.pushViewFiles();
+    }
+
+    /**
+     * Select all files currently visible in the filtered list.
+     */
+    public selectAllVisible() {
+        const filtered = this._filteredFilesSubject.getValue();
+        let newFiles = this._files;
+        filtered.forEach(f => {
+            if (this._indices.has(f.name)) {
+                const idx = this._indices.get(f.name);
+                const current = newFiles.get(idx);
+                if (!current.isMultiSelected) {
+                    newFiles = newFiles.set(idx, new ViewFile(current.set("isMultiSelected", true)));
+                }
+            }
+        });
+        this._files = newFiles;
+        this.pushViewFiles();
+    }
+
+    /**
+     * Run an action on all multi-selected files that pass the predicate.
+     * Uses forkJoin so all requests are parallel; completes when all finish.
+     */
+    public bulkAction(
+        predicate: (f: ViewFile) => boolean,
+        action: (f: ViewFile) => Observable<WebReaction>
+    ): Observable<WebReaction[]> {
+        const targets = this.multiSelectedFiles.filter(predicate);
+        if (targets.length === 0) {
+            return forkJoin([]);
+        }
+        return forkJoin(targets.map(f => action(f)));
     }
 
     /**
@@ -454,7 +507,7 @@ export class ViewFileService {
         this.pushViewFiles();
     }
 
-    private static createViewFile(modelFile: ModelFile, isSelected: boolean = false): ViewFile {
+    private static createViewFile(modelFile: ModelFile, isSelected: boolean = false, isMultiSelected: boolean = false): ViewFile {
         // Use zero for unknown sizes
         let localSize: number = modelFile.local_size;
         if (localSize == null) {
@@ -572,7 +625,7 @@ export class ViewFileService {
             fullPath: modelFile.full_path,
             isArchive: modelFile.is_extractable,
             isSelected: isSelected,
-            isMultiSelected: false,
+            isMultiSelected: isMultiSelected,
             isQueueable: isQueueable,
             isStoppable: isStoppable,
             isExtractable: isExtractable,
@@ -619,13 +672,30 @@ export class ViewFileService {
         // Unfiltered files
         this._filesSubject.next(this._files);
 
-        // Filtered files
+        // Apply filter
         let filteredFiles = this._files;
         if (this._filterCriteria != null) {
             filteredFiles = Immutable.List<ViewFile>(
                 this._files.filter(f => this._filterCriteria.meetsCriteria(f))
             );
         }
-        this._filteredFilesSubject.next(filteredFiles);
+
+        // Emit total count (before pagination)
+        const totalCount = filteredFiles.size;
+        this._totalFilteredCountSubject.next(totalCount);
+
+        // Clamp page index in case items were removed
+        const totalPages = this._pageSize > 0 ? Math.ceil(totalCount / this._pageSize) : 1;
+        if (this._currentPage >= totalPages && totalPages > 0) {
+            this._currentPage = totalPages - 1;
+            this._currentPageSubject.next(this._currentPage);
+        }
+
+        // Slice to current page
+        const start = this._currentPage * this._pageSize;
+        const end = start + this._pageSize;
+        const pagedFiles = filteredFiles.slice(start, end).toList();
+
+        this._filteredFilesSubject.next(pagedFiles);
     }
 }
