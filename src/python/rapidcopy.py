@@ -237,8 +237,17 @@ class Rapidcopy:
         self.context.logger.debug("Persisting states to file")
         self.controller_persist.to_file(self.controller_persist_path)
         self.auto_queue_persist.to_file(self.auto_queue_persist_path)
-        Rapidcopy.__backup_file(self.config_path)
-        self.context.config.to_file(self.config_path)
+        # Only backup and write settings.cfg if the content has actually changed
+        new_config_str = self.context.config.to_str()
+        try:
+            with open(self.config_path) as f:
+                existing_config_str = f.read()
+        except OSError:
+            existing_config_str = None
+        if new_config_str != existing_config_str:
+            Rapidcopy.__backup_file(self.config_path)
+            with open(self.config_path, "w") as f:
+                f.write(new_config_str)
 
     def _auto_mount_network_shares(self):
         """
