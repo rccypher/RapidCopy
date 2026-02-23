@@ -6,6 +6,7 @@ from threading import Lock
 from queue import Queue
 from enum import Enum
 import copy
+from datetime import datetime, timedelta
 
 # my libs
 from .scan import (
@@ -385,6 +386,13 @@ class Controller:
     def queue_command(self, command: Command):
         self.__command_queue.put(command)
 
+    def force_scan_remote(self):
+        """
+        Trigger an immediate rescan of the remote directory.
+        This wakes the remote scanner process without waiting for the next interval.
+        """
+        self.__remote_scan_process.force_scan()
+
     def __get_model_files(self) -> List[ModelFile]:
         model_files = []
         for filename in self.__model.get_file_names():
@@ -506,7 +514,7 @@ class Controller:
                     ):
                         downloaded = True
                     if downloaded:
-                        self.__persist.downloaded_file_names.add(diff.new_file.name)
+                        self.__persist.record_download(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
                         # Trigger post-download validation once the file is fully on disk.
@@ -547,6 +555,31 @@ class Controller:
                     self.logger.info("Removing from extracted list: {}".format(remove_extracted_file_names))
                     self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
                     self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+
+                # Age off DELETED files whose download timestamp is older than the threshold.
+                # This prevents the dashboard from accumulating DELETED entries indefinitely.
+                _age_off_secs = self.__context.config.controller.deleted_age_off_secs
+                if _age_off_secs is None:
+                    _age_off_secs = 1800
+                if _age_off_secs > 0:
+                    _cutoff = datetime.now() - timedelta(seconds=_age_off_secs)
+                    _aged_off = set()
+                    for _name, _ts_str in list(self.__persist.downloaded_file_timestamps.items()):
+                        if _name not in self.__model.get_file_names():
+                            continue
+                        if self.__model.get_file(_name).state != ModelFile.State.DELETED:
+                            continue
+                        try:
+                            if datetime.fromisoformat(_ts_str) < _cutoff:
+                                _aged_off.add(_name)
+                        except ValueError:
+                            pass
+                    if _aged_off:
+                        self.logger.info("Aging off DELETED files: {}".format(_aged_off))
+                        for _name in _aged_off:
+                            self.__persist.remove_download(_name)
+                            self.__model.remove_file(_name)
+                        self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
         # Update the controller status
         if latest_remote_scan is not None:
@@ -720,7 +753,10 @@ class Controller:
         Propagate any exceptions from child processes/threads to this thread
         :return:
         """
-        self.__lftp.raise_pending_error()
+        try:
+            self.__lftp.raise_pending_error()
+        except LftpError as e:
+            self.logger.warning("Ignoring non-fatal Lftp error: {}".format(str(e)))
         self.__active_scan_process.propagate_exception()
         self.__local_scan_process.propagate_exception()
         self.__remote_scan_process.propagate_exception()
