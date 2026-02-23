@@ -70,6 +70,7 @@ class Controller:
             DELETE_LOCAL = 3
             DELETE_REMOTE = 4
             VALIDATE = 5
+            PRIORITIZE = 6
 
         class ICallback(ABC):
             """Command callback interface"""
@@ -631,6 +632,16 @@ class Controller:
                     continue
                 try:
                     self.__lftp.kill(file.name)
+                except LftpError as e:
+                    _notify_failure(command, "Lftp error: {}".format(str(e)))
+                    continue
+
+            elif command.action == Controller.Command.Action.PRIORITIZE:
+                if file.state != ModelFile.State.QUEUED:
+                    _notify_failure(command, "File '{}' is not Queued".format(command.filename))
+                    continue
+                try:
+                    self.__lftp.prioritize(file.name)
                 except LftpError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue

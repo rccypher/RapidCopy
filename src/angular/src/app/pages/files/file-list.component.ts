@@ -35,6 +35,7 @@ export class FileListComponent implements OnInit, OnDestroy {
     public canDeleteLocalAny = false;
     public canDeleteRemoteAny = false;
     public canValidateAny = false;
+    public canPrioritizeAny = false;
     public allVisibleSelected = false;
 
     // Remote scan state
@@ -47,6 +48,7 @@ export class FileListComponent implements OnInit, OnDestroy {
     public bulkDeletingLocal = false;
     public bulkDeletingRemote = false;
     public bulkValidating = false;
+    public bulkPrioritizing = false;
 
     private _filesSubscription: Subscription;
 
@@ -87,6 +89,7 @@ export class FileListComponent implements OnInit, OnDestroy {
             this.canDeleteLocalAny = selected.some(f => f.isLocallyDeletable);
             this.canDeleteRemoteAny = selected.some(f => f.isRemotelyDeletable);
             this.canValidateAny = selected.some(f => f.isValidatable);
+            this.canPrioritizeAny = selected.some(f => f.isPrioritizable);
             // All visible selected?
             this.allVisibleSelected = files.size > 0 && files.every(f => f.isMultiSelected);
             this._changeDetector.markForCheck();
@@ -201,6 +204,10 @@ export class FileListComponent implements OnInit, OnDestroy {
         this.viewFileService.validate(file).subscribe(data => this._logger.info(data));
     }
 
+    onPrioritize(file: ViewFile) {
+        this.viewFileService.prioritize(file).subscribe(data => this._logger.info(data));
+    }
+
     // --- Remote rescan ---
 
     onScanRemote() {
@@ -304,6 +311,19 @@ export class FileListComponent implements OnInit, OnDestroy {
         ).subscribe({
             next: () => { this.bulkValidating = false; this._changeDetector.markForCheck(); },
             error: () => { this.bulkValidating = false; this._changeDetector.markForCheck(); }
+        });
+    }
+
+    onBulkPrioritize() {
+        if (!this.canPrioritizeAny || this.bulkPrioritizing) return;
+        this.bulkPrioritizing = true;
+        this._changeDetector.markForCheck();
+        this.viewFileService.bulkAction(
+            f => f.isPrioritizable,
+            f => this.viewFileService.prioritize(f)
+        ).subscribe({
+            next: () => { this.bulkPrioritizing = false; this._changeDetector.markForCheck(); },
+            error: () => { this.bulkPrioritizing = false; this._changeDetector.markForCheck(); }
         });
     }
 

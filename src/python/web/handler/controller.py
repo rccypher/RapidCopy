@@ -61,9 +61,11 @@ class ControllerHandler(IHandler):
     def add_routes(self, web_app: WebApp):
         web_app.add_handler("/server/command/queue/<file_name>", self.__handle_action_queue)
         web_app.add_handler("/server/command/stop/<file_name>", self.__handle_action_stop)
+        web_app.add_handler("/server/command/prioritize/<file_name>", self.__handle_action_prioritize)
         web_app.add_handler("/server/command/extract/<file_name>", self.__handle_action_extract)
         web_app.add_handler("/server/command/delete_local/<file_name>", self.__handle_action_delete_local)
         web_app.add_handler("/server/command/delete_remote/<file_name>", self.__handle_action_delete_remote)
+        web_app.route("/server/command/scan_remote", method="POST")(self.__handle_scan_remote)
 
     def __handle_action_queue(self, file_name: str):
         """
@@ -108,6 +110,29 @@ class ControllerHandler(IHandler):
         callback.wait()
         if callback.success:
             return HTTPResponse(body="Stopped file '{}'".format(file_name))
+        else:
+            return HTTPResponse(body=callback.error, status=400)
+
+    def __handle_action_prioritize(self, file_name: str):
+        """
+        Request a PRIORITIZE action
+        :param file_name:
+        :return:
+        """
+        # value is double encoded
+        file_name = unquote(file_name)
+        if err := check_length(file_name, MAX_FILENAME_LEN, "Filename"):
+            return err
+        if err := _validate_filename(file_name, self.__controller):
+            return err
+
+        command = Controller.Command(Controller.Command.Action.PRIORITIZE, file_name)
+        callback = WebResponseActionCallback()
+        command.add_callback(callback)
+        self.__controller.queue_command(command)
+        callback.wait()
+        if callback.success:
+            return HTTPResponse(body="Prioritized file '{}'".format(file_name))
         else:
             return HTTPResponse(body=callback.error, status=400)
 
@@ -179,3 +204,14 @@ class ControllerHandler(IHandler):
             return HTTPResponse(body="Requested remote delete for file '{}'".format(file_name))
         else:
             return HTTPResponse(body=callback.error, status=400)
+
+    def __handle_scan_remote(self):
+        """
+        Trigger an immediate rescan of the remote directory.
+        POST /server/command/scan_remote
+        """
+        try:
+            self.__controller.force_scan_remote()
+            return HTTPResponse(body="Remote scan triggered")
+        except Exception as e:
+            return HTTPResponse(body="Failed to trigger remote scan: {}".format(str(e)), status=500)

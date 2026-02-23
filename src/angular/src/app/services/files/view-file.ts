@@ -24,6 +24,7 @@ interface IViewFile {
     isLocallyDeletable: boolean;
     isRemotelyDeletable: boolean;
     isValidatable: boolean;
+    isPrioritizable: boolean;
     // timestamps
     localCreatedTimestamp: Date;
     localModifiedTimestamp: Date;
@@ -58,6 +59,7 @@ const DefaultViewFile: IViewFile = {
     isLocallyDeletable: null,
     isRemotelyDeletable: null,
     isValidatable: null,
+    isPrioritizable: null,
     localCreatedTimestamp: null,
     localModifiedTimestamp: null,
     remoteCreatedTimestamp: null,
@@ -92,12 +94,14 @@ export class ViewFile extends ViewFileRecord implements IViewFile {
     get fullPath(): string { return this.get("fullPath"); }
     get isArchive(): boolean { return this.get("isArchive"); }
     get isSelected(): boolean { return this.get("isSelected"); }
+    get isMultiSelected(): boolean { return this.get("isMultiSelected"); }
     get isQueueable(): boolean { return this.get("isQueueable"); }
     get isStoppable(): boolean { return this.get("isStoppable"); }
     get isExtractable(): boolean { return this.get("isExtractable"); }
     get isLocallyDeletable(): boolean { return this.get("isLocallyDeletable"); }
     get isRemotelyDeletable(): boolean { return this.get("isRemotelyDeletable"); }
     get isValidatable(): boolean { return this.get("isValidatable"); }
+    get isPrioritizable(): boolean { return this.get("isPrioritizable"); }
     get localCreatedTimestamp(): Date { return this.get("localCreatedTimestamp"); }
     get localModifiedTimestamp(): Date { return this.get("localModifiedTimestamp"); }
     get remoteCreatedTimestamp(): Date { return this.get("remoteCreatedTimestamp"); }

@@ -477,6 +477,16 @@ export class ViewFileService {
     }
 
     /**
+     * Prioritize a file (move to front of download queue)
+     * @param {ViewFile} file
+     * @returns {Observable<WebReaction>}
+     */
+    public prioritize(file: ViewFile): Observable<WebReaction> {
+        this._logger.debug(`Prioritize view file: ${file.name}`);
+        return this.createAction(file, (f) => this.modelFileService.prioritize(f));
+    }
+
+    /**
      * Set a new filter criteria
      * @param {ViewFileFilterCriteria} criteria
      */
@@ -612,6 +622,7 @@ export class ViewFileService {
                                     ViewFile.Status.VALIDATED,
                                     ViewFile.Status.CORRUPT].includes(status)
                                     && localSize > 0 && remoteSize > 0;
+        const isPrioritizable: boolean = [ViewFile.Status.QUEUED].includes(status);
 
         return new ViewFile({
             name: modelFile.name,
@@ -632,6 +643,7 @@ export class ViewFileService {
             isLocallyDeletable: isLocallyDeletable,
             isRemotelyDeletable: isRemotelyDeletable,
             isValidatable: isValidatable,
+            isPrioritizable: isPrioritizable,
             localCreatedTimestamp: modelFile.local_created_timestamp,
             localModifiedTimestamp: modelFile.local_modified_timestamp,
             remoteCreatedTimestamp: modelFile.remote_created_timestamp,

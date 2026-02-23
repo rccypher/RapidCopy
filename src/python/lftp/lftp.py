@@ -450,6 +450,30 @@ class Lftp:
         self.__run_command("queue -d *")
         self.__run_command("kill all")
 
+    def prioritize(self, name: str) -> bool:
+        """
+        Move a queued job to the front of the LFTP queue.
+        Uses 'queue --move <id> 1' to move the job before position 1.
+        :param name: name of the queued file or folder
+        :return: True if the job was found and moved, False otherwise
+        """
+        job_to_move = None
+        for status in self.status():
+            if status.name == name:
+                job_to_move = status
+                break
+        if job_to_move is None:
+            self.logger.debug("Prioritize failed to find job '{}'".format(name))
+            return False
+        if job_to_move.state != LftpJobStatus.State.QUEUED:
+            self.logger.debug("Prioritize: job '{}' is not queued (state={})".format(name, job_to_move.state))
+            return False
+        # Move this queue entry before position 1 (i.e., to the front)
+        # Note: there's a chance that job ids change between status() and this command
+        self.logger.debug("Prioritizing queued job '{}' (id={})...".format(name, job_to_move.id))
+        self.__run_command("queue --move {} 1".format(job_to_move.id))
+        return True
+
     def exit(self):
         """
         Exit the lftp instance. It cannot be used after being killed

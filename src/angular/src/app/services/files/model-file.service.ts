@@ -121,6 +121,19 @@ export class ModelFileService extends BaseStreamService {
         return this._restService.sendRequest(url);
     }
 
+    /**
+     * Prioritize a file (move to front of download queue)
+     * @param {ModelFile} file
+     * @returns {Observable<WebReaction>}
+     */
+    public prioritize(file: ModelFile): Observable<WebReaction> {
+        this._logger.debug(`Prioritize model file: ${file.name}`);
+        // Double-encode the value
+        const fileNameEncoded = encodeURIComponent(encodeURIComponent(file.name));
+        const url: string = `/server/command/prioritize/${fileNameEncoded}`;
+        return this._restService.sendRequest(url);
+    }
+
     protected onEvent(eventName: string, data: string) {
         this.parseEvent(eventName, data);
     }

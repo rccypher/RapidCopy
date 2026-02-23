@@ -63,6 +63,15 @@
             <img src="assets/icons/validate.svg" />
             <span>Validate</span>
         </div>
+        <div class="bulk-btn" appClickStopPropagation
+             [attr.disabled]="multiSelectCount > 0 && canPrioritizeAny && !bulkPrioritizing ? null : true"
+             [title]="multiSelectCount === 0 ? 'Select files to prioritize' : canPrioritizeAny ? 'Move selected to front of queue' : 'No selected files can be prioritized'"
+             (click)="onBulkPrioritize()"
+             [class.loading]="bulkPrioritizing">
+            <div class="loader"></div>
+            <img src="assets/icons/prioritize.svg" />
+            <span>Prioritize</span>
+        </div>
 
         <!-- Separator -->
         <div class="toolbar-separator"></div>
@@ -121,7 +130,8 @@
             (extractEvent)="onExtract($event)"
             (deleteLocalEvent)="onDeleteLocal($event)"
             (deleteRemoteEvent)="onDeleteRemote($event)"
-            (validateEvent)="onValidate($event)">
+            (validateEvent)="onValidate($event)"
+            (prioritizeEvent)="onPrioritize($event)">
         </app-file>
     </div>
 </div>

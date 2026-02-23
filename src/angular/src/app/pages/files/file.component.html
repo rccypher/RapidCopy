@@ -1,6 +1,5 @@
 <div class="file" [class.selected]="file.isSelected" [class.multi-selected]="file.isMultiSelected" #fileElement>
     <div class="content">
-        <!-- Checkbox for multi-select -->
         <div class="checkbox-col" appClickStopPropagation>
             <input type="checkbox"
                    class="file-checkbox"
@@ -158,6 +157,15 @@
             <div class="loader"></div>
             <img src="assets/icons/validate.svg" />
             <div class="text"><span>Validate</span></div>
+        </div>
+        <div class="button" appClickStopPropagation
+             [attr.disabled]="isPrioritizable() ? null : true"
+             [title]="isPrioritizable() ? 'Move to front of download queue' : 'Cannot prioritize: ' + file.status"
+             (click)="!isPrioritizable() || onPrioritize(file)"
+             [class.loading]="activeAction == FileAction.PRIORITIZE">
+            <div class="loader"></div>
+            <img src="assets/icons/prioritize.svg" />
+            <div class="text"><span>Prioritize</span></div>
         </div>
     </div>
 </div>
