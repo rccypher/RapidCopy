@@ -346,6 +346,8 @@ class Config(Persist):
         retry_delay_ms = PROP("retry_delay_ms", Checkers.int_bounded(0, 60000), Converters.int)
         # Enable adaptive chunk sizing based on network conditions
         enable_adaptive_sizing = PROP("enable_adaptive_sizing", Checkers.null, Converters.bool)
+        # Seconds to wait after download completes before hashing local chunks (avoids OS page-cache false positives)
+        settle_delay_secs = PROP("settle_delay_secs", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
@@ -358,6 +360,7 @@ class Config(Persist):
             self.max_retries = None
             self.retry_delay_ms = None
             self.enable_adaptive_sizing = None
+            self.settle_delay_secs = None
 
     def __init__(self):
         self.general = Config.General()
@@ -435,6 +438,7 @@ class Config(Persist):
                     "max_retries": "3",
                     "retry_delay_ms": "1000",
                     "enable_adaptive_sizing": "True",
+                    "settle_delay_secs": "5.0",
                 }
             )
 

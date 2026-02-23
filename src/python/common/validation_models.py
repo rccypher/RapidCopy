@@ -168,6 +168,7 @@ class ValidationConfig:
     retry_delay_ms: int = 1000
     enable_adaptive_sizing: bool = True
     parallel_validation: int = 0  # 0 = auto (use CPU count)
+    settle_delay_secs: float = 5.0  # Seconds to wait after download completes before hashing local chunks
 
     def __post_init__(self):
         """Validate configuration values."""
@@ -181,6 +182,8 @@ class ValidationConfig:
             raise ValueError("default_chunk_size must be <= max_chunk_size")
         if self.max_retries < 0:
             raise ValueError("max_retries must be non-negative")
+        if self.settle_delay_secs < 0:
+            raise ValueError("settle_delay_secs must be non-negative")
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> "ValidationConfig":
@@ -206,6 +209,7 @@ class ValidationConfig:
             "retry_delay_ms": self.retry_delay_ms,
             "enable_adaptive_sizing": self.enable_adaptive_sizing,
             "parallel_validation": self.parallel_validation,
+            "settle_delay_secs": self.settle_delay_secs,
         }
 
 

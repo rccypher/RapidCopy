@@ -180,6 +180,14 @@ class ValidationDispatch:
         local_path = os.path.join(self._local_base_path, command.local_path)
         remote_path = os.path.join(self._remote_base_path, command.remote_path)
 
+        # For post-download (non-inline) validation, wait for the OS page cache to flush
+        # before hashing local chunks.  LFTP's parallel pget connections can finish writing
+        # while some dirty pages are still buffered in the kernel; hashing immediately causes
+        # every chunk to appear corrupt on the first pass.  A short settle delay eliminates
+        # these false positives without affecting inline (in-progress) validation.
+        if not command.inline and self.config.settle_delay_secs > 0:
+            time.sleep(self.config.settle_delay_secs)
+
         # Calculate chunk size using adaptive sizing
         chunk_size = self._adaptive_sizer.calculate_chunk_size(command.file_size)
 

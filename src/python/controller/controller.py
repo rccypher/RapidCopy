@@ -251,6 +251,9 @@ class Controller:
             enable_adaptive_sizing=validation_cfg.enable_adaptive_sizing
             if validation_cfg.enable_adaptive_sizing is not None
             else True,
+            settle_delay_secs=float(validation_cfg.settle_delay_secs)
+            if validation_cfg.settle_delay_secs is not None
+            else 5.0,
         )
         self.__validation_process = ValidationProcess(
             config=self.__validation_config,
