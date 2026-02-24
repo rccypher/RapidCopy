@@ -100,6 +100,7 @@ RUN cd /app/python && poetry install --only main --no-root
 
 # Copy Python source
 COPY src/python /app/python
+RUN chmod -R a+rX /app/python
 
 # Copy built artifacts from previous stages
 COPY --from=angular-builder /build/html/browser /app/html
