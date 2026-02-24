@@ -98,17 +98,21 @@ class Checkers:
         return value
 
     @staticmethod
-    def int_bounded(min_val: int, max_val: int) -> Callable:
-        """Factory: returns a checker that enforces min_val <= value <= max_val."""
-        def _checker(cls: type[T], name: str, value: int) -> int:
-            if value < min_val or value > max_val:
+    def int_non_negative_max(max_val: int):
+        """Returns a checker that enforces 0 <= value <= max_val"""
+        def _check(cls: type[T], name: str, value: int) -> int:
+            if value < 0:
                 raise ConfigError(
-                    "Bad config: {}.{} ({}) must be between {} and {}".format(
-                        cls.__name__, name, value, min_val, max_val
+                    "Bad config: {}.{} ({}) must be zero or greater".format(cls.__name__, name, value)
+                )
+            if value > max_val:
+                raise ConfigError(
+                    "Bad config: {}.{} ({}) must not exceed {} (FD_SETSIZE limit)".format(
+                        cls.__name__, name, value, max_val
                     )
                 )
             return value
-        return _checker
+        return _check
 
 
 class InnerConfig(ABC):
@@ -268,7 +272,7 @@ class Config(Persist):
         num_max_connections_per_dir_file = PROP(
             "num_max_connections_per_dir_file", Checkers.int_positive, Converters.int
         )
-        num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative, Converters.int)
+        num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative_max(32), Converters.int)
         use_temp_file = PROP("use_temp_file", Checkers.null, Converters.bool)
         # Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
         rate_limit = PROP("rate_limit", Checkers.null, Converters.null)
@@ -297,6 +301,8 @@ class Config(Persist):
         interval_ms_downloading_scan = PROP("interval_ms_downloading_scan", Checkers.int_positive, Converters.int)
         extract_path = PROP("extract_path", Checkers.string_nonempty, Converters.null)
         use_local_path_as_extract_path = PROP("use_local_path_as_extract_path", Checkers.null, Converters.bool)
+        # Seconds a DELETED file stays visible before being aged off the dashboard (0 = never)
+        deleted_age_off_secs = PROP("deleted_age_off_secs", Checkers.int_non_negative, Converters.int)
 
         def __init__(self):
             super().__init__()
@@ -305,16 +311,14 @@ class Config(Persist):
             self.interval_ms_downloading_scan = None
             self.extract_path = None
             self.use_local_path_as_extract_path = None
+            self.deleted_age_off_secs = None
 
     class Web(InnerConfig):
         port = PROP("port", Checkers.int_positive, Converters.int)
-        # api_key: if empty/None, authentication is disabled (backward compatible)
-        api_key = PROP("api_key", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
             self.port = None
-            self.api_key = None
 
     class AutoQueue(InnerConfig):
         enabled = PROP("enabled", Checkers.null, Converters.bool)
@@ -333,17 +337,17 @@ class Config(Persist):
         # Checksum algorithm: xxh128, md5, sha256, sha1
         algorithm = PROP("algorithm", Checkers.string_nonempty, Converters.null)
         # Default chunk size in bytes (default: 10485760 = 10MB)
-        default_chunk_size = PROP("default_chunk_size", Checkers.int_bounded(1 * 1024 * 1024, 500 * 1024 * 1024), Converters.int)
+        default_chunk_size = PROP("default_chunk_size", Checkers.int_positive, Converters.int)
         # Minimum chunk size in bytes (default: 1048576 = 1MB)
-        min_chunk_size = PROP("min_chunk_size", Checkers.int_bounded(64 * 1024, 100 * 1024 * 1024), Converters.int)
+        min_chunk_size = PROP("min_chunk_size", Checkers.int_positive, Converters.int)
         # Maximum chunk size in bytes (default: 104857600 = 100MB)
-        max_chunk_size = PROP("max_chunk_size", Checkers.int_bounded(1 * 1024 * 1024, 1024 * 1024 * 1024), Converters.int)
+        max_chunk_size = PROP("max_chunk_size", Checkers.int_positive, Converters.int)
         # Validate chunks inline during download; corrupt chunks are re-downloaded via pget_range
         validate_after_chunk = PROP("validate_after_chunk", Checkers.null, Converters.bool)
         # Maximum retry attempts for corrupt chunks
-        max_retries = PROP("max_retries", Checkers.int_bounded(0, 20), Converters.int)
+        max_retries = PROP("max_retries", Checkers.int_non_negative, Converters.int)
         # Delay between retries in milliseconds
-        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_bounded(0, 60000), Converters.int)
+        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_non_negative, Converters.int)
         # Enable adaptive chunk sizing based on network conditions
         enable_adaptive_sizing = PROP("enable_adaptive_sizing", Checkers.null, Converters.bool)
         # Seconds to wait after download completes before hashing local chunks (avoids OS page-cache false positives)
