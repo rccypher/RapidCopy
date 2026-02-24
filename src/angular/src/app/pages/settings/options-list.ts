@@ -96,7 +96,10 @@ export const OPTIONS_CONTEXT_CONNECTIONS: IOptionsContext = {
             type: OptionType.Text,
             label: "Max Total Connections",
             valuePath: ["lftp", "num_max_total_connections"],
-            description: "Maximum number of connections.\n" +
+            description: "Maximum number of LFTP connections (1-32). Hard cap of 32 prevents " +
+                         "FD_SETSIZE overflow: baseline ~187 FDs + 32 connections x 13 FDs = ~603 FDs, " +
+                         "safely under the select() limit of 1024. " +
+                         "Use 0 to apply no limit (not recommended).\n" +
                          "(net:connection-limit)"
         },
         {
@@ -146,13 +149,6 @@ export const OPTIONS_CONTEXT_OTHER: IOptionsContext = {
             label: "Web GUI Port",
             valuePath: ["web", "port"],
             description: null
-        },
-        {
-            type: OptionType.Password,
-            label: "API Key",
-            valuePath: ["web", "api_key"],
-            description: "Protect the web UI with an API key. All API requests must include an " +
-                         "X-Api-Key header matching this value. Leave empty to disable authentication."
         },
         {
             type: OptionType.Checkbox,
