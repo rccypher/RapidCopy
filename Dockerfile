@@ -19,7 +19,7 @@ RUN npx ng build --configuration production --output-path /build/html
 # ============================================
 # Stage 2: Build scanfs binary
 # ============================================
-FROM python:3.11-slim AS scanfs-builder
+FROM python:3.11-slim-bullseye AS scanfs-builder
 
 RUN apt-get update && apt-get install -y \
     binutils \
