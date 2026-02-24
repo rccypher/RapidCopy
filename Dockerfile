@@ -19,7 +19,7 @@ RUN npx ng build --configuration production --output-path /build/html
 # ============================================
 # Stage 2: Build scanfs binary
 # ============================================
-FROM python:3.11-slim AS scanfs-builder
+FROM python:3.11-slim-bullseye AS scanfs-builder
 
 RUN apt-get update && apt-get install -y \
     binutils \
@@ -100,6 +100,7 @@ RUN cd /app/python && poetry install --only main --no-root
 
 # Copy Python source
 COPY src/python /app/python
+RUN chmod -R a+rX /app/python
 
 # Copy built artifacts from previous stages
 COPY --from=angular-builder /build/html/browser /app/html
@@ -113,7 +114,8 @@ COPY src/docker/build/docker-image/scp /usr/local/sbin/
 
 RUN chmod a+x /usr/local/bin/run_as_user && \
     chmod a+x /usr/local/sbin/ssh && \
-    chmod a+x /usr/local/sbin/scp
+    chmod a+x /usr/local/sbin/scp && \
+    chmod a+rx /scripts/setup_default_config.sh
 
 # Disable SSH known hosts prompt
 RUN mkdir -p /root/.ssh && \
