@@ -113,7 +113,8 @@ COPY src/docker/build/docker-image/scp /usr/local/sbin/
 
 RUN chmod a+x /usr/local/bin/run_as_user && \
     chmod a+x /usr/local/sbin/ssh && \
-    chmod a+x /usr/local/sbin/scp
+    chmod a+x /usr/local/sbin/scp && \
+    chmod a+rx /scripts/setup_default_config.sh
 
 # Disable SSH known hosts prompt
 RUN mkdir -p /root/.ssh && \
