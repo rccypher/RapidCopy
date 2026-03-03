@@ -83,7 +83,9 @@ class Lftp:
         self.__set(Lftp.__SET_COMMAND_AT_EXIT, '"kill all"')
         # Auto-add server to known host file
         self.sftp_auto_confirm = True
-        # Ensure downloaded files are group-readable (umask 002 = files 664, dirs 775)
+        # Set xfer:umask for remote chmod operations on SFTP servers.
+        # Note: local file creation permissions are controlled by the process umask
+        # (set via os.umask(0o002) in rapidcopy.py), not by this setting.
         self.__set(Lftp.__SET_XFER_UMASK, "002")
 
     def with_check_process(method: Callable) -> Callable:  # type: ignore[misc]

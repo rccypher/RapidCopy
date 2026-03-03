@@ -348,6 +348,7 @@ class Rapidcopy:
         config.controller.interval_ms_downloading_scan = 1000
         config.controller.extract_path = "/tmp"
         config.controller.use_local_path_as_extract_path = True
+        config.controller.deleted_age_off_secs = 1800
 
         config.web.port = 8800
         config.web.api_key = ""  # empty = auth disabled
@@ -469,6 +470,12 @@ class Rapidcopy:
 if __name__ == "__main__":
     if sys.hexversion < 0x030B0000:
         sys.exit("Python 3.11 or newer is required to run this program.")
+
+    # Set process umask so downloaded files/dirs get group-write permissions.
+    # Files: 664 (rw-rw-r--), Dirs: 775 (rwxrwxr-x).
+    # This is inherited by lftp child processes, ensuring Sonarr/Radarr
+    # (media group) can move/delete downloaded content.
+    os.umask(0o002)
 
     while True:
         try:
