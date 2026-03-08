@@ -90,8 +90,9 @@ RUN groupadd -g 1000 rapidcopy && \
     useradd -r -u 1000 -g rapidcopy rapidcopy
 RUN mkdir /config && \
     mkdir /downloads && \
+    mkdir /downloads/incomplete && \
     chown rapidcopy:rapidcopy /config && \
-    chown rapidcopy:rapidcopy /downloads
+    chown -R rapidcopy:rapidcopy /downloads
 
 # Switch to non-root user
 USER rapidcopy

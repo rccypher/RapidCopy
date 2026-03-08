@@ -41,6 +41,8 @@ interface ILftp {
     use_temp_file: boolean;
     // Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
     rate_limit: string;
+    // Staging path for in-progress downloads (empty = auto-derive as local_path/incomplete)
+    staging_path: string;
 }
 const DefaultLftp: ILftp = {
     remote_address: null,
@@ -58,6 +60,7 @@ const DefaultLftp: ILftp = {
     num_max_total_connections: null,
     use_temp_file: null,
     rate_limit: null,
+    staging_path: null,
 };
 const LftpRecord = Record(DefaultLftp);
 

@@ -6,6 +6,8 @@ from threading import Lock
 from queue import Queue
 from enum import Enum
 import copy
+import os
+import shutil
 from datetime import datetime, timedelta
 
 # my libs
@@ -110,6 +112,13 @@ class Controller:
         # Decide the password here
         self.__password = context.config.lftp.remote_password if not context.config.lftp.use_ssh_key else None
 
+        # Resolve staging path (empty string or None = auto-derive as local_path/incomplete)
+        _raw_staging = self.__context.config.lftp.staging_path
+        self.__staging_path = _raw_staging or os.path.join(
+            self.__context.config.lftp.local_path, 'incomplete'
+        )
+        os.makedirs(self.__staging_path, exist_ok=True)
+
         # The command queue
         self.__command_queue: Queue[Controller.Command] = Queue()
 
@@ -138,7 +147,7 @@ class Controller:
         )
         self.__lftp.set_base_logger(self.logger)
         self.__lftp.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
-        self.__lftp.set_base_local_dir_path(self.__context.config.lftp.local_path)
+        self.__lftp.set_base_local_dir_path(self.__staging_path)
         # Configure Lftp
         self.__lftp.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
         self.__lftp.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
@@ -159,16 +168,22 @@ class Controller:
             path_pairs = self.__context.path_pair_manager.get_enabled_pairs()
 
         if path_pairs:
-            # Multi-path mode: create scanners for each path pair
+            # Multi-path mode: create per-pair staging dirs and scanners
             local_scanners = []
             remote_scanners = []
-            path_pair_local_paths = {}  # Map path_pair_id -> local_path
+            path_pair_local_paths = {}   # Map path_pair_id -> final local_path
+            path_pair_staging_paths = {} # Map path_pair_id -> staging_path (in-progress)
 
             for pair in path_pairs:
+                pair_staging = os.path.join(pair.local_path, "incomplete")
+                os.makedirs(pair_staging, exist_ok=True)
+                path_pair_staging_paths[pair.id] = pair_staging
+
                 local_scanners.append(
                     LocalScanner(
                         local_path=pair.local_path,
                         use_temp_file=self.__context.config.lftp.use_temp_file,
+                        staging_path=pair_staging,
                         path_pair_id=pair.id,
                         path_pair_name=pair.name,
                     )
@@ -190,17 +205,22 @@ class Controller:
 
             self.__local_scanner = MultiPathLocalScanner(local_scanners)
             self.__remote_scanner = MultiPathRemoteScanner(remote_scanners)
-            # Multi-path active scanner: routes files to correct path pair
-            self.__active_scanner = MultiPathActiveScanner(path_pair_local_paths)
+            # MultiPathActiveScanner watches STAGING dirs (where LFTP writes in-progress files)
+            self.__active_scanner = MultiPathActiveScanner(path_pair_staging_paths)
             self.__is_multi_path_mode = True
 
-            # Store path pairs for later use (e.g., queuing)
+            # Store path pairs for later use (e.g., queuing, moving)
             self.__path_pairs = {pair.id: pair for pair in path_pairs}
+            self.__path_pair_staging_paths = path_pair_staging_paths
         else:
-            # Legacy single-path mode
-            self.__active_scanner = ActiveScanner(self.__context.config.lftp.local_path)
+            # Legacy single-path mode with staging_path support
+            # ActiveScanner watches staging_path (where LFTP writes in-progress files)
+            self.__active_scanner = ActiveScanner(self.__staging_path)
+            # LocalScanner scans both local_path (completed) and staging_path (in-progress)
             self.__local_scanner = LocalScanner(
-                local_path=self.__context.config.lftp.local_path, use_temp_file=self.__context.config.lftp.use_temp_file
+                local_path=self.__context.config.lftp.local_path,
+                use_temp_file=self.__context.config.lftp.use_temp_file,
+                staging_path=self.__staging_path,
             )
             self.__remote_scanner = RemoteScanner(
                 remote_address=self.__context.config.lftp.remote_address,
@@ -287,6 +307,9 @@ class Controller:
 
         # Keep track of active command processes
         self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
+
+        # Flag to ensure startup recovery of interrupted downloads runs only once
+        self.__startup_recovery_done = False
 
         self.__started = False
 
@@ -517,6 +540,11 @@ class Controller:
                     if downloaded:
                         self.__persist.record_download(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
+                        # Move completed file from staging_path to local_path
+                        if self.__is_multi_path_mode:
+                            self.__move_from_staging_multi(diff.new_file.name, diff.new_file.path_pair_id)
+                        else:
+                            self.__move_from_staging(diff.new_file.name)
 
                         # Trigger post-download validation once the file is fully on disk.
                         # Validating after download completes avoids false corrupt-chunk
@@ -587,6 +615,13 @@ class Controller:
             self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
             self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
             self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
+            # Auto-resume any interrupted downloads left in staging from a previous session
+            if not self.__startup_recovery_done:
+                self.__startup_recovery_done = True
+                if self.__is_multi_path_mode:
+                    self.__recover_interrupted_downloads_multi(latest_remote_scan.files)
+                else:
+                    self.__recover_interrupted_downloads(latest_remote_scan.files)
         if latest_local_scan is not None:
             self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
 
@@ -620,7 +655,10 @@ class Controller:
                     if file.path_pair_id and file.path_pair_id in self.__path_pairs:
                         pair = self.__path_pairs[file.path_pair_id]
                         remote_path = pair.remote_path
-                        local_path = pair.local_path
+                        # Download to per-pair staging dir; controller moves to local_path on completion
+                        local_path = self.__path_pair_staging_paths.get(
+                            file.path_pair_id, pair.local_path
+                        )
                     self.__lftp.queue(file.name, file.is_dir, remote_path=remote_path, local_path=local_path)
                 except LftpError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
@@ -970,3 +1008,155 @@ class Controller:
             return file.path_pair_id
         except ModelError:
             return None
+
+    def __move_from_staging(self, name: str):
+        """
+        Move a completed file/directory from staging_path to local_path.
+        Called when a download transitions to DOWNLOADED state.
+        Not used in multi-path mode.
+        """
+        src = os.path.join(self.__staging_path, name)
+        dst = os.path.join(self.__context.config.lftp.local_path, name)
+        if os.path.exists(src):
+            try:
+                shutil.move(src, dst)
+                self.logger.info("Moved '{}' from staging to local_path".format(name))
+            except OSError as e:
+                self.logger.error("Failed to move '{}' from staging to local_path: {}".format(name, e))
+
+    def __recover_interrupted_downloads(self, remote_files: list):
+        """
+        Re-queue any downloads interrupted in a previous session.
+        Called once on startup after the first successful remote scan.
+        Only used in legacy single-path mode (not multi-path).
+        """
+        remote_names = {f.name for f in remote_files}
+        downloaded = self.__persist.downloaded_file_names
+        suffix = Constants.LFTP_TEMP_FILE_SUFFIX
+        try:
+            for fname in os.listdir(self.__staging_path):
+                full_path = os.path.join(self.__staging_path, fname)
+                if fname.endswith(suffix):
+                    # Interrupted single-file download (.lftp temp file)
+                    real_name = fname[:-len(suffix)]
+                    is_dir = False
+                elif os.path.isdir(full_path):
+                    # Interrupted directory download - only re-queue if .lftp files inside
+                    try:
+                        has_lftp_inside = any(
+                            entry.endswith(suffix)
+                            for entry in os.listdir(full_path)
+                        )
+                    except OSError:
+                        continue
+                    if not has_lftp_inside:
+                        continue
+                    real_name = fname
+                    is_dir = True
+                else:
+                    continue
+
+                if real_name in remote_names and real_name not in downloaded:
+                    self.logger.info(
+                        "Auto-resuming interrupted download: {} (is_dir={})".format(real_name, is_dir)
+                    )
+                    try:
+                        self.__lftp.queue(real_name, is_dir)
+                    except LftpError as e:
+                        self.logger.warning(
+                            "Could not auto-resume '{}' from staging: {}".format(real_name, e)
+                        )
+        except OSError as e:
+            self.logger.warning("Startup recovery scan of staging path failed: {}".format(e))
+
+    def __move_from_staging_multi(self, name: str, path_pair_id):
+        """
+        Move a completed file/directory from a per-pair staging_path to its final local_path
+        in multi-path mode.
+        """
+        if not path_pair_id or path_pair_id not in self.__path_pair_staging_paths:
+            self.logger.warning(
+                "Cannot move '{}' from staging: path_pair_id '{}' not in staging map".format(
+                    name, path_pair_id
+                )
+            )
+            return
+        staging = self.__path_pair_staging_paths[path_pair_id]
+        final = self.__path_pairs[path_pair_id].local_path
+        src = os.path.join(staging, name)
+        dst = os.path.join(final, name)
+        if os.path.exists(src):
+            try:
+                shutil.move(src, dst)
+                self.logger.info(
+                    "Moved '{}' from staging ('{}') to local_path ('{}')".format(name, staging, final)
+                )
+            except OSError as e:
+                self.logger.error(
+                    "Failed to move '{}' from staging to local_path: {}".format(name, e)
+                )
+
+    def __recover_interrupted_downloads_multi(self, remote_files: list):
+        """
+        On startup, re-queue any interrupted downloads found in per-pair staging directories.
+        Only called in multi-path mode.
+        """
+        # Build a per-pair set of remote file names
+        remote_names_by_pair: dict[str | None, set] = {}
+        for f in remote_files:
+            pid = getattr(f, "path_pair_id", None)
+            if pid not in remote_names_by_pair:
+                remote_names_by_pair[pid] = set()
+            remote_names_by_pair[pid].add(f.name)
+
+        downloaded = self.__persist.downloaded_file_names
+        suffix = Constants.LFTP_TEMP_FILE_SUFFIX
+
+        for pair_id, staging_path in self.__path_pair_staging_paths.items():
+            remote_names = remote_names_by_pair.get(pair_id, set())
+            pair = self.__path_pairs.get(pair_id)
+            if not pair:
+                continue
+            try:
+                for fname in os.listdir(staging_path):
+                    full_path = os.path.join(staging_path, fname)
+                    if fname.endswith(suffix):
+                        real_name = fname[:-len(suffix)]
+                        is_dir = False
+                    elif os.path.isdir(full_path):
+                        try:
+                            has_lftp_inside = any(
+                                entry.endswith(suffix) for entry in os.listdir(full_path)
+                            )
+                        except OSError:
+                            continue
+                        if not has_lftp_inside:
+                            continue
+                        real_name = fname
+                        is_dir = True
+                    else:
+                        continue
+                    if real_name in remote_names and real_name not in downloaded:
+                        self.logger.info(
+                            "Auto-resuming interrupted download '{}' for pair '{}' (staging: {})".format(
+                                real_name, pair.name, staging_path
+                            )
+                        )
+                        try:
+                            self.__lftp.queue(
+                                real_name,
+                                is_dir,
+                                remote_path=pair.remote_path,
+                                local_path=staging_path,
+                            )
+                        except LftpError as e:
+                            self.logger.warning(
+                                "Could not auto-resume '{}' for pair '{}': {}".format(
+                                    real_name, pair.name, e
+                                )
+                            )
+            except OSError as e:
+                self.logger.warning(
+                    "Startup recovery scan of staging '{}' failed: {}".format(staging_path, e)
+                )
+

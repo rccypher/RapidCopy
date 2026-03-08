@@ -43,6 +43,24 @@ export const OPTIONS_CONTEXT_SERVER: IOptionsContext = {
         },
         {
             type: OptionType.Text,
+            label: "Server Directory",
+            valuePath: ["lftp", "remote_path"],
+            description: "Path to your files on the remote server"
+        },
+        {
+            type: OptionType.Text,
+            label: "Local Directory",
+            valuePath: ["lftp", "local_path"],
+            description: "Completed downloads are placed here (Sonarr/Radarr monitor this directory)"
+        },
+        {
+            type: OptionType.Text,
+            label: "Staging Directory",
+            valuePath: ["lftp", "staging_path"],
+            description: "In-progress downloads go here. Files move to Local Directory when complete. Leave blank to use {local_path}/incomplete (default)."
+        },
+        {
+            type: OptionType.Text,
             label: "Remote SSH Port",
             valuePath: ["lftp", "remote_port"],
             description: null,

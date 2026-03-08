@@ -30,6 +30,10 @@ cat ${SETTINGS_FILE}
 # Replace default values
 replace_setting 'local_path' '<replace me>' '\/downloads\/'
 
+# Set staging_path for Docker deployments (in-progress downloads go here)
+sed -i "s|^staging_path = .*|staging_path = /downloads/incomplete/|" ${SETTINGS_FILE}
+echo "Set staging_path to /downloads/incomplete/"
+
 echo
 echo
 echo "Done configuring rapidcopy"
