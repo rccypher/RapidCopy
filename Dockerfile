@@ -100,6 +100,10 @@ RUN cd /app/python && poetry install --only main --no-root
 
 # Copy Python source
 COPY src/python /app/python
+# Make Python source world-readable (QNAP ACLs can strip 'other' permissions)
+# Using find+exec instead of chmod -R to avoid QNAP kernel EFAULT bug
+RUN find /app/python -type f -exec chmod a+r {} + && \
+    find /app/python -type d -exec chmod a+rx {} +
 
 # Copy built artifacts from previous stages
 COPY --from=angular-builder /build/html/browser /app/html
