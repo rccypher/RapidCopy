@@ -134,8 +134,8 @@ RUN groupadd -g 1000 rapidcopy && \
 
 USER rapidcopy
 
-# Setup default config
-RUN /scripts/setup_default_config.sh
+# Setup default config (|| true: script may fail in build env without runtime volume)
+RUN /scripts/setup_default_config.sh || true
 
 CMD [ \
     "python", \
