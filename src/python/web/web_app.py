@@ -230,7 +230,7 @@ class WebApp(bottle.Bottle):
         Exit gracefully, kill any connections and clean up any state
         :return:
         """
-        self._stop = True
+        object.__setattr__(self, '_stop', True)
 
     def __index(self):
         """
