@@ -169,6 +169,7 @@
     /* checkbox col in header should not inherit header bg */
     #header .checkbox-col {
         background-color: var(--color-text-primary);
+        align-self: stretch;
     }
 
     /* clickable sort headers */
