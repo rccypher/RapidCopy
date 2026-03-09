@@ -208,6 +208,7 @@
     /* checkbox col in header should not inherit header bg */
     #header .checkbox-col {
         background-color: var(--color-text-primary);
+        align-self: stretch; /* fill full row height; parent uses align-items: center */
     }
 
     /* clickable sort headers */
