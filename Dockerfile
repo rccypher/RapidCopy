@@ -115,9 +115,9 @@ COPY src/docker/build/docker-image/run_as_user /usr/local/bin/
 COPY src/docker/build/docker-image/ssh /usr/local/sbin/
 COPY src/docker/build/docker-image/scp /usr/local/sbin/
 
-RUN chmod a+x /usr/local/bin/run_as_user && \
-    chmod a+x /usr/local/sbin/ssh && \
-    chmod a+x /usr/local/sbin/scp && \
+RUN chmod a+rx /usr/local/bin/run_as_user && \
+    chmod a+rx /usr/local/sbin/ssh && \
+    chmod a+rx /usr/local/sbin/scp && \
     chmod a+rx /scripts/setup_default_config.sh
 
 # Disable SSH known hosts prompt
