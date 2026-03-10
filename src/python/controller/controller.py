@@ -712,6 +712,17 @@ class Controller:
                     local_path = self.__context.config.lftp.local_path
                     if file.path_pair_id and file.path_pair_id in self.__path_pairs:
                         local_path = self.__path_pairs[file.path_pair_id].local_path
+                    # If file isn't in local_path, check staging as fallback.
+                    # This handles the edge case where __move_from_staging failed but
+                    # the model already transitioned to DOWNLOADED state.
+                    if not os.path.exists(os.path.join(local_path, file.name)):
+                        staging_fallback = None
+                        if self.__is_multi_path_mode and file.path_pair_id:
+                            staging_fallback = self.__path_pair_staging_paths.get(file.path_pair_id)
+                        elif not self.__is_multi_path_mode:
+                            staging_fallback = self.__staging_path
+                        if staging_fallback and os.path.exists(os.path.join(staging_fallback, file.name)):
+                            local_path = staging_fallback
                     process = DeleteLocalProcess(local_path=local_path, file_name=file.name)
                     process.set_multiprocessing_logger(self.__mp_logger)
                     post_callback = self.__local_scan_process.force_scan
