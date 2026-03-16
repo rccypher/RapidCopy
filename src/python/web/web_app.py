@@ -103,7 +103,7 @@ class WebApp(bottle.Bottle):
         self.__html_path = context.args.html_path
         self.__status = context.status
         self.logger.info("Html path set to: {}".format(self.__html_path))
-        self.__stop = False
+        self._stop = False
         self.__api_key: str = getattr(context.config.web, 'api_key', '') or ''
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
 
@@ -230,7 +230,7 @@ class WebApp(bottle.Bottle):
         Exit gracefully, kill any connections and clean up any state
         :return:
         """
-        self.__stop = True
+        object.__setattr__(self, '_stop', True)
 
     def __index(self):
         """
@@ -262,7 +262,7 @@ class WebApp(bottle.Bottle):
                 handler.setup()
 
             # Get streaming values until the connection closes
-            while not self.__stop:
+            while not self._stop:
                 for handler in handlers:
                     # Process all values from this handler
                     while True:
@@ -275,7 +275,7 @@ class WebApp(bottle.Bottle):
                 time.sleep(WebApp._STREAM_POLL_INTERVAL_IN_MS / 1000)
 
         finally:
-            self.logger.debug("Stream connection stopped by {}".format("server" if self.__stop else "client"))
+            self.logger.debug("Stream connection stopped by {}".format("server" if self._stop else "client"))
 
             # Cleanup all handlers
             for handler in handlers:
