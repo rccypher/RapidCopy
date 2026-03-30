@@ -83,6 +83,11 @@ class TestController(unittest.TestCase):
             zf.write(temp_file_path, os.path.basename(temp_file_path))
             zf.close()
         elif ext == "rar":
+            if shutil.which("rar") is None:
+                # rar not available — create a dummy file so setUp completes
+                with open(path, "wb") as f:
+                    f.write(b"\x00" * 128)
+                return os.path.getsize(path)
             fnull = open(os.devnull, "w")
             subprocess.Popen(["rar", "a", "-ep", path, temp_file_path], stdout=fnull).communicate()
         else:

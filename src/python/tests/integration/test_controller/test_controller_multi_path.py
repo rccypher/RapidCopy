@@ -193,6 +193,7 @@ class TestControllerMultiPath(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {
                 "port": "8800",
@@ -671,6 +672,7 @@ class TestControllerMultiPathDisabled(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {"port": "8800"},
             "AutoQueue": {"enabled": "False", "patterns_only": "True", "auto_extract": "False"},
