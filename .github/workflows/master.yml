@@ -394,7 +394,7 @@ jobs:
 
       # Push to Docker Hub with version tag (if secrets are configured)
       - name: Push to Docker Hub (tag vX.X.X)
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: ${{ vars.DOCKERHUB_ENABLED == 'true' }}
         run: make docker-image-release \
           STAGING_REGISTRY=${{ env.staging_registry }} \
           STAGING_VERSION=${{ github.run_number }} \
@@ -403,7 +403,7 @@ jobs:
 
       # Push to Docker Hub with latest tag (if secrets are configured)
       - name: Push to Docker Hub (tag latest)
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: ${{ vars.DOCKERHUB_ENABLED == 'true' }}
         run: make docker-image-release \
           STAGING_REGISTRY=${{ env.staging_registry }} \
           STAGING_VERSION=${{ github.run_number }} \
