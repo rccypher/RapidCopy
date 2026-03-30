@@ -300,8 +300,9 @@ class Config(Persist):
             self.staging_path = None
 
         @classmethod
-        def from_dict(cls, config_dict):
+        def from_dict(cls: Type[T], config_dict: InnerConfigType) -> T:
             # staging_path is optional for backward compatibility with existing settings.cfg files.
+            # Backfill with empty string (= auto-derive as local_path/incomplete) if missing.
             if "staging_path" not in config_dict:
                 config_dict = dict(config_dict)
                 config_dict["staging_path"] = ""
