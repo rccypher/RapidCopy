@@ -323,6 +323,7 @@ class TestController(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {
                 "port": "8800",

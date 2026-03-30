@@ -528,6 +528,7 @@ class TestConfig(unittest.TestCase):
         num_max_total_connections = 4
         use_temp_file = True
         rate_limit = 0
+        staging_path =
 
         [Controller]
         interval_ms_remote_scan = 1234

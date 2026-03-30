@@ -374,19 +374,18 @@ class Lftp:
         def escape(s: str) -> str:
             return s.replace("'", "\\'").replace('"', '\\"')
 
-        command = " ".join(
-            [
-                "queue",
-                "'",
-                "pget" if not is_dir else "mirror",
-                "-c",
-                "--no-perms" if is_dir else "",  # don't copy remote permissions; use process umask instead
-                '"{remote_dir}/{filename}"'.format(remote_dir=escape(remote_dir), filename=escape(name)),
-                "-o" if not is_dir else "",
-                '"{local_dir}/"'.format(local_dir=escape(local_dir)),
-                "'",
-            ]
-        )
+        parts = [
+            "queue",
+            "'",
+            "pget" if not is_dir else "mirror",
+            "-c",
+            "--no-perms" if is_dir else None,  # don't copy remote permissions; use process umask instead
+            '"{remote_dir}/{filename}"'.format(remote_dir=escape(remote_dir), filename=escape(name)),
+            "-o" if not is_dir else None,
+            '"{local_dir}/"'.format(local_dir=escape(local_dir)),
+            "'",
+        ]
+        command = " ".join(p for p in parts if p is not None)
         self.__run_command(command)
 
     def pget_range(
