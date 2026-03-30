@@ -47,19 +47,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: src/e2e-playwright/package-lock.json
 
       - name: Install Playwright dependencies
         working-directory: src/e2e-playwright
         run: |
-          npm ci
+          npm install
           npx playwright install chromium --with-deps
 
       - name: Build Angular app for testing
         working-directory: src/angular
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Setup Python
@@ -133,19 +131,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: src/e2e-playwright/package-lock.json
 
       - name: Install Playwright dependencies
         working-directory: src/e2e-playwright
         run: |
-          npm ci
+          npm install
           npx playwright install chromium --with-deps
 
       - name: Build Angular app
         working-directory: src/angular
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Serve Angular app
