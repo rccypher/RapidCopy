@@ -87,6 +87,10 @@ class Lftp:
         # Note: local file creation permissions are controlled by the process umask
         # (set via os.umask(0o002) in rapidcopy.py), not by this setting.
         self.__set(Lftp.__SET_XFER_UMASK, "002")
+        # Disable mirror permission copying globally so we don't need --no-perms
+        # in each queue command (which confuses the job status parser).
+        # Local file permissions are governed by the process umask instead.
+        self.__set("mirror:set-permissions", "off")
 
     def with_check_process(method: Callable) -> Callable:  # type: ignore[misc]
         """
@@ -379,7 +383,6 @@ class Lftp:
             "'",
             "pget" if not is_dir else "mirror",
             "-c",
-            "--no-perms" if is_dir else None,  # don't copy remote permissions; use process umask instead
             '"{remote_dir}/{filename}"'.format(remote_dir=escape(remote_dir), filename=escape(name)),
             "-o" if not is_dir else None,
             '"{local_dir}/"'.format(local_dir=escape(local_dir)),

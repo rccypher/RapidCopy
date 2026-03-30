@@ -20,6 +20,7 @@ import shutil
 import logging
 import sys
 import stat
+import time
 
 import timeout_decorator
 
@@ -591,9 +592,15 @@ class TestControllerMultiPath(unittest.TestCase):
         while callback.on_success.call_count < 1 and callback.on_failure.call_count < 1:
             self.controller.process()
 
-        # Verify file deleted from correct location
+        # Verify callback succeeded
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
+
+        # Wait for the async SSH delete to actually remove the file
+        deadline = time.time() + 15
+        while os.path.exists(movie1_path) and time.time() < deadline:
+            self.controller.process()
+            time.sleep(0.1)
         self.assertFalse(os.path.exists(movie1_path))
 
 

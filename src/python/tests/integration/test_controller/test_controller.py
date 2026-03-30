@@ -316,6 +316,7 @@ class TestController(unittest.TestCase):
                 "num_max_total_connections": "12",
                 "use_temp_file": "False",
                 "rate_limit": "0",
+                "staging_path": os.path.join(self.temp_dir, "staging"),
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
