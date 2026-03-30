@@ -15,14 +15,17 @@ class LocalScanner(IScanner):
     Results are merged: local_path takes precedence if the same name appears in both.
     """
 
-    def __init__(self, local_path: str, use_temp_file: bool,
-                 staging_path: Optional[str] = None,
-                 path_pair_id: str | None = None,
-                 path_pair_name: str | None = None):
+    def __init__(
+        self,
+        local_path: str,
+        use_temp_file: bool,
+        path_pair_id: str | None = None,
+        path_pair_name: str | None = None,
+        staging_path: str | None = None,
+    ):
         self.__local_path = local_path
         self.__staging_path = staging_path
         self.__scanner = SystemScanner(local_path)
-        self.__local_path = local_path
         if use_temp_file:
             self.__scanner.set_lftp_temp_suffix(Constants.LFTP_TEMP_FILE_SUFFIX)
         self.__staging_scanner: SystemScanner | None

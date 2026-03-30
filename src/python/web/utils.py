@@ -1,21 +1,3 @@
-
-# Input length limits
-MAX_FILENAME_LEN = 1024   # bytes, filesystem limit is 255 but paths can be longer
-MAX_PATTERN_LEN = 512
-MAX_CONFIG_VALUE_LEN = 4096
-MAX_PATH_LEN = 4096
-
-
-def check_length(value: str, max_len: int, label: str):
-    """Return a 400 HTTPResponse if value exceeds max_len, else None."""
-    if len(value) > max_len:
-        from bottle import HTTPResponse
-        return HTTPResponse(
-            body=f"{label} exceeds maximum length of {max_len} characters",
-            status=400
-        )
-    return None
-
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 from queue import Queue, Empty
@@ -47,3 +29,22 @@ class StreamQueue(Generic[T]):
             return self.__queue.get(block=False)
         except Empty:
             return None
+
+
+from bottle import HTTPResponse
+
+# Maximum allowed length for filenames passed to controller actions
+MAX_FILENAME_LEN = 4096
+
+
+def check_length(value: str, max_len: int, label: str) -> "HTTPResponse | None":
+    """
+    Validate that a string does not exceed max_len characters.
+    Returns a 400 HTTPResponse if the check fails, otherwise None.
+    """
+    if len(value) > max_len:
+        return HTTPResponse(
+            body="{} exceeds maximum length of {} characters".format(label, max_len),
+            status=400
+        )
+    return None

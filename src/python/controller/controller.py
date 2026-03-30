@@ -175,7 +175,7 @@ class Controller:
             path_pair_staging_paths = {} # Map path_pair_id -> staging_path (in-progress)
 
             for pair in path_pairs:
-                pair_staging = os.path.join(pair.local_path, "incomplete")
+                pair_staging = os.path.join(self.__staging_path, pair.name) if _raw_staging else os.path.join(pair.local_path, "incomplete")
                 os.makedirs(pair_staging, exist_ok=True)
                 path_pair_staging_paths[pair.id] = pair_staging
 

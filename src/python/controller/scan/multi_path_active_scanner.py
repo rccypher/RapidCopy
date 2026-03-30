@@ -90,7 +90,7 @@ class MultiPathActiveScanner(IScanner):
                 result.append(sys_file)
             except SystemScannerError as ex:
                 # Ignore errors here, file may have been deleted
-                self.logger.warning(str(ex))
+                self.logger.debug(str(ex))
 
         return result
 

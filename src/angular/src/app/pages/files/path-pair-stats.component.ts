@@ -1,7 +1,7 @@
-import {Component, ChangeDetectionStrategy, ChangeDetectorRef, OnInit, OnDestroy} from "@angular/core";
+import {Component, ChangeDetectionStrategy, NgZone, OnInit, OnDestroy} from "@angular/core";
 import {CommonModule} from "@angular/common";
-import {Subject} from "rxjs";
-import {takeUntil} from "rxjs/operators";
+import {Observable, Subject, combineLatest} from "rxjs";
+import {map, takeUntil} from "rxjs/operators";
 
 import * as Immutable from "immutable";
 
@@ -32,7 +32,8 @@ export interface PathPairStat {
 
 /**
  * Component that displays transfer statistics grouped by path pair.
- * Shows aggregate stats like file counts, speeds, and progress for each path pair.
+ * Uses the async pipe for all data to ensure OnPush change detection fires correctly
+ * even when SSE callbacks arrive outside Angular's zone.
  */
 @Component({
     selector: "app-path-pair-stats",
@@ -43,37 +44,34 @@ export interface PathPairStat {
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PathPairStatsComponent implements OnInit, OnDestroy {
-    stats: PathPairStat[] = [];
+    stats$: Observable<PathPairStat[]>;
+    hasMultiplePathPairs$: Observable<boolean>;
     isExpanded = true;
-    hasMultiplePathPairs = false;
 
     private destroy$ = new Subject<void>();
-    private pathPairs: PathPair[] = [];
-    private files: Immutable.List<ViewFile> = Immutable.List();
 
     constructor(
         private viewFileService: ViewFileService,
         private pathPairService: PathPairService,
-        private changeDetector: ChangeDetectorRef
+        private ngZone: NgZone
     ) {}
 
     ngOnInit(): void {
-        // Subscribe to path pairs
-        this.pathPairService.pathPairs$
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(pairs => {
-                this.pathPairs = pairs;
-                this.hasMultiplePathPairs = pairs.length > 1;
-                this.updateStats();
-            });
+        // combineLatest re-emits whenever either source emits.
+        // The async pipe handles zone re-entry so OnPush change detection fires
+        // correctly even when SSE callbacks arrive outside Angular's zone.
+        this.stats$ = combineLatest([
+            this.pathPairService.pathPairs$,
+            this.viewFileService.files
+        ]).pipe(
+            takeUntil(this.destroy$),
+            map(([pairs, files]) => this.computeStats(pairs, files))
+        );
 
-        // Subscribe to files
-        this.viewFileService.files
-            .pipe(takeUntil(this.destroy$))
-            .subscribe(files => {
-                this.files = files;
-                this.updateStats();
-            });
+        this.hasMultiplePathPairs$ = this.pathPairService.pathPairs$.pipe(
+            takeUntil(this.destroy$),
+            map(pairs => pairs.length > 1)
+        );
     }
 
     ngOnDestroy(): void {
@@ -85,23 +83,20 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
         this.isExpanded = !this.isExpanded;
     }
 
-    private updateStats(): void {
-        if (this.pathPairs.length === 0) {
-            this.stats = [];
-            this.changeDetector.markForCheck();
-            return;
+    hasActiveTransfers(stat: PathPairStat): boolean {
+        return stat.downloadingCount > 0 || stat.queuedCount > 0;
+    }
+
+    private computeStats(pairs: PathPair[], files: Immutable.List<ViewFile>): PathPairStat[] {
+        if (pairs.length === 0) {
+            return [];
         }
 
-        // Group files by path pair ID
         const filesByPathPair = new Map<string, ViewFile[]>();
-        
-        // Initialize with all known path pairs
-        for (const pair of this.pathPairs) {
+        for (const pair of pairs) {
             filesByPathPair.set(pair.id, []);
         }
-
-        // Group files
-        this.files.forEach(file => {
+        files.forEach(file => {
             if (file.pathPairId) {
                 const existing = filesByPathPair.get(file.pathPairId) || [];
                 existing.push(file);
@@ -109,15 +104,9 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
             }
         });
 
-        // Calculate stats for each path pair
-        this.stats = this.pathPairs
+        return pairs
             .filter(pair => pair.enabled)
-            .map(pair => {
-                const pairFiles = filesByPathPair.get(pair.id) || [];
-                return this.calculateStats(pair, pairFiles);
-            });
-
-        this.changeDetector.markForCheck();
+            .map(pair => this.calculateStats(pair, filesByPathPair.get(pair.id) || []));
     }
 
     private calculateStats(pair: PathPair, files: ViewFile[]): PathPairStat {
@@ -135,7 +124,6 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
                 case ViewFile.Status.DOWNLOADING:
                     downloadingCount++;
                     totalSpeed += file.downloadingSpeed || 0;
-                    // Count bytes actually on disk for in-progress files (capped at remoteSize)
                     totalTransferredSize += Math.min(file.localSize || 0, file.remoteSize || 0);
                     break;
                 case ViewFile.Status.QUEUED:
@@ -147,14 +135,11 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
                 case ViewFile.Status.VALIDATING:
                 case ViewFile.Status.VALIDATED:
                     downloadedCount++;
-                    // Count the remote size (the actual amount transferred) not local disk size
-                    // (local disk may be larger after extraction, or smaller if file was deleted)
                     totalTransferredSize += file.remoteSize || 0;
                     break;
             }
         }
 
-        // Progress = transferred bytes / total remote bytes, capped at 100%
         const overallProgress = totalRemoteSize > 0
             ? Math.min(100, Math.round((totalTransferredSize / totalRemoteSize) * 100))
             : 0;
@@ -173,10 +158,5 @@ export class PathPairStatsComponent implements OnInit, OnDestroy {
             totalSpeed,
             overallProgress
         };
-    }
-
-    // Helper to determine if a path pair has active transfers
-    hasActiveTransfers(stat: PathPairStat): boolean {
-        return stat.downloadingCount > 0 || stat.queuedCount > 0;
     }
 }

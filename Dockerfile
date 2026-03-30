@@ -121,15 +121,17 @@ RUN chmod a+x /usr/local/bin/run_as_user && \
 RUN mkdir -p /root/.ssh && \
     echo "StrictHostKeyChecking no\nUserKnownHostsFile /dev/null" > /root/.ssh/config
 
-# Create non-root user
+# Create non-root user and add to media group (gid 1002) for Sonarr/Radarr access
 RUN groupadd -g 1000 rapidcopy && \
-    useradd -r -u 1000 -g rapidcopy rapidcopy && \
+    groupadd -g 1002 media && \
+    useradd -r -u 1000 -g rapidcopy -G media rapidcopy && \
     mkdir /config && \
     mkdir /downloads && \
+    mkdir /downloads/incomplete && \
     mkdir /mounts && \
     mkdir /logs && \
     chown rapidcopy:rapidcopy /config && \
-    chown rapidcopy:rapidcopy /downloads && \
+    chown -R rapidcopy:rapidcopy /downloads && \
     chown rapidcopy:rapidcopy /mounts && \
     chown rapidcopy:rapidcopy /logs
 
