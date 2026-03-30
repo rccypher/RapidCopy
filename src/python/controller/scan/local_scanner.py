@@ -19,11 +19,19 @@ class LocalScanner(IScanner):
         use_temp_file: bool,
         path_pair_id: str | None = None,
         path_pair_name: str | None = None,
+        staging_path: str | None = None,
     ):
         self.__scanner = SystemScanner(local_path)
         self.__local_path = local_path
         if use_temp_file:
             self.__scanner.set_lftp_temp_suffix(Constants.LFTP_TEMP_FILE_SUFFIX)
+        self.__staging_scanner: SystemScanner | None
+        if staging_path:
+            self.__staging_scanner = SystemScanner(staging_path)
+            if use_temp_file:
+                self.__staging_scanner.set_lftp_temp_suffix(Constants.LFTP_TEMP_FILE_SUFFIX)
+        else:
+            self.__staging_scanner = None
         self.logger = logging.getLogger("LocalScanner")
         self.__path_pair_id = path_pair_id
         self.__path_pair_name = path_pair_name
@@ -46,9 +54,26 @@ class LocalScanner(IScanner):
 
     @overrides(IScanner)
     def scan(self) -> List[SystemFile]:
+        # Scan staging_path (in-progress) first
+        staging_result = []
+        if self.__staging_scanner:
+            try:
+                staging_result = self.__staging_scanner.scan()
+            except SystemScannerError as e:
+                self.logger.exception("Caught SystemScannerError from staging path")
+                raise ScannerError(Localization.Error.LOCAL_SERVER_SCAN, recoverable=False) from e
+
+        # Scan local_path (completed downloads)
         try:
-            result = self.__scanner.scan()
+            local_result = self.__scanner.scan()
         except SystemScannerError as e:
             self.logger.exception("Caught SystemScannerError")
             raise ScannerError(Localization.Error.LOCAL_SERVER_SCAN, recoverable=False) from e
-        return result
+
+        # Merge: local_path wins if same name appears in both (file was just moved)
+        local_names = {f.name for f in local_result}
+        for staging_file in staging_result:
+            if staging_file.name not in local_names:
+                local_result.append(staging_file)
+
+        return local_result

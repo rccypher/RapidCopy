@@ -185,5 +185,14 @@
                 (click)="onTogglePinFilter()">
             <i class="fa fa-thumb-tack"></i>
         </button>
+        <button id="hide-deleted"
+                type="button"
+                class="btn btn-primary"
+                [class.active]="(options | async)?.hideDeleted"
+                [disabled]="!isDeletedStatusEnabled && !(options | async)?.hideDeleted"
+                title="Hide files deleted locally (still on remote)"
+                (click)="onToggleHideDeleted()">
+            <i class="fa fa-eye-slash"></i>
+        </button>
     </div>
 </div>

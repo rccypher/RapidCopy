@@ -276,6 +276,9 @@ class Config(Persist):
         use_temp_file = PROP("use_temp_file", Checkers.null, Converters.bool)
         # Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
         rate_limit = PROP("rate_limit", Checkers.null, Converters.null)
+        # Staging path for in-progress downloads (empty string = auto-derive as {local_path}/incomplete)
+        # Completed files are moved to local_path. Set to empty string to use the default.
+        staging_path = PROP("staging_path", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
@@ -294,6 +297,15 @@ class Config(Persist):
             self.num_max_total_connections = None
             self.use_temp_file = None
             self.rate_limit = None
+            self.staging_path = None
+
+        @classmethod
+        def from_dict(cls, config_dict):
+            # staging_path is optional for backward compatibility with existing settings.cfg files.
+            if "staging_path" not in config_dict:
+                config_dict = dict(config_dict)
+                config_dict["staging_path"] = ""
+            return super().from_dict(config_dict)
 
     class Controller(IC):
         interval_ms_remote_scan = PROP("interval_ms_remote_scan", Checkers.int_positive, Converters.int)

@@ -342,6 +342,7 @@ class Rapidcopy:
         config.lftp.num_max_total_connections = 16
         config.lftp.use_temp_file = False
         config.lftp.rate_limit = "0"  # No limit by default
+        config.lftp.staging_path = ""  # Empty = auto-derive as local_path/incomplete
 
         config.controller.interval_ms_remote_scan = 30000
         config.controller.interval_ms_local_scan = 10000

@@ -52,6 +52,12 @@ export const OPTIONS_CONTEXT_SERVER: IOptionsContext = {
             label: "Server Script Path",
             valuePath: ["lftp", "remote_path_to_scan_script"],
             description: "Where to install scanner script on remote server"
+        },
+        {
+            type: OptionType.Text,
+            label: "Staging Directory",
+            valuePath: ["lftp", "staging_path"],
+            description: "In-progress downloads go here. Files move to the download directory when complete. Leave blank to use {local_path}/incomplete (default)."
         }
     ]
 };

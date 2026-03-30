@@ -11,9 +11,7 @@
 
 /* multi-selected file */
 .file.multi-selected {
-    background-color: var(--color-accent-secondary);
-    outline: 2px solid var(--color-accent-primary);
-    outline-offset: -2px;
+    background-color: var(--color-accent-secondary-light, rgba(0, 120, 212, 0.12));
 }
 
 /* content */
@@ -32,9 +30,9 @@
 }
 
 /* width */
-.content .checkbox-col {width: 36px; min-width: 36px; padding: 0 4px;}
+.content .checkbox-col {width: 36px; min-width: 36px; display: flex; align-items: center; justify-content: center;}
 .content .status   {width: 100px; min-width: 100px;}
-.content .name     {flex-grow: 1; flex-basis: calc(100% - 100px);}
+.content .name     {flex-grow: 1; flex-basis: calc(100% - 136px);}
 .content .speed    {width: 100px; min-width: 100px;}
 /* .content .eta is hidden on mobile */
 .content .size     {flex-grow: 1;}
@@ -267,8 +265,8 @@
 
     /* Re-order columns */
     .content .checkbox-col {order: 0;}
-    .content .status {order: 2;}
     .content .name {order: 1;}
+    .content .status {order: 2;}
     .content .speed {order: 3;}
     .content .eta {order: 4;}
     .content .size {order: 5;}

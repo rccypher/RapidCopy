@@ -7,7 +7,6 @@ import {BaseWebService} from "../base/base-web.service";
 import {Localization} from "../../common/localization";
 import {StreamServiceRegistry} from "../base/stream-service.registry";
 import {RestService, WebReaction} from "../utils/rest.service";
-import {ApiKeyInterceptor} from "../utils/api-key.interceptor";
 
 
 /**
@@ -66,9 +65,6 @@ export class ConfigService extends BaseWebService {
                         const config = this._config.getValue();
                         const newConfig = new Config(config.updateIn([section, option], (_) => value));
                         this._config.next(newConfig);
-                        if (section === "web" && option === "api_key") {
-                            ApiKeyInterceptor.setApiKey(value || "");
-                        }
                     }
                 }
             });
@@ -92,11 +88,7 @@ export class ConfigService extends BaseWebService {
             next: reaction => {
                 if (reaction.success) {
                     const config_json: IConfig = JSON.parse(reaction.data);
-                    const cfg = new Config(config_json);
-                    this._config.next(cfg);
-                    // Cache api_key for the HTTP interceptor and SSE stream
-                    const webSection = config_json["web"] as any;
-                    ApiKeyInterceptor.setApiKey(webSection?.["api_key"] || "");
+                    this._config.next(new Config(config_json));
                 } else {
                     this._config.next(null);
                 }

@@ -31,6 +31,8 @@ export class ViewFileOptionsService {
                 ViewFileOptions.SortMethod.STATUS;
         const pinFilter: boolean =
             this._storage.get(StorageKeys.VIEW_OPTION_PIN) || false;
+        const hideDeleted: boolean =
+            this._storage.get(StorageKeys.VIEW_OPTION_HIDE_DELETED) || false;
 
         this._options = new BehaviorSubject(
             new ViewFileOptions({
@@ -39,6 +41,7 @@ export class ViewFileOptionsService {
                 selectedStatusFilter: null,
                 nameFilter: null,
                 pinFilter: pinFilter,
+                hideDeleted: hideDeleted,
             })
         );
     }
@@ -92,6 +95,16 @@ export class ViewFileOptionsService {
             this._options.next(newOptions);
             this._storage.set(StorageKeys.VIEW_OPTION_PIN, pinned);
             this._logger.debug("ViewOption pinFilter set to: " + newOptions.pinFilter);
+        }
+    }
+
+    public setHideDeleted(hide: boolean) {
+        const options = this._options.getValue();
+        if (options.hideDeleted !== hide) {
+            const newOptions = new ViewFileOptions(options.set("hideDeleted", hide));
+            this._options.next(newOptions);
+            this._storage.set(StorageKeys.VIEW_OPTION_HIDE_DELETED, hide);
+            this._logger.debug("ViewOption hideDeleted set to: " + newOptions.hideDeleted);
         }
     }
 }
