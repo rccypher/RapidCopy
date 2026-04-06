@@ -275,6 +275,9 @@ class Rclone(TransferBackend):
         else:
             cmd += ["--inplace"]
 
+        # Suppress rclone config file save errors (we use inline backend, no config needed)
+        cmd += ["--config", "/dev/null"]
+
         # Progress reporting
         cmd += ["--use-json-log", "--stats", "1s", "-v"]
 
@@ -287,9 +290,6 @@ class Rclone(TransferBackend):
 
         # Checksum verification (rclone will use remote md5sum/sha1sum if available)
         cmd += ["--checksum"]
-
-        # Disable strict host key checking (matches lftp's sftp:auto-confirm)
-        cmd += ["--sftp-known-hosts-file", "/dev/null"]
 
         # SSH key auth
         if self.__password is None:
