@@ -73,6 +73,12 @@ class LocalScanner(IScanner):
             self.logger.exception("Caught SystemScannerError")
             raise ScannerError(Localization.Error.LOCAL_SERVER_SCAN, recoverable=False) from e
 
+        # Exclude the staging directory from local results (it's a child of local_path)
+        if self.__staging_path:
+            import os
+            staging_basename = os.path.basename(self.__staging_path.rstrip("/"))
+            local_result = [f for f in local_result if f.name != staging_basename]
+
         # Merge: local_path wins if same name appears in both (file was just moved)
         local_names = {f.name for f in local_result}
         for staging_file in staging_result:
