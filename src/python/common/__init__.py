@@ -36,3 +36,4 @@ from .validation_models import (
     ValidationAlgorithm,
     NetworkStats,
 )
+from .job_status import JobStatus
