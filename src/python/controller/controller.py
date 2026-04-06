@@ -539,7 +539,7 @@ class Controller:
                     ):
                         downloaded = True
                     if downloaded:
-                        self.__persist.record_download(diff.new_file.name)
+                        self.__persist.downloaded_file_names.add(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
                         # Move completed file from staging_path to local_path
                         if self.__is_multi_path_mode:
