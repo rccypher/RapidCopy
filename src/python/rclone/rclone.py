@@ -56,7 +56,7 @@ class Rclone(TransferBackend):
         self.__num_max_total_connections = 16
         self.__rate_limit: str = "0"
         self.__min_chunk_size: str = "0"
-        self.__use_temp_file = False
+        self.__use_temp_file = True  # Always use temp files to prevent page-cache corruption
         self.__temp_file_name = ""  # suffix pattern, e.g., "*.lftp"
 
         # Obscure password for rclone (if password auth is used)
@@ -266,14 +266,14 @@ class Rclone(TransferBackend):
             cmd += ["--transfers", "1"]
             cmd += ["--multi-thread-streams", str(self.__num_connections_per_root_file)]
 
-        # Temp file handling
-        if self.__use_temp_file:
-            # Extract suffix from temp_file_name pattern (e.g., "*.lftp" -> ".lftp")
-            suffix = self._extract_suffix()
-            if suffix:
-                cmd += ["--partial-suffix", suffix]
-        else:
-            cmd += ["--inplace"]
+        # Always use partial-suffix for atomic rename on completion.
+        # This prevents the page-cache false-positive corruption issue:
+        # rclone writes to "file.lftp", then renames to "file" when done.
+        # The rename guarantees the file is fully flushed to disk before
+        # validation reads it.
+        suffix = self._extract_suffix()
+        if suffix:
+            cmd += ["--partial-suffix", suffix]
 
         # Suppress rclone config file save errors (we use inline backend, no config needed)
         cmd += ["--config", "/dev/null"]
