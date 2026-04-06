@@ -64,9 +64,6 @@ class Rclone(TransferBackend):
         if self.__password:
             self.__obscured_password = self._obscure_password(self.__password)
 
-        # SSH connection management via ControlMaster
-        self.__ssh_control_path = f"/tmp/rclone-{self.__user}@{self.__address}:{self.__port}"
-
         # Job queue
         self.__job_queue = JobQueue(max_parallel_jobs=self.__num_parallel_jobs)
 
@@ -291,15 +288,8 @@ class Rclone(TransferBackend):
         # Checksum verification (rclone will use remote md5sum/sha1sum if available)
         cmd += ["--checksum"]
 
-        # SSH ControlMaster for connection pooling
-        ssh_cmd = (
-            f"ssh -o ControlMaster=auto "
-            f"-o ControlPath={self.__ssh_control_path} "
-            f"-o ControlPersist=60 "
-            f"-o StrictHostKeyChecking=no "
-            f"-o UserKnownHostsFile=/dev/null"
-        )
-        cmd += ["--sftp-ssh", ssh_cmd]
+        # Disable strict host key checking (matches lftp's sftp:auto-confirm)
+        cmd += ["--sftp-known-hosts-file", "/dev/null"]
 
         # SSH key auth
         if self.__password is None:
