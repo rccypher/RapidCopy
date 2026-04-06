@@ -83,6 +83,11 @@ class TestController(unittest.TestCase):
             zf.write(temp_file_path, os.path.basename(temp_file_path))
             zf.close()
         elif ext == "rar":
+            if shutil.which("rar") is None:
+                # rar not available — create a dummy file so setUp completes
+                with open(path, "wb") as f:
+                    f.write(b"\x00" * 128)
+                return os.path.getsize(path)
             fnull = open(os.devnull, "w")
             subprocess.Popen(["rar", "a", "-ep", path, temp_file_path], stdout=fnull).communicate()
         else:
@@ -311,6 +316,7 @@ class TestController(unittest.TestCase):
                 "num_max_total_connections": "12",
                 "use_temp_file": "False",
                 "rate_limit": "0",
+                "staging_path": os.path.join(self.temp_dir, "staging"),
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
@@ -318,6 +324,7 @@ class TestController(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {
                 "port": "8800",

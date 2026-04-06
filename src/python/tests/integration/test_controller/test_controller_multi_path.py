@@ -20,6 +20,7 @@ import shutil
 import logging
 import sys
 import stat
+import time
 
 import timeout_decorator
 
@@ -186,6 +187,7 @@ class TestControllerMultiPath(unittest.TestCase):
                 "num_max_total_connections": "12",
                 "use_temp_file": "False",
                 "rate_limit": "0",
+                "staging_path": os.path.join(self.temp_dir, "staging"),
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
@@ -193,6 +195,7 @@ class TestControllerMultiPath(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {
                 "port": "8800",
@@ -589,9 +592,15 @@ class TestControllerMultiPath(unittest.TestCase):
         while callback.on_success.call_count < 1 and callback.on_failure.call_count < 1:
             self.controller.process()
 
-        # Verify file deleted from correct location
+        # Verify callback succeeded
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
+
+        # Wait for the async SSH delete to actually remove the file
+        deadline = time.time() + 15
+        while os.path.exists(movie1_path) and time.time() < deadline:
+            self.controller.process()
+            time.sleep(0.1)
         self.assertFalse(os.path.exists(movie1_path))
 
 
@@ -664,6 +673,7 @@ class TestControllerMultiPathDisabled(unittest.TestCase):
                 "num_max_total_connections": "12",
                 "use_temp_file": "False",
                 "rate_limit": "0",
+                "staging_path": os.path.join(self.temp_dir, "staging"),
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
@@ -671,6 +681,7 @@ class TestControllerMultiPathDisabled(unittest.TestCase):
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
                 "use_local_path_as_extract_path": True,
+                "deleted_age_off_secs": "1800",
             },
             "Web": {"port": "8800"},
             "AutoQueue": {"enabled": "False", "patterns_only": "True", "auto_extract": "False"},

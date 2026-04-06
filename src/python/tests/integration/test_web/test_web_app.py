@@ -52,6 +52,19 @@ class BaseTestWebApp(unittest.TestCase):
         self.controller.get_model_files_and_add_listener.side_effect = capture_listener
         self.controller.remove_model_listener = MagicMock()
 
+        # Mock get_model_files so _validate_filename passes for common test names
+        def _make_model_file(name):
+            mf = MagicMock()
+            mf.name = name
+            return mf
+        _test_names = [
+            "test1", "test2", "/value/with/slashes", " value with spaces",
+            "value'with'singlequote", 'value"with"doublequote',
+        ]
+        self.controller.get_model_files = MagicMock(
+            return_value=[_make_model_file(n) for n in _test_names]
+        )
+
         # noinspection PyTypeChecker
         self.web_app_builder = WebAppBuilder(self.context,
                                              self.controller,

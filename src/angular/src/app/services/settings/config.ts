@@ -88,11 +88,9 @@ const ControllerRecord = Record(DefaultController);
  */
 interface IWeb {
     port: number;
-    api_key: string;
 }
 const DefaultWeb: IWeb = {
-    port: null,
-    api_key: null
+    port: null
 };
 const WebRecord = Record(DefaultWeb);
 

@@ -65,4 +65,33 @@ export class RestService {
         //      share result with those that subscribe after the value was published
         // More info: https://blog.thoughtram.io/angular/2016/06/16/cold-vs-hot-observables.html
     }
+
+    /**
+     * Send backend a POST request and generate a WebReaction response
+     * @param {string} url
+     * @returns {Observable<WebReaction>}
+     */
+    public sendPostRequest(url: string): Observable<WebReaction> {
+        return new Observable<WebReaction>(observer => {
+            this._http.post(url, null, {responseType: "text"})
+                .subscribe({
+                    next: data => {
+                        this._logger.debug("%s http response: %s", url, data);
+                        observer.next(new WebReaction(true, data, null));
+                        observer.complete();
+                    },
+                    error: (err: HttpErrorResponse) => {
+                        let errorMessage = null;
+                        this._logger.debug("%s error: %O", url, err);
+                        if (err.error instanceof Event) {
+                            errorMessage = err.error.type;
+                        } else {
+                            errorMessage = err.error;
+                        }
+                        observer.next(new WebReaction(false, null, errorMessage));
+                        observer.complete();
+                    }
+                });
+        }).pipe(shareReplay(1));
+    }
 }

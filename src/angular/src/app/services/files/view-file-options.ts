@@ -21,6 +21,9 @@ interface IViewFileOptions {
 
     // Track filter pin status
     pinFilter: boolean;
+
+    // Hide files in DELETED state (local copy gone, still on remote)
+    hideDeleted: boolean;
 }
 
 
@@ -31,6 +34,7 @@ const DefaultViewFileOptions: IViewFileOptions = {
     selectedStatusFilter: null,
     nameFilter: null,
     pinFilter: null,
+    hideDeleted: null,
 };
 const ViewFileOptionsRecord = Record(DefaultViewFileOptions);
 
@@ -63,6 +67,10 @@ export class ViewFileOptions extends ViewFileOptionsRecord implements IViewFileO
 
     get pinFilter(): boolean {
         return this.get("pinFilter");
+    }
+
+    get hideDeleted(): boolean {
+        return this.get("hideDeleted");
     }
 }
 

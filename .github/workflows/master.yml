@@ -47,19 +47,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: src/e2e-playwright/package-lock.json
 
       - name: Install Playwright dependencies
         working-directory: src/e2e-playwright
         run: |
-          npm ci
+          npm install
           npx playwright install chromium --with-deps
 
       - name: Build Angular app for testing
         working-directory: src/angular
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Setup Python
@@ -133,19 +131,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: src/e2e-playwright/package-lock.json
 
       - name: Install Playwright dependencies
         working-directory: src/e2e-playwright
         run: |
-          npm ci
+          npm install
           npx playwright install chromium --with-deps
 
       - name: Build Angular app
         working-directory: src/angular
         run: |
-          npm ci
+          npm install
           npm run build
 
       - name: Serve Angular app
@@ -394,7 +390,7 @@ jobs:
 
       # Push to Docker Hub with version tag (if secrets are configured)
       - name: Push to Docker Hub (tag vX.X.X)
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: ${{ vars.DOCKERHUB_ENABLED == 'true' }}
         run: make docker-image-release \
           STAGING_REGISTRY=${{ env.staging_registry }} \
           STAGING_VERSION=${{ github.run_number }} \
@@ -403,7 +399,7 @@ jobs:
 
       # Push to Docker Hub with latest tag (if secrets are configured)
       - name: Push to Docker Hub (tag latest)
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        if: ${{ vars.DOCKERHUB_ENABLED == 'true' }}
         run: make docker-image-release \
           STAGING_REGISTRY=${{ env.staging_registry }} \
           STAGING_VERSION=${{ github.run_number }} \

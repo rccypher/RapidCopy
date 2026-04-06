@@ -28,11 +28,11 @@ export class ServerCommandService extends BaseWebService {
     }
 
     /**
-     * Trigger a remote filesystem rescan
+     * Trigger an immediate rescan of the remote directory
      * @returns {Observable<WebReaction>}
      */
     public scanRemote(): Observable<WebReaction> {
-        return this._restService.sendRequest(this.SCAN_REMOTE_URL);
+        return this._restService.sendPostRequest(this.SCAN_REMOTE_URL);
     }
 
     protected onConnected() {
