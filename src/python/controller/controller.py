@@ -594,7 +594,7 @@ class Controller:
                 if _age_off_secs > 0:
                     _cutoff = datetime.now() - timedelta(seconds=_age_off_secs)
                     _aged_off = set()
-                    for _name, _ts_str in list(self.__persist.downloaded_file_timestamps.items()):
+                    for _name, _ts_str in list(getattr(self.__persist, 'downloaded_file_timestamps', {}).items()):
                         if _name not in self.__model.get_file_names():
                             continue
                         if self.__model.get_file(_name).state != ModelFile.State.DELETED:
