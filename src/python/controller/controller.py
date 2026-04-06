@@ -123,6 +123,9 @@ class Controller:
         # The command queue
         self.__command_queue: Queue[Controller.Command] = Queue()
 
+        # Track when files enter DELETED state for age-off
+        self.__deleted_timestamps: dict[str, datetime] = {}
+
         # The model
         self.__model = Model()
         self.__model.set_base_logger(self.logger)
@@ -586,29 +589,42 @@ class Controller:
                     self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
                     self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
-                # Age off DELETED files whose download timestamp is older than the threshold.
-                # This prevents the dashboard from accumulating DELETED entries indefinitely.
+                # Age off DELETED files after a delay.
+                # When a file is deleted locally (e.g., by Sonarr/Radarr after import),
+                # it enters DELETED state. After deleted_age_off_secs, we remove it from
+                # the downloaded set so auto-queue will re-download it if it still exists
+                # on the remote. The delay prevents a race condition where RapidCopy
+                # re-downloads a file that Sonarr/Radarr is still importing.
                 _age_off_secs = self.__context.config.controller.deleted_age_off_secs
                 if _age_off_secs is None:
                     _age_off_secs = 1800
                 if _age_off_secs > 0:
-                    _cutoff = datetime.now() - timedelta(seconds=_age_off_secs)
+                    _now = datetime.now()
+                    _cutoff = _now - timedelta(seconds=_age_off_secs)
+
+                    # Track newly DELETED files
+                    for _name in self.__model.get_file_names():
+                        _file = self.__model.get_file(_name)
+                        if _file.state == ModelFile.State.DELETED:
+                            if _name not in self.__deleted_timestamps:
+                                self.__deleted_timestamps[_name] = _now
+                        else:
+                            # File is no longer DELETED (re-appeared or changed state)
+                            self.__deleted_timestamps.pop(_name, None)
+
+                    # Age off files that have been DELETED longer than the threshold
                     _aged_off = set()
-                    for _name, _ts_str in list(getattr(self.__persist, 'downloaded_file_timestamps', {}).items()):
-                        if _name not in self.__model.get_file_names():
-                            continue
-                        if self.__model.get_file(_name).state != ModelFile.State.DELETED:
-                            continue
-                        try:
-                            if datetime.fromisoformat(_ts_str) < _cutoff:
-                                _aged_off.add(_name)
-                        except ValueError:
-                            pass
+                    for _name, _ts in list(self.__deleted_timestamps.items()):
+                        if _ts < _cutoff:
+                            _aged_off.add(_name)
+
                     if _aged_off:
-                        self.logger.info("Aging off DELETED files: {}".format(_aged_off))
+                        self.logger.info("Aging off DELETED files (re-download eligible): {}".format(_aged_off))
                         for _name in _aged_off:
-                            self.__persist.remove_download(_name)
-                            self.__model.remove_file(_name)
+                            self.__deleted_timestamps.pop(_name, None)
+                            self.__persist.downloaded_file_names.discard(_name)
+                            if _name in self.__model.get_file_names():
+                                self.__model.remove_file(_name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
         # Update the controller status
