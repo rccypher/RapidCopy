@@ -64,6 +64,9 @@ class SerializeModel(Serialize):
     __KEY_FILE_CHILDREN = "children"
     __KEY_FILE_PATH_PAIR_ID = "path_pair_id"
     __KEY_FILE_PATH_PAIR_NAME = "path_pair_name"
+    __KEY_FILE_VALIDATION_PROGRESS = "validation_progress"
+    __KEY_FILE_VALIDATION_ERROR = "validation_error"
+    __KEY_FILE_CORRUPT_CHUNKS = "corrupt_chunks"
 
     @staticmethod
     def __model_file_to_json_dict(model_file: ModelFile) -> dict[str, Any]:
@@ -91,6 +94,9 @@ class SerializeModel(Serialize):
         json_dict[SerializeModel.__KEY_FILE_FULL_PATH] = model_file.full_path
         json_dict[SerializeModel.__KEY_FILE_PATH_PAIR_ID] = model_file.path_pair_id
         json_dict[SerializeModel.__KEY_FILE_PATH_PAIR_NAME] = model_file.path_pair_name
+        json_dict[SerializeModel.__KEY_FILE_VALIDATION_PROGRESS] = model_file.validation_progress
+        json_dict[SerializeModel.__KEY_FILE_VALIDATION_ERROR] = model_file.validation_error
+        json_dict[SerializeModel.__KEY_FILE_CORRUPT_CHUNKS] = model_file.corrupt_chunks
         json_dict[SerializeModel.__KEY_FILE_CHILDREN] = list()
         for child in model_file.get_children():
             json_dict[SerializeModel.__KEY_FILE_CHILDREN].append(SerializeModel.__model_file_to_json_dict(child))
