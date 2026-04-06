@@ -222,6 +222,8 @@ class JobQueue:
                 job.process = proc
 
             # Non-blocking stderr reader using selectors
+            # Keep last N stderr lines for error diagnosis
+            recent_stderr: list[str] = []
             sel = selectors.DefaultSelector()
             try:
                 sel.register(proc.stderr, selectors.EVENT_READ)
@@ -232,7 +234,11 @@ class JobQueue:
                     if events:
                         line = proc.stderr.readline()
                         if line:
-                            self._process_progress_line(job, line.decode("utf-8", "replace"))
+                            decoded = line.decode("utf-8", "replace")
+                            recent_stderr.append(decoded.rstrip())
+                            if len(recent_stderr) > 20:
+                                recent_stderr.pop(0)
+                            self._process_progress_line(job, decoded)
             finally:
                 sel.close()
 
@@ -240,13 +246,18 @@ class JobQueue:
             remaining = proc.stderr.read()
             if remaining:
                 for line in remaining.decode("utf-8", "replace").splitlines():
+                    recent_stderr.append(line.rstrip())
+                    if len(recent_stderr) > 20:
+                        recent_stderr.pop(0)
                     self._process_progress_line(job, line)
 
             proc.wait()
 
             if proc.returncode != 0 and not job.kill_event.is_set():
-                # Capture stderr for error reporting
-                error_msg = f"rclone job '{job.name}' failed with exit code {proc.returncode}"
+                # Extract error/fatal messages from recent stderr for diagnosis
+                error_details = [l for l in recent_stderr if '"error"' in l or '"fatal"' in l]
+                detail_str = error_details[-1] if error_details else "; ".join(recent_stderr[-3:])
+                error_msg = f"rclone job '{job.name}' failed (exit {proc.returncode}): {detail_str}"
                 self.logger.warning(error_msg)
                 with self._lock:
                     job.state = _JobState.FAILED
