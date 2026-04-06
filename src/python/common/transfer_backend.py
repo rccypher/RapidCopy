@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List
 
 from .job_status import JobStatus
 
@@ -34,8 +34,8 @@ class TransferBackend(ABC):
         self,
         name: str,
         is_dir: bool,
-        remote_path: Optional[str] = None,
-        local_path: Optional[str] = None,
+        remote_path: str | None = None,
+        local_path: str | None = None,
     ) -> None:
         """
         Queue a file or directory for download. Must be non-blocking.

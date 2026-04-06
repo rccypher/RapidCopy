@@ -2,7 +2,6 @@
 
 import json
 import logging
-from typing import Optional
 
 from common.job_status import JobStatus
 
@@ -40,7 +39,7 @@ class RcloneProgressParser:
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild("RcloneProgressParser")
 
-    def parse_line(self, line: str) -> Optional[dict]:
+    def parse_line(self, line: str) -> dict | None:
         """
         Parse a single JSON log line from rclone stderr.
 

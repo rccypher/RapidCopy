@@ -7,7 +7,7 @@ import shlex
 import shutil
 import subprocess
 import threading
-from typing import List, Optional
+from typing import List
 
 from common import AppError
 from common.job_status import JobStatus
@@ -195,8 +195,8 @@ class Rclone(TransferBackend):
         self,
         name: str,
         is_dir: bool,
-        remote_path: Optional[str] = None,
-        local_path: Optional[str] = None,
+        remote_path: str | None = None,
+        local_path: str | None = None,
     ) -> None:
         remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
         local_dir = local_path if local_path is not None else self.__base_local_dir_path
@@ -426,7 +426,7 @@ class Rclone(TransferBackend):
             if result.returncode != 0:
                 raise RcloneError(f"rclone obscure failed: {result.stderr.strip()}")
             return result.stdout.strip()
-        except FileNotFoundError:
-            raise RcloneError("rclone binary not found")
-        except subprocess.TimeoutExpired:
-            raise RcloneError("rclone obscure timed out")
+        except FileNotFoundError as e:
+            raise RcloneError("rclone binary not found") from e
+        except subprocess.TimeoutExpired as e:
+            raise RcloneError("rclone obscure timed out") from e

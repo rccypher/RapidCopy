@@ -1,6 +1,7 @@
 # Thread-safe job queue for rclone transfers.
 # Uses ThreadPoolExecutor for subprocess execution and a custom deque for priority support.
 
+import contextlib
 import logging
 import os
 import selectors
@@ -11,7 +12,6 @@ from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from common.job_status import JobStatus
 
@@ -35,13 +35,13 @@ class _Job:
     env: dict[str, str]
     job_id: int
     state: _JobState = _JobState.QUEUED
-    process: Optional[subprocess.Popen] = field(default=None, repr=False)
-    future: Optional[Future] = field(default=None, repr=False)
+    process: subprocess.Popen | None = field(default=None, repr=False)
+    future: Future | None = field(default=None, repr=False)
     total_transfer_state: JobStatus.TransferState = field(
         default_factory=lambda: JobStatus.TransferState(None, None, None, None, None)
     )
     active_files: dict[str, JobStatus.TransferState] = field(default_factory=dict)
-    error: Optional[str] = None
+    error: str | None = None
     kill_event: threading.Event = field(default_factory=threading.Event)
 
 
@@ -164,7 +164,7 @@ class JobQueue:
         self.logger.debug("Prioritize failed to find queued job '%s'", name)
         return False
 
-    def pop_error(self) -> Optional[str]:
+    def pop_error(self) -> str | None:
         """Pop the oldest error from the error list, or None."""
         with self._lock:
             if self._errors:
@@ -302,7 +302,5 @@ class JobQueue:
                 os.killpg(pgid, signal.SIGKILL)
             except (ProcessLookupError, OSError):
                 pass
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired):
                 proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
