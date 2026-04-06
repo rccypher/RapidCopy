@@ -51,8 +51,10 @@ class Rclone(TransferBackend):
         # Transfer settings (with defaults matching lftp config defaults)
         self.__num_parallel_jobs = 2
         self.__num_parallel_files = 4
-        self.__num_connections_per_root_file = 2  # --multi-thread-streams (lower than lftp default)
-        self.__num_connections_per_dir_file = 2
+        # Single-stream downloads to prevent corruption from multi-thread reassembly.
+        # Multi-thread-streams > 1 causes MD5 mismatches on SFTP transfers.
+        self.__num_connections_per_root_file = 1
+        self.__num_connections_per_dir_file = 1
         self.__num_max_total_connections = 16
         self.__rate_limit: str = "0"
         self.__min_chunk_size: str = "0"
