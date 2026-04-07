@@ -102,6 +102,7 @@ class Rclone(TransferBackend):
         if value < 1:
             raise ValueError("Number of parallel jobs must be positive")
         self.__num_parallel_jobs = value
+        self.__job_queue.set_max_parallel_jobs(value)
 
     @property
     def num_parallel_files(self) -> int:

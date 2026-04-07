@@ -74,6 +74,12 @@ class JobQueue:
         self._feeder_condition = threading.Condition(self._lock)
         self._feeder_thread.start()
 
+    def set_max_parallel_jobs(self, max_parallel_jobs: int):
+        """Update the max parallel jobs. Resizes the executor thread pool."""
+        with self._lock:
+            self._max_parallel_jobs = max_parallel_jobs
+            self._executor._max_workers = max_parallel_jobs
+
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild("JobQueue")
         self._progress_parser.set_base_logger(self.logger)
