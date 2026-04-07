@@ -174,14 +174,16 @@ class InnerConfig(ABC):
         property_map = {p: getattr(cls, p) for p in dir(cls) if isinstance(getattr(cls, p), property)}
         for name, _prop in property_map.items():
             if name not in config_dict:
-                raise ConfigError("Missing config: {}.{}".format(cls.__name__, name))
+                # Use the default value from the constructor instead of failing.
+                # This allows new config fields to be added without breaking
+                # existing config files.
+                continue
             inner_config.set_property(name, config_dict[name])
             del config_dict[name]
 
-        # Raise error if a key in config_dict did not match a property
-        extra_keys = config_dict.keys()
-        if extra_keys:
-            raise ConfigError("Unknown config: {}.{}".format(cls.__name__, next(iter(extra_keys))))
+        # Ignore unknown keys in config_dict instead of failing.
+        # This allows old config fields to be removed without breaking
+        # existing config files.
 
         return inner_config
 
@@ -263,6 +265,9 @@ class Config(Persist):
         remote_path_to_scan_script = PROP("remote_path_to_scan_script", Checkers.string_nonempty, Converters.null)
         use_ssh_key = PROP("use_ssh_key", Checkers.null, Converters.bool)
         num_max_parallel_downloads = PROP("num_max_parallel_downloads", Checkers.int_positive, Converters.int)
+        num_max_parallel_downloads_per_path = PROP(
+            "num_max_parallel_downloads_per_path", Checkers.int_positive, Converters.int
+        )
         num_max_parallel_files_per_download = PROP(
             "num_max_parallel_files_per_download", Checkers.int_positive, Converters.int
         )

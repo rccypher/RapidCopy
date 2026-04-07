@@ -106,60 +106,33 @@ export const OPTIONS_CONTEXT_DISCOVERY: IOptionsContext = {
 };
 
 export const OPTIONS_CONTEXT_CONNECTIONS: IOptionsContext = {
-    header: "Connections",
+    header: "Downloads",
     id: "connections",
     options: [
         {
             type: OptionType.Text,
             label: "Max Parallel Downloads",
             valuePath: ["lftp", "num_max_parallel_downloads"],
-            description: "How many items download in parallel.\n" +
-                         "(cmd:queue-parallel)"
+            description: "Total simultaneous downloads across all directories."
         },
         {
             type: OptionType.Text,
-            label: "Max Total Connections",
-            valuePath: ["lftp", "num_max_total_connections"],
-            description: "Maximum number of LFTP connections (1-32). Hard cap of 32 prevents " +
-                         "FD_SETSIZE overflow: baseline ~187 FDs + 32 connections x 13 FDs = ~603 FDs, " +
-                         "safely under the select() limit of 1024. " +
-                         "Use 0 to apply no limit (not recommended).\n" +
-                         "(net:connection-limit)"
+            label: "Max Downloads Per Directory",
+            valuePath: ["lftp", "num_max_parallel_downloads_per_path"],
+            description: "Maximum simultaneous downloads per path pair (e.g., 4 for TV, 4 for Movies)."
         },
         {
             type: OptionType.Text,
             label: "Download Rate Limit",
             valuePath: ["lftp", "rate_limit"],
             description: "Limit download speed. Use '0' for unlimited, " +
-                         "or specify like '1M' (1 MB/s), '500K' (500 KB/s), '10M' (10 MB/s).\n" +
-                         "(net:limit-rate)"
-        },
-        {
-            type: OptionType.Text,
-            label: "Max Connections Per File (Single-File)",
-            valuePath: ["lftp", "num_max_connections_per_root_file"],
-            description: "Number of connections for single-file download.\n" +
-                         "(pget:default-n)"
-        },
-        {
-            type: OptionType.Text,
-            label: "Max Connections Per File (Directory)",
-            valuePath: ["lftp", "num_max_connections_per_dir_file"],
-            description: "Number of per-file connections for directory download.\n" +
-                         "(mirror:use-pget-n)"
+                         "or specify like '1M' (1 MB/s), '500K' (500 KB/s), '10M' (10 MB/s)."
         },
         {
             type: OptionType.Text,
             label: "Max Parallel Files (Directory)",
             valuePath: ["lftp", "num_max_parallel_files_per_download"],
-            description: "Maximum number of files to fetch in parallel for single directory download.\n" +
-                         "(mirror:parallel-transfer-count)"
-        },
-        {
-            type: OptionType.Checkbox,
-            label: "Rename unfinished/downloading files",
-            valuePath: ["lftp", "use_temp_file"],
-            description: "Unfinished and downloading files will be named *.lftp"
+            description: "Maximum number of files to fetch in parallel within a single directory download."
         },
     ]
 };

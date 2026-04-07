@@ -7,7 +7,7 @@ import math
 
 # my libs
 from system import SystemFile
-from lftp import LftpJobStatus
+from common.job_status import JobStatus
 from model import ModelFile, Model, ModelError
 from .extract import ExtractStatus, Extract
 
@@ -19,14 +19,14 @@ class ModelBuilder:
       * downloading file system as a Dict[name, SystemFile]
       * local file system as a Dict[name, SystemFile]
       * remote file system as a Dict[name, SystemFile]
-      * lftp status as Dict[name, LftpJobStatus]
+      * transfer status as Dict[name, JobStatus]
     """
 
     def __init__(self):
         self.logger = logging.getLogger("ModelBuilder")
         self.__local_files = dict()
         self.__remote_files = dict()
-        self.__lftp_statuses = dict()
+        self.__transfer_statuses = dict()
         self.__downloaded_files = set()
         self.__extract_statuses = dict()
         self.__extracted_files = set()
@@ -57,11 +57,11 @@ class ModelBuilder:
         if self.__remote_files != prev_remote_files:
             self.__cached_model = None
 
-    def set_lftp_statuses(self, lftp_statuses: List[LftpJobStatus]):
-        prev_lftp_statuses = self.__lftp_statuses
-        self.__lftp_statuses = {file.name: file for file in lftp_statuses}
+    def set_transfer_statuses(self, transfer_statuses: List[JobStatus]):
+        prev_transfer_statuses = self.__transfer_statuses
+        self.__transfer_statuses = {file.name: file for file in transfer_statuses}
         # Invalidate the cache
-        if self.__lftp_statuses != prev_lftp_statuses:
+        if self.__transfer_statuses != prev_transfer_statuses:
             self.__cached_model = None
 
     def set_downloaded_files(self, downloaded_files: Set[str]):
@@ -88,7 +88,7 @@ class ModelBuilder:
     def clear(self):
         self.__local_files.clear()
         self.__remote_files.clear()
-        self.__lftp_statuses.clear()
+        self.__transfer_statuses.clear()
         self.__downloaded_files.clear()
         self.__extract_statuses.clear()
         self.__extracted_files.clear()
@@ -107,22 +107,22 @@ class ModelBuilder:
 
         model = Model()
         model.set_base_logger(logging.getLogger("dummy"))  # ignore the logs for this temp model
-        all_file_names = set().union(self.__local_files.keys(), self.__remote_files.keys(), self.__lftp_statuses.keys())
+        all_file_names = set().union(self.__local_files.keys(), self.__remote_files.keys(), self.__transfer_statuses.keys())
         for name in all_file_names:
             remote = self.__remote_files.get(name, None)
             local = self.__local_files.get(name, None)
-            status = self.__lftp_statuses.get(name, None)
+            status = self.__transfer_statuses.get(name, None)
 
             if remote is None and local is None and status is None:
                 # this should never happen, but just in case
                 raise ModelError("Zero sources have a file object")
 
             # sanity check between the sources
-            is_dir = remote.is_dir if remote else local.is_dir if local else status.type == LftpJobStatus.Type.MIRROR
+            is_dir = remote.is_dir if remote else local.is_dir if local else status.type == JobStatus.Type.MIRROR
             if (
                 (remote and is_dir != remote.is_dir)
                 or (local and is_dir != local.is_dir)
-                or (status and is_dir != (status.type == LftpJobStatus.Type.MIRROR))
+                or (status and is_dir != (status.type == JobStatus.Type.MIRROR))
             ):
                 raise ModelError("Mismatch in is_dir between sources")
 
@@ -130,7 +130,7 @@ class ModelBuilder:
                 _model_file: ModelFile,
                 _remote: SystemFile | None,
                 _local: SystemFile | None,
-                _transfer_state: LftpJobStatus.TransferState | None,
+                _transfer_state: JobStatus.TransferState | None,
             ):
                 # set local and remote sizes
                 if _remote:
@@ -138,7 +138,7 @@ class ModelBuilder:
                 if _local:
                     _model_file.local_size = _local.size
 
-                # Note: no longer use lftp's file sizes
+                # Note: no longer use transfer backend's file sizes
                 #       they represent remaining size for resumed downloads
 
                 # set the downloading speed and eta
@@ -189,7 +189,7 @@ class ModelBuilder:
             if status:
                 model_file.state = (
                     ModelFile.State.QUEUED
-                    if status.state == LftpJobStatus.State.QUEUED
+                    if status.state == JobStatus.State.QUEUED
                     else ModelFile.State.DOWNLOADING
                 )
 
@@ -206,7 +206,7 @@ class ModelBuilder:
                 model_file,
                 remote,
                 local,
-                status.total_transfer_state if status and status.state == LftpJobStatus.State.RUNNING else None,
+                status.total_transfer_state if status and status.state == JobStatus.State.RUNNING else None,
             )
 
             # Traverse SystemFile children tree in BFS order

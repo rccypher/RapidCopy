@@ -68,7 +68,6 @@ RUN if [ -f /etc/apt/sources.list ]; then \
     apt-get install -y \
         gcc \
         libssl-dev \
-        lftp \
         openssh-client \
         p7zip \
         p7zip-full \
@@ -83,6 +82,12 @@ RUN if [ -f /etc/apt/sources.list ]; then \
         keyutils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install rclone (pinned version for reproducibility)
+ARG RCLONE_VERSION=1.68.2
+RUN curl -O https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
+    dpkg -i rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
+    rm rclone-v${RCLONE_VERSION}-linux-amd64.deb
 
 # Install Poetry
 RUN pip install --no-cache-dir pipx && \

@@ -7,7 +7,7 @@ from unittest.mock import patch
 from datetime import datetime
 
 from system import SystemFile
-from lftp import LftpJobStatus
+from common.job_status import JobStatus as LftpJobStatus
 from model import ModelError, ModelFile, Model
 from controller import ModelBuilder
 from controller.extract import ExtractStatus
@@ -74,7 +74,7 @@ class TestModelBuilder(unittest.TestCase):
 
         self.model_builder.set_remote_files([r_a, r_b, r_c, r_d])
         self.model_builder.set_local_files([l_a, l_b])
-        self.model_builder.set_lftp_statuses([s_b, s_c, s_d])
+        self.model_builder.set_transfer_statuses([s_b, s_c, s_d])
         return self.model_builder.build_model()
 
     def test_build_file_names(self):
@@ -84,7 +84,7 @@ class TestModelBuilder(unittest.TestCase):
                     LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "d", "")]
         self.model_builder.set_remote_files(remote_files)
         self.model_builder.set_local_files(local_files)
-        self.model_builder.set_lftp_statuses(statuses)
+        self.model_builder.set_transfer_statuses(statuses)
         model = self.model_builder.build_model()
         self.assertEqual({"a", "b", "c", "d"}, model.get_file_names())
 
@@ -111,13 +111,13 @@ class TestModelBuilder(unittest.TestCase):
 
         # statuses
         self.model_builder.clear()
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
         self.assertEqual(False, model.get_file("a").is_dir)
         self.model_builder.clear()
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -126,14 +126,14 @@ class TestModelBuilder(unittest.TestCase):
         # all three
         self.model_builder.set_remote_files([SystemFile("a", 0, False)])
         self.model_builder.set_local_files([SystemFile("a", 0, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
         self.assertEqual(False, model.get_file("a").is_dir)
         self.model_builder.set_remote_files([SystemFile("a", 0, True)])
         self.model_builder.set_local_files([SystemFile("a", 0, True)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -145,7 +145,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 0, True)])
         self.model_builder.set_local_files([SystemFile("a", 0, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         with self.assertRaises(ModelError) as context:
@@ -156,7 +156,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 0, False)])
         self.model_builder.set_local_files([SystemFile("a", 0, True)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         with self.assertRaises(ModelError) as context:
@@ -167,7 +167,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 0, False)])
         self.model_builder.set_local_files([SystemFile("a", 0, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.QUEUED, "a", "")
         ])
         with self.assertRaises(ModelError) as context:
@@ -188,7 +188,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 0, False)])
         self.model_builder.set_local_files([SystemFile("a", 0, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -198,7 +198,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 0, False)])
         self.model_builder.set_local_files([SystemFile("a", 0, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -235,7 +235,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 100, False)])
         self.model_builder.set_downloaded_files({"a"})
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -245,7 +245,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 100, False)])
         self.model_builder.set_downloaded_files({"a"})
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -285,7 +285,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 100, False)])
         self.model_builder.set_local_files([SystemFile("a", 50, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         ])
         self.model_builder.set_extract_statuses([ExtractStatus("a", False, ExtractStatus.State.EXTRACTING)])
@@ -336,7 +336,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         self.model_builder.set_remote_files([SystemFile("a", 100, False)])
         self.model_builder.set_local_files([SystemFile("a", 50, False)])
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         ])
         self.model_builder.set_extracted_files({"a"})
@@ -362,7 +362,7 @@ class TestModelBuilder(unittest.TestCase):
         self.assertEqual(None, model.get_file("a").remote_size)
 
         self.model_builder.clear()
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -372,7 +372,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.set_remote_files([SystemFile("a", 42, False)])
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, 12345, None, None, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(42, model.get_file("a").remote_size)
 
@@ -387,7 +387,7 @@ class TestModelBuilder(unittest.TestCase):
         self.assertEqual(None, model.get_file("a").local_size)
 
         self.model_builder.clear()
-        self.model_builder.set_lftp_statuses([
+        self.model_builder.set_transfer_statuses([
             LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "a", "")
         ])
         model = self.model_builder.build_model()
@@ -397,7 +397,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.set_local_files([SystemFile("a", 42, False)])
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(12345, 1000, 0.25, None, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(42, model.get_file("a").local_size)
 
@@ -406,7 +406,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.set_active_files([SystemFile("a", 99, False)])
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(12345, 1000, 0.25, None, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(99, model.get_file("a").local_size)
 
@@ -417,7 +417,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.set_active_files([SystemFile("a", 99, False)])
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(12345, 1000, 0.25, None, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(99, model.get_file("a").local_size)
 
@@ -425,20 +425,20 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.set_active_files([])
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(12345, 1000, 0.25, None, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(99, model.get_file("a").local_size)
 
     def test_build_downloading_speed(self):
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 1234, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(1234, model.get_file("a").downloading_speed)
 
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(None, model.get_file("a").downloading_speed)
 
@@ -455,13 +455,13 @@ class TestModelBuilder(unittest.TestCase):
     def test_build_eta(self):
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, None, 4567)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(4567, model.get_file("a").eta)
 
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         model = self.model_builder.build_model()
         self.assertEqual(None, model.get_file("a").eta)
 
@@ -478,7 +478,7 @@ class TestModelBuilder(unittest.TestCase):
     def test_build_estimated_eta(self):
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 100, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 1000, False)])
         model = self.model_builder.build_model()
@@ -488,7 +488,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 133, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 1000, False)])
         model = self.model_builder.build_model()
@@ -498,7 +498,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 133, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 1999, False)])
         model = self.model_builder.build_model()
@@ -508,7 +508,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 0, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 1000, False)])
         model = self.model_builder.build_model()
@@ -518,7 +518,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 200, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 2000, False)])
         model = self.model_builder.build_model()
@@ -528,7 +528,7 @@ class TestModelBuilder(unittest.TestCase):
         self.model_builder.clear()
         s = LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.RUNNING, "a", "")
         s.total_transfer_state = LftpJobStatus.TransferState(None, None, None, 200, None)
-        self.model_builder.set_lftp_statuses([s])
+        self.model_builder.set_transfer_statuses([s])
         self.model_builder.set_remote_files([SystemFile("a", 2000, False)])
         self.model_builder.set_local_files([SystemFile("a", 3000, False)])
         model = self.model_builder.build_model()
@@ -869,7 +869,7 @@ class TestModelBuilder(unittest.TestCase):
         r_a.add_child(r_ab)
         s_a = LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.QUEUED, "a", "")
         self.model_builder.set_remote_files([r_a])
-        self.model_builder.set_lftp_statuses([s_a])
+        self.model_builder.set_transfer_statuses([s_a])
 
         model = self.model_builder.build_model()
         m_a = model.get_file("a")
@@ -895,7 +895,7 @@ class TestModelBuilder(unittest.TestCase):
         s_a.add_active_file_transfer_state("aa/aaa", LftpJobStatus.TransferState(None, None, None, None, None))
         s_a.add_active_file_transfer_state("ab", LftpJobStatus.TransferState(None, None, None, None, None))
         self.model_builder.set_remote_files([r_a])
-        self.model_builder.set_lftp_statuses([s_a])
+        self.model_builder.set_transfer_statuses([s_a])
 
         model = self.model_builder.build_model()
         m_a = model.get_file("a")
@@ -921,7 +921,7 @@ class TestModelBuilder(unittest.TestCase):
         s_a = LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "")
         self.model_builder.set_remote_files([r_a])
         self.model_builder.set_local_files([r_a])
-        self.model_builder.set_lftp_statuses([s_a])
+        self.model_builder.set_transfer_statuses([s_a])
 
         model = self.model_builder.build_model()
         m_a = model.get_file("a")
@@ -945,7 +945,7 @@ class TestModelBuilder(unittest.TestCase):
         r_a.add_child(r_ab)
         s_a = LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "")
         self.model_builder.set_remote_files([r_a])
-        self.model_builder.set_lftp_statuses([s_a])
+        self.model_builder.set_transfer_statuses([s_a])
 
         model = self.model_builder.build_model()
         m_a = model.get_file("a")
@@ -973,7 +973,7 @@ class TestModelBuilder(unittest.TestCase):
         s_a = LftpJobStatus(0, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "")
         self.model_builder.set_remote_files([r_a])
         self.model_builder.set_local_files([l_a])
-        self.model_builder.set_lftp_statuses([s_a])
+        self.model_builder.set_transfer_statuses([s_a])
 
         model = self.model_builder.build_model()
         m_a = model.get_file("a")
@@ -1279,7 +1279,7 @@ class TestModelBuilder(unittest.TestCase):
                     LftpJobStatus(0, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "d", "")]
         self.model_builder.set_remote_files(remote_files)
         self.model_builder.set_local_files(local_files)
-        self.model_builder.set_lftp_statuses(statuses)
+        self.model_builder.set_transfer_statuses(statuses)
         model = self.model_builder.build_model()
         self.assertEqual({"a", "b", "c", "d"}, model.get_file_names())
 
@@ -1379,7 +1379,7 @@ class TestModelBuilder(unittest.TestCase):
         s1 = LftpJobStatus(3, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "flags")
         s1.total_transfer_state = LftpJobStatus.TransferState(100, 200, 50, 10, 50)
         s2 = LftpJobStatus(3, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "b", "flags")
-        self.model_builder.set_lftp_statuses([s1, s2])
+        self.model_builder.set_transfer_statuses([s1, s2])
         self.model_builder.build_model()
         self.assertFalse(self.model_builder.has_changes())
 
@@ -1387,14 +1387,14 @@ class TestModelBuilder(unittest.TestCase):
         s1a = LftpJobStatus(3, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "flags")
         s1a.total_transfer_state = LftpJobStatus.TransferState(100, 200, 50, 10, 50)
         s2a = LftpJobStatus(3, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "b", "flags")
-        self.model_builder.set_lftp_statuses([s1a, s2a])
+        self.model_builder.set_transfer_statuses([s1a, s2a])
         self.assertFalse(self.model_builder.has_changes())
 
         # Invalidate on different
         s1b = LftpJobStatus(3, LftpJobStatus.Type.MIRROR, LftpJobStatus.State.RUNNING, "a", "flags")
         s1b.total_transfer_state = LftpJobStatus.TransferState(150, 200, 50, 10, 50)
         s2b = LftpJobStatus(3, LftpJobStatus.Type.PGET, LftpJobStatus.State.QUEUED, "b", "flags")
-        self.model_builder.set_lftp_statuses([s1b, s2b])
+        self.model_builder.set_transfer_statuses([s1b, s2b])
         self.assertTrue(self.model_builder.has_changes())
 
     def test_rebuild_on_downloaded_files(self):

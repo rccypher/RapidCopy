@@ -25,6 +25,7 @@ class Args:
         self.debug = None
         self.exit = None
         self.log_dir = None
+        self.config_path = None
 
     def as_dict(self) -> dict:
         dct = collections.OrderedDict()

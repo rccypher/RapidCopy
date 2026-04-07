@@ -34,7 +34,8 @@ from common import (
     ValidationAlgorithm,
 )
 from model import ModelError, ModelFile, Model, ModelDiff, ModelDiffUtil, IModelListener
-from lftp import Lftp, LftpError, LftpJobStatus
+from rclone import Rclone, RcloneError
+from common.job_status import JobStatus
 from .controller_persist import ControllerPersist
 from .delete import DeleteLocalProcess, DeleteRemoteProcess
 
@@ -122,6 +123,9 @@ class Controller:
         # The command queue
         self.__command_queue: Queue[Controller.Command] = Queue()
 
+        # Track when files enter DELETED state for age-off
+        self.__deleted_timestamps: dict[str, datetime] = {}
+
         # The model
         self.__model = Model()
         self.__model.set_base_logger(self.logger)
@@ -138,28 +142,31 @@ class Controller:
         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
         self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
-        # Lftp
-        self.__lftp = Lftp(
+        # Transfer backend (rclone)
+        self.__transfer = Rclone(
             address=self.__context.config.lftp.remote_address,
             port=self.__context.config.lftp.remote_port,
             user=self.__context.config.lftp.remote_username,
             password=self.__password,
         )
-        self.__lftp.set_base_logger(self.logger)
-        self.__lftp.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
-        self.__lftp.set_base_local_dir_path(self.__staging_path)
-        # Configure Lftp
-        self.__lftp.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
-        self.__lftp.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
-        self.__lftp.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
-        self.__lftp.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
-        self.__lftp.num_max_total_connections = self.__context.config.lftp.num_max_total_connections
-        self.__lftp.use_temp_file = self.__context.config.lftp.use_temp_file
+        self.__transfer.set_base_logger(self.logger)
+        self.__transfer.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
+        self.__transfer.set_base_local_dir_path(self.__staging_path)
+        # Configure transfer backend
+        self.__transfer.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
+        _per_path = getattr(self.__context.config.lftp, 'num_max_parallel_downloads_per_path', None)
+        if _per_path is not None:
+            self.__transfer.num_parallel_per_group = _per_path
+        self.__transfer.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
+        self.__transfer.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
+        self.__transfer.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
+        self.__transfer.num_max_total_connections = self.__context.config.lftp.num_max_total_connections
+        self.__transfer.use_temp_file = self.__context.config.lftp.use_temp_file
         # Set rate limit if configured (format: "0" for unlimited, "1M" for 1 MB/s, "500K" for 500 KB/s)
         if self.__context.config.lftp.rate_limit:
-            self.__lftp.rate_limit = self.__context.config.lftp.rate_limit
-        self.__lftp.temp_file_name = "*" + Constants.LFTP_TEMP_FILE_SUFFIX
-        self.__lftp.set_verbose_logging(self.__context.config.general.verbose)
+            self.__transfer.rate_limit = self.__context.config.lftp.rate_limit
+        self.__transfer.temp_file_name = "*" + Constants.LFTP_TEMP_FILE_SUFFIX
+        self.__transfer.set_verbose_logging(self.__context.config.general.verbose)
 
         # Setup the scanners and scanner processes
         # Check if path pairs are available for multi-path support
@@ -329,6 +336,21 @@ class Controller:
         self.__mp_logger.start()
         self.__started = True
 
+    def __apply_config_changes(self):
+        """Re-apply transfer config from the shared Config object. Called each process() cycle."""
+        cfg = self.__context.config.lftp
+        if self.__transfer.num_parallel_jobs != cfg.num_max_parallel_downloads:
+            self.logger.info("Config change: num_max_parallel_downloads = %d", cfg.num_max_parallel_downloads)
+            self.__transfer.num_parallel_jobs = cfg.num_max_parallel_downloads
+        _per_path_cfg = getattr(cfg, 'num_max_parallel_downloads_per_path', None)
+        if _per_path_cfg is not None:
+            if self.__transfer.num_parallel_per_group != _per_path_cfg:
+                self.logger.info("Config change: num_max_parallel_downloads_per_path = %d", _per_path_cfg)
+                self.__transfer.num_parallel_per_group = _per_path_cfg
+        if cfg.rate_limit and self.__transfer.rate_limit != str(cfg.rate_limit):
+            self.logger.info("Config change: rate_limit = %s", cfg.rate_limit)
+            self.__transfer.rate_limit = cfg.rate_limit
+
     def process(self):
         """
         Advance the controller state
@@ -337,6 +359,7 @@ class Controller:
         """
         if not self.__started:
             raise ControllerError("Cannot process, controller is not started")
+        self.__apply_config_changes()
         self.__propagate_exceptions()
         self.__cleanup_commands()
         self.__process_commands()
@@ -345,7 +368,7 @@ class Controller:
     def exit(self):
         self.logger.debug("Exiting controller")
         if self.__started:
-            self.__lftp.exit()
+            self.__transfer.exit()
             self.__active_scan_process.terminate()
             self.__local_scan_process.terminate()
             self.__remote_scan_process.terminate()
@@ -429,12 +452,12 @@ class Controller:
         latest_local_scan = self.__local_scan_process.pop_latest_result()
         latest_active_scan = self.__active_scan_process.pop_latest_result()
 
-        # Grab the Lftp status
-        lftp_statuses = None
+        # Grab the transfer backend status
+        transfer_statuses = None
         try:
-            lftp_statuses = self.__lftp.status()
-        except LftpError as e:
-            self.logger.warning("Caught lftp error: {}".format(str(e)))
+            transfer_statuses = self.__transfer.status()
+        except RcloneError as e:
+            self.logger.warning("Caught transfer error: {}".format(str(e)))
 
         # Grab the latest extract results
         latest_extract_statuses = self.__extract_process.pop_latest_statuses()
@@ -443,9 +466,9 @@ class Controller:
         latest_extracted_results = self.__extract_process.pop_completed()
 
         # Update list of active file names
-        if lftp_statuses is not None:
+        if transfer_statuses is not None:
             self.__active_downloading_file_names = [
-                s.name for s in lftp_statuses if s.state == LftpJobStatus.State.RUNNING
+                s.name for s in transfer_statuses if s.state == JobStatus.State.RUNNING
             ]
         if latest_extract_statuses is not None:
             self.__active_extracting_file_names = [
@@ -473,8 +496,8 @@ class Controller:
             self.__model_builder.set_local_files(latest_local_scan.files)
         if latest_active_scan is not None:
             self.__model_builder.set_active_files(latest_active_scan.files)
-        if lftp_statuses is not None:
-            self.__model_builder.set_lftp_statuses(lftp_statuses)
+        if transfer_statuses is not None:
+            self.__model_builder.set_transfer_statuses(transfer_statuses)
         if latest_extract_statuses is not None:
             self.__model_builder.set_extract_statuses(latest_extract_statuses.statuses)
         if latest_extracted_results:
@@ -538,7 +561,7 @@ class Controller:
                     ):
                         downloaded = True
                     if downloaded:
-                        self.__persist.record_download(diff.new_file.name)
+                        self.__persist.downloaded_file_names.add(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
                         # Move completed file from staging_path to local_path
                         if self.__is_multi_path_mode:
@@ -585,29 +608,42 @@ class Controller:
                     self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
                     self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
-                # Age off DELETED files whose download timestamp is older than the threshold.
-                # This prevents the dashboard from accumulating DELETED entries indefinitely.
+                # Age off DELETED files after a delay.
+                # When a file is deleted locally (e.g., by Sonarr/Radarr after import),
+                # it enters DELETED state. After deleted_age_off_secs, we remove it from
+                # the downloaded set so auto-queue will re-download it if it still exists
+                # on the remote. The delay prevents a race condition where RapidCopy
+                # re-downloads a file that Sonarr/Radarr is still importing.
                 _age_off_secs = self.__context.config.controller.deleted_age_off_secs
                 if _age_off_secs is None:
                     _age_off_secs = 1800
                 if _age_off_secs > 0:
-                    _cutoff = datetime.now() - timedelta(seconds=_age_off_secs)
+                    _now = datetime.now()
+                    _cutoff = _now - timedelta(seconds=_age_off_secs)
+
+                    # Track newly DELETED files
+                    for _name in self.__model.get_file_names():
+                        _file = self.__model.get_file(_name)
+                        if _file.state == ModelFile.State.DELETED:
+                            if _name not in self.__deleted_timestamps:
+                                self.__deleted_timestamps[_name] = _now
+                        else:
+                            # File is no longer DELETED (re-appeared or changed state)
+                            self.__deleted_timestamps.pop(_name, None)
+
+                    # Age off files that have been DELETED longer than the threshold
                     _aged_off = set()
-                    for _name, _ts_str in list(self.__persist.downloaded_file_timestamps.items()):
-                        if _name not in self.__model.get_file_names():
-                            continue
-                        if self.__model.get_file(_name).state != ModelFile.State.DELETED:
-                            continue
-                        try:
-                            if datetime.fromisoformat(_ts_str) < _cutoff:
-                                _aged_off.add(_name)
-                        except ValueError:
-                            pass
+                    for _name, _ts in list(self.__deleted_timestamps.items()):
+                        if _ts < _cutoff:
+                            _aged_off.add(_name)
+
                     if _aged_off:
-                        self.logger.info("Aging off DELETED files: {}".format(_aged_off))
+                        self.logger.info("Aging off DELETED files (re-download eligible): {}".format(_aged_off))
                         for _name in _aged_off:
-                            self.__persist.remove_download(_name)
-                            self.__model.remove_file(_name)
+                            self.__deleted_timestamps.pop(_name, None)
+                            self.__persist.downloaded_file_names.discard(_name)
+                            if _name in self.__model.get_file_names():
+                                self.__model.remove_file(_name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
         # Update the controller status
@@ -659,8 +695,12 @@ class Controller:
                         local_path = self.__path_pair_staging_paths.get(
                             file.path_pair_id, pair.local_path
                         )
-                    self.__lftp.queue(file.name, file.is_dir, remote_path=remote_path, local_path=local_path)
-                except LftpError as e:
+                    self.__transfer.queue(
+                        file.name, file.is_dir,
+                        remote_path=remote_path, local_path=local_path,
+                        group=file.path_pair_id,
+                    )
+                except RcloneError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
 
@@ -669,8 +709,8 @@ class Controller:
                     _notify_failure(command, "File '{}' is not Queued or Downloading".format(command.filename))
                     continue
                 try:
-                    self.__lftp.kill(file.name)
-                except LftpError as e:
+                    self.__transfer.kill(file.name)
+                except RcloneError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
 
@@ -679,8 +719,8 @@ class Controller:
                     _notify_failure(command, "File '{}' is not Queued".format(command.filename))
                     continue
                 try:
-                    self.__lftp.prioritize(file.name)
-                except LftpError as e:
+                    self.__transfer.prioritize(file.name)
+                except RcloneError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue
 
@@ -814,8 +854,8 @@ class Controller:
         :return:
         """
         try:
-            self.__lftp.raise_pending_error()
-        except LftpError as e:
+            self.__transfer.raise_pending_error()
+        except RcloneError as e:
             self.logger.warning("Ignoring non-fatal Lftp error: {}".format(str(e)))
         self.__active_scan_process.propagate_exception()
         self.__local_scan_process.propagate_exception()
@@ -938,7 +978,7 @@ class Controller:
                 )
             )
             try:
-                self.__lftp.pget_range(
+                self.__transfer.pget_range(
                     remote_path=req.remote_path,
                     local_path=req.local_path,
                     offset=req.offset,
@@ -950,7 +990,7 @@ class Controller:
                 self.__pending_chunk_redownloads[req.local_path].append(
                     (req.chunk_index, req.end_offset)
                 )
-            except LftpError as e:
+            except RcloneError as e:
                 self.logger.error("Failed to queue chunk re-download: {}".format(e))
 
         # Check if any pending re-downloads have completed (bytes on disk >= end_offset)
@@ -1072,8 +1112,8 @@ class Controller:
                         "Auto-resuming interrupted download: {} (is_dir={})".format(real_name, is_dir)
                     )
                     try:
-                        self.__lftp.queue(real_name, is_dir)
-                    except LftpError as e:
+                        self.__transfer.queue(real_name, is_dir)
+                    except RcloneError as e:
                         self.logger.warning(
                             "Could not auto-resume '{}' from staging: {}".format(real_name, e)
                         )
@@ -1154,13 +1194,13 @@ class Controller:
                             )
                         )
                         try:
-                            self.__lftp.queue(
+                            self.__transfer.queue(
                                 real_name,
                                 is_dir,
                                 remote_path=pair.remote_path,
                                 local_path=staging_path,
                             )
-                        except LftpError as e:
+                        except RcloneError as e:
                             self.logger.warning(
                                 "Could not auto-resume '{}' for pair '{}': {}".format(
                                     real_name, pair.name, e
