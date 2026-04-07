@@ -154,8 +154,9 @@ class Controller:
         self.__transfer.set_base_local_dir_path(self.__staging_path)
         # Configure transfer backend
         self.__transfer.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
-        if hasattr(self.__context.config.lftp, 'num_max_parallel_downloads_per_path'):
-            self.__transfer.num_parallel_per_group = self.__context.config.lftp.num_max_parallel_downloads_per_path
+        _per_path = getattr(self.__context.config.lftp, 'num_max_parallel_downloads_per_path', None)
+        if _per_path is not None:
+            self.__transfer.num_parallel_per_group = _per_path
         self.__transfer.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
         self.__transfer.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
         self.__transfer.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
@@ -341,13 +342,11 @@ class Controller:
         if self.__transfer.num_parallel_jobs != cfg.num_max_parallel_downloads:
             self.logger.info("Config change: num_max_parallel_downloads = %d", cfg.num_max_parallel_downloads)
             self.__transfer.num_parallel_jobs = cfg.num_max_parallel_downloads
-        if hasattr(cfg, 'num_max_parallel_downloads_per_path') and cfg.num_max_parallel_downloads_per_path:
-            if self.__transfer.num_parallel_per_group != cfg.num_max_parallel_downloads_per_path:
-                self.logger.info(
-                    "Config change: num_max_parallel_downloads_per_path = %d",
-                    cfg.num_max_parallel_downloads_per_path,
-                )
-                self.__transfer.num_parallel_per_group = cfg.num_max_parallel_downloads_per_path
+        _per_path_cfg = getattr(cfg, 'num_max_parallel_downloads_per_path', None)
+        if _per_path_cfg is not None:
+            if self.__transfer.num_parallel_per_group != _per_path_cfg:
+                self.logger.info("Config change: num_max_parallel_downloads_per_path = %d", _per_path_cfg)
+                self.__transfer.num_parallel_per_group = _per_path_cfg
         if cfg.rate_limit and self.__transfer.rate_limit != str(cfg.rate_limit):
             self.logger.info("Config change: rate_limit = %s", cfg.rate_limit)
             self.__transfer.rate_limit = cfg.rate_limit
