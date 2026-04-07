@@ -113,7 +113,13 @@ export const OPTIONS_CONTEXT_CONNECTIONS: IOptionsContext = {
             type: OptionType.Text,
             label: "Max Parallel Downloads",
             valuePath: ["lftp", "num_max_parallel_downloads"],
-            description: "How many items download simultaneously."
+            description: "Total simultaneous downloads across all directories."
+        },
+        {
+            type: OptionType.Text,
+            label: "Max Downloads Per Directory",
+            valuePath: ["lftp", "num_max_parallel_downloads_per_path"],
+            description: "Maximum simultaneous downloads per path pair (e.g., 4 for TV, 4 for Movies)."
         },
         {
             type: OptionType.Text,

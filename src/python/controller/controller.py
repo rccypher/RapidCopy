@@ -152,8 +152,10 @@ class Controller:
         self.__transfer.set_base_logger(self.logger)
         self.__transfer.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
         self.__transfer.set_base_local_dir_path(self.__staging_path)
-        # Configure Lftp
+        # Configure transfer backend
         self.__transfer.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
+        if hasattr(self.__context.config.lftp, 'num_max_parallel_downloads_per_path'):
+            self.__transfer.num_parallel_per_group = self.__context.config.lftp.num_max_parallel_downloads_per_path
         self.__transfer.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
         self.__transfer.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
         self.__transfer.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
@@ -333,6 +335,23 @@ class Controller:
         self.__mp_logger.start()
         self.__started = True
 
+    def __apply_config_changes(self):
+        """Re-apply transfer config from the shared Config object. Called each process() cycle."""
+        cfg = self.__context.config.lftp
+        if self.__transfer.num_parallel_jobs != cfg.num_max_parallel_downloads:
+            self.logger.info("Config change: num_max_parallel_downloads = %d", cfg.num_max_parallel_downloads)
+            self.__transfer.num_parallel_jobs = cfg.num_max_parallel_downloads
+        if hasattr(cfg, 'num_max_parallel_downloads_per_path') and cfg.num_max_parallel_downloads_per_path:
+            if self.__transfer.num_parallel_per_group != cfg.num_max_parallel_downloads_per_path:
+                self.logger.info(
+                    "Config change: num_max_parallel_downloads_per_path = %d",
+                    cfg.num_max_parallel_downloads_per_path,
+                )
+                self.__transfer.num_parallel_per_group = cfg.num_max_parallel_downloads_per_path
+        if cfg.rate_limit and self.__transfer.rate_limit != str(cfg.rate_limit):
+            self.logger.info("Config change: rate_limit = %s", cfg.rate_limit)
+            self.__transfer.rate_limit = cfg.rate_limit
+
     def process(self):
         """
         Advance the controller state
@@ -341,6 +360,7 @@ class Controller:
         """
         if not self.__started:
             raise ControllerError("Cannot process, controller is not started")
+        self.__apply_config_changes()
         self.__propagate_exceptions()
         self.__cleanup_commands()
         self.__process_commands()
@@ -676,7 +696,11 @@ class Controller:
                         local_path = self.__path_pair_staging_paths.get(
                             file.path_pair_id, pair.local_path
                         )
-                    self.__transfer.queue(file.name, file.is_dir, remote_path=remote_path, local_path=local_path)
+                    self.__transfer.queue(
+                        file.name, file.is_dir,
+                        remote_path=remote_path, local_path=local_path,
+                        group=file.path_pair_id,
+                    )
                 except RcloneError as e:
                     _notify_failure(command, "Lftp error: {}".format(str(e)))
                     continue

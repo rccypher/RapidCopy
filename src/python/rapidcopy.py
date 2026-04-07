@@ -68,6 +68,7 @@ class Rapidcopy:
         ctx_args.debug = is_debug
         ctx_args.exit = args.exit
         ctx_args.log_dir = args.logdir
+        ctx_args.config_path = self.config_path
 
         # Logger setup using LogManager
         # Determine log level from config (defaults to INFO, ignored if debug=True)
@@ -335,7 +336,8 @@ class Rapidcopy:
         config.lftp.local_path = Rapidcopy.__CONFIG_DUMMY_VALUE
         config.lftp.remote_path_to_scan_script = "/tmp"
         config.lftp.use_ssh_key = False
-        config.lftp.num_max_parallel_downloads = 2
+        config.lftp.num_max_parallel_downloads = 8
+        config.lftp.num_max_parallel_downloads_per_path = 4
         config.lftp.num_max_parallel_files_per_download = 4
         config.lftp.num_max_connections_per_root_file = 4
         config.lftp.num_max_connections_per_dir_file = 4

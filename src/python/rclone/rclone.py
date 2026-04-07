@@ -49,7 +49,8 @@ class Rclone(TransferBackend):
         self.__verbose = False
 
         # Transfer settings (with defaults matching lftp config defaults)
-        self.__num_parallel_jobs = 2
+        self.__num_parallel_jobs = 8
+        self.__num_parallel_per_group = 4
         self.__num_parallel_files = 4
         # Single-stream downloads to prevent corruption from multi-thread reassembly.
         # Multi-thread-streams > 1 causes MD5 mismatches on SFTP transfers.
@@ -103,6 +104,17 @@ class Rclone(TransferBackend):
             raise ValueError("Number of parallel jobs must be positive")
         self.__num_parallel_jobs = value
         self.__job_queue.set_max_parallel_jobs(value)
+
+    @property
+    def num_parallel_per_group(self) -> int:
+        return self.__num_parallel_per_group
+
+    @num_parallel_per_group.setter
+    def num_parallel_per_group(self, value: int):
+        if value < 1:
+            raise ValueError("Number of parallel per group must be positive")
+        self.__num_parallel_per_group = value
+        self.__job_queue.set_max_parallel_per_group(value)
 
     @property
     def num_parallel_files(self) -> int:
@@ -197,6 +209,7 @@ class Rclone(TransferBackend):
         is_dir: bool,
         remote_path: str | None = None,
         local_path: str | None = None,
+        group: str | None = None,
     ) -> None:
         remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
         local_dir = local_path if local_path is not None else self.__base_local_dir_path
@@ -206,7 +219,7 @@ class Rclone(TransferBackend):
         if self.__verbose:
             self.logger.debug("Queueing rclone command: %s", " ".join(command))
 
-        self.__job_queue.enqueue(name=name, is_dir=is_dir, command=command, env=env)
+        self.__job_queue.enqueue(name=name, is_dir=is_dir, command=command, env=env, group=group)
 
     def status(self) -> List[JobStatus]:
         return self.__job_queue.get_statuses()

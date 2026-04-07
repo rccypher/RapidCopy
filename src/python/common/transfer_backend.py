@@ -36,6 +36,7 @@ class TransferBackend(ABC):
         is_dir: bool,
         remote_path: str | None = None,
         local_path: str | None = None,
+        group: str | None = None,
     ) -> None:
         """
         Queue a file or directory for download. Must be non-blocking.

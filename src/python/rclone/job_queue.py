@@ -34,6 +34,7 @@ class _Job:
     command: list[str]
     env: dict[str, str]
     job_id: int
+    group: str | None = None  # path_pair_id for per-group concurrency limits
     state: _JobState = _JobState.QUEUED
     process: subprocess.Popen | None = field(default=None, repr=False)
     future: Future | None = field(default=None, repr=False)
@@ -55,7 +56,7 @@ class JobQueue:
     - status() returns a thread-safe snapshot of all jobs
     """
 
-    def __init__(self, max_parallel_jobs: int = 2):
+    def __init__(self, max_parallel_jobs: int = 2, max_parallel_per_group: int = 4):
         self.logger = logging.getLogger("JobQueue")
         self._lock = threading.Lock()
         self._pending: deque[_Job] = deque()
@@ -63,6 +64,7 @@ class JobQueue:
         self._errors: list[str] = []
         self._next_id = 1
         self._max_parallel_jobs = max_parallel_jobs
+        self._max_parallel_per_group = max_parallel_per_group
         self._executor = ThreadPoolExecutor(max_workers=max_parallel_jobs)
         self._progress_parser = RcloneProgressParser()
         self._shutdown_event = threading.Event()
@@ -80,16 +82,23 @@ class JobQueue:
             self._max_parallel_jobs = max_parallel_jobs
             self._executor._max_workers = max_parallel_jobs
 
+    def set_max_parallel_per_group(self, max_parallel_per_group: int):
+        """Update the per-group (path pair) concurrency limit."""
+        with self._lock:
+            self._max_parallel_per_group = max_parallel_per_group
+
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild("JobQueue")
         self._progress_parser.set_base_logger(self.logger)
 
-    def enqueue(self, name: str, is_dir: bool, command: list[str], env: dict[str, str]) -> int:
+    def enqueue(
+        self, name: str, is_dir: bool, command: list[str], env: dict[str, str], group: str | None = None
+    ) -> int:
         """Add a job to the pending queue. Non-blocking. Returns the job ID."""
         with self._feeder_condition:
             job_id = self._next_id
             self._next_id += 1
-            job = _Job(name=name, is_dir=is_dir, command=command, env=env, job_id=job_id)
+            job = _Job(name=name, is_dir=is_dir, command=command, env=env, job_id=job_id, group=group)
             self._pending.append(job)
             self._feeder_condition.notify()
         return job_id
@@ -185,6 +194,12 @@ class JobQueue:
             self._feeder_condition.notify_all()
         self._executor.shutdown(wait=True, cancel_futures=True)
 
+    def _count_running_in_group(self, group: str | None) -> int:
+        """Count running jobs in a group. Must be called under lock."""
+        if group is None:
+            return 0
+        return sum(1 for j in self._running.values() if j.group == group)
+
     def _feeder_loop(self):
         """Feeder thread: moves jobs from pending deque to executor."""
         while not self._shutdown_event.is_set():
@@ -195,11 +210,19 @@ class JobQueue:
                 if self._shutdown_event.is_set():
                     break
                 if self._pending:
-                    # Only dispatch if we have capacity
-                    if len(self._running) < self._max_parallel_jobs:
-                        job = self._pending.popleft()
-                    else:
-                        # Wait for a running job to finish
+                    # Check global capacity
+                    if len(self._running) >= self._max_parallel_jobs:
+                        self._feeder_condition.wait(timeout=1.0)
+                        continue
+                    # Find the first pending job whose group has capacity
+                    for i, candidate in enumerate(self._pending):
+                        if candidate.group is None or \
+                           self._count_running_in_group(candidate.group) < self._max_parallel_per_group:
+                            job = candidate
+                            del self._pending[i]
+                            break
+                    if job is None:
+                        # All pending jobs' groups are at capacity, wait
                         self._feeder_condition.wait(timeout=1.0)
                         continue
 

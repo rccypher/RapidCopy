@@ -9,8 +9,9 @@ from ..serialize import SerializeConfig
 
 
 class ConfigHandler(IHandler):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, config_path: str | None = None):
         self.__config = config
+        self.__config_path = config_path
 
     @overrides(IHandler)
     def add_routes(self, web_app: WebApp):
@@ -33,6 +34,12 @@ class ConfigHandler(IHandler):
             return HTTPResponse(body="Section '{}' in config has no option '{}'".format(section, key), status=400)
         try:
             inner_config.set_property(key, value)
+            # Persist to disk so changes survive restart
+            if self.__config_path:
+                try:
+                    self.__config.to_file(self.__config_path)
+                except Exception:
+                    pass  # Don't fail the API call if file write fails
             return HTTPResponse(body="{}.{} set to {}".format(section, key, value))
         except ConfigError as e:
             return HTTPResponse(body=str(e), status=400)

@@ -29,7 +29,7 @@ class WebAppBuilder:
 
         self.controller_handler = ControllerHandler(controller)
         self.server_handler = ServerHandler(context)
-        self.config_handler = ConfigHandler(context.config)
+        self.config_handler = ConfigHandler(context.config, config_path=context.args.config_path)
         self.auto_queue_handler = AutoQueueHandler(auto_queue_persist)
         self.status_handler = StatusHandler(context.status)
         self.validation_handler = ValidationHandler(controller)
