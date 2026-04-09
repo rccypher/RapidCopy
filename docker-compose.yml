@@ -1,14 +1,11 @@
 services:
   rapidcopy:
-    build: .
-    image: rapidcopy:latest
+    image: rccypher/rapidcopy:latest
     container_name: rapidcopy
     restart: unless-stopped
     ports:
       - "8800:8800"
     volumes:
       - ./config:/config
-      - /mnt/media/TV_Downloads:/downloads/tv_shows
-      - /mnt/MediaVaultV3/Movie_Downloads:/downloads/movies
-      - /home/jemunos/.ssh:/home/rapidcopy/.ssh:ro
-      - /media/1tb_drive/rapidcopy_staging:/staging/tv_shows
+      - /path/to/downloads:/downloads
+      - ~/.ssh/id_rsa:/home/rapidcopy/.ssh/id_rsa:ro

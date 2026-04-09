@@ -1,8 +1,11 @@
 # RapidCopy
 
-**A modernized fork of [SeedSync](https://github.com/ipsingh06/seedsync)** - Fast file synchronization from remote Linux servers using LFTP.
+**A modernized fork of [SeedSync](https://github.com/ipsingh06/seedsync)** - Fast, corruption-proof file synchronization from remote Linux servers using rclone over SFTP.
 
 <p align="center">
+  <a href="https://hub.docker.com/r/rccypher/rapidcopy">
+    <img src="https://img.shields.io/docker/pulls/rccypher/rapidcopy" alt="Docker Pulls">
+  </a>
   <a href="https://github.com/rccypher/RapidCopy">
     <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11">
   </a>
@@ -22,83 +25,77 @@
 
 ## What is RapidCopy?
 
-RapidCopy automatically syncs files from a remote Linux server to your local machine. It connects via SSH, monitors remote directories for new files, and downloads them using [LFTP](http://lftp.tech/) - the fastest file transfer program available. Once downloaded, files are optionally validated and extracted, all managed through a modern web UI.
+RapidCopy automatically syncs files from a remote Linux server to your local machine. It connects via SSH, monitors remote directories for new files, and downloads them using [rclone](https://rclone.org/) over SFTP with built-in integrity verification. Once downloaded, files are validated via chunk-level checksums and optionally extracted, all managed through a modern web UI.
 
 You don't need to install anything on the remote server. All you need are SSH credentials.
 
-## Features Added Since SeedSync
+## Features
 
-RapidCopy is a comprehensive rewrite and modernization of the original SeedSync project. The following features have been added since forking:
+### Corruption-Proof Transfers
+
+RapidCopy uses a multi-layered integrity strategy to guarantee every downloaded file is bit-perfect:
+
+- **Single-stream SFTP** - Avoids the parallel-stream reassembly corruption that plagues multi-threaded download tools
+- **rclone `--checksum`** - MD5 verification after each transfer, with automatic retry (3 attempts)
+- **Atomic staging** - Files download to a staging directory with a `.lftp` suffix, then atomically rename on completion
+- **Post-download validation** - Chunk-level xxHash checksums compared between remote and local copies
+- **Automatic corrupt chunk re-download** - Only the bad bytes are re-fetched, not the entire file
 
 ### Multiple Path Pairs
 
-Sync multiple remote/local directory combinations in a single RapidCopy instance. Each path pair operates independently with its own scanner, auto-queue settings, and file tracking. Files in the dashboard are tagged with their path pair for easy identification.
+Sync multiple remote/local directory combinations in a single instance. Each path pair operates independently with its own scanner, auto-queue settings, and file tracking.
 
 - Configure pairs via the Settings UI or `path_pairs.json`
-- Enable/disable individual pairs without affecting others
+- Per-pair download concurrency limits
 - Per-pair auto-queue control
 - Dashboard statistics showing file counts per path pair
 
 ### Post-Download File Validation
 
-Automatically verify file integrity after download by comparing chunk-level checksums between remote and local copies. This catches silent corruption, incomplete transfers, and bit-rot before you rely on the downloaded files.
+Automatically verify file integrity after download by comparing chunk-level checksums between remote and local copies.
 
-- **Chunk-based validation** - Files are split into chunks and each chunk is checksummed independently, allowing identification of exactly which portions are corrupt
-- **Supported algorithms** - MD5 (default), SHA-256, SHA-1
-- **Adaptive chunk sizing** - Chunk size automatically scales based on file size (larger chunks for bigger files), network speed, and historical failure rate
-- **Automatic retry** - Corrupt chunks are re-downloaded and re-validated up to a configurable number of retries
-- **File states** - Files progress through VALIDATING, VALIDATED, or CORRUPT states with dedicated status icons in the UI
-- **Manual validation** - Trigger validation on any downloaded file via the dashboard
+- **Chunk-based validation** - Files are split into chunks and each chunk is checksummed independently
+- **Supported algorithms** - xxHash128 (default, fastest), MD5, SHA-256, SHA-1
+- **Adaptive chunk sizing** - Chunk size scales based on file size, network speed, and failure rate
+- **Automatic retry** - Corrupt chunks are re-downloaded up to a configurable number of retries
+- **File states** - Files progress through VALIDATING, VALIDATED, or CORRUPT states in the UI
 
 ### Network Mount Support (NFS/CIFS)
 
-Mount NFS or SMB/CIFS network shares directly from the RapidCopy UI. Download files straight to NAS or network storage without intermediate local copies.
+Mount NFS or SMB/CIFS network shares directly from the UI. Download files straight to NAS or network storage.
 
-- Configure mounts via the Settings UI
-- Mount/unmount/test actions from the web interface
-- Supports both NFS and CIFS/SMB protocols
+### Hot-Reload Configuration
+
+Change settings through the web UI without restarting the container. Download limits, rate limits, and per-directory caps take effect immediately.
 
 ### Dark Mode
 
-Toggle between light and dark themes from the sidebar. Theme preference is persisted across sessions.
-
-### Download Rate Limiting
-
-Control bandwidth usage with configurable rate limits to prevent saturating your connection. Set limits like `10M` (10 MB/s), `500K` (500 KB/s), or `0` for unlimited.
-
-### Configurable Logging
-
-Set log verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL) and optionally enable JSON-formatted log output for integration with log aggregation systems like ELK or Splunk.
+Toggle between light and dark themes from the sidebar.
 
 ### Modern Tech Stack
 
-- **Python 3.11** - Upgraded from Python 3.8 with modern syntax (`|` union types, `list[]` generics)
-- **Angular 18.2** - Frontend completely rewritten from Angular 4.x
-- **Full type safety** - Mypy type checking with 0 errors
+- **Python 3.11** with modern type syntax
+- **Angular 18.2** frontend
+- **rclone** transfer backend (replaced lftp)
+- **Full type safety** - Mypy with 0 errors
 - **Ruff linting** - 0 issues
-- **Playwright E2E tests** - Migrated from Protractor (which is deprecated)
-- **Docker multi-stage build** - Single Dockerfile for streamlined deployment
-- **JSON-based remote scanning** - Replaced pickle serialization for security (prevents RCE)
-- **408 unit tests + 62 E2E tests** - All passing
-
-### Self-Update Service
-
-Optional auto-update support via an external update server. Check for and apply updates without manual intervention.
+- **Playwright E2E tests**
+- **Docker multi-stage build**
 
 ## How It Works
 
-1. Install RapidCopy on your local machine (or run via Docker)
+1. Install RapidCopy via Docker
 2. Configure SSH credentials for your remote server
 3. Set up path pairs mapping remote directories to local destinations
-4. RapidCopy scans remote directories on a configurable interval
-5. New files are auto-queued for download (or manually queued)
-6. LFTP handles the actual transfer with parallel connections
-7. Downloaded files are optionally validated and/or extracted
-8. Monitor everything through the web UI
+4. RapidCopy scans remote directories on a configurable interval (default 30s)
+5. New files are auto-queued for download (or manually queued via UI)
+6. rclone handles the transfer over SFTP with checksum verification
+7. Downloaded files are validated via chunk-level checksums
+8. Monitor everything through the web UI at port 8800
 
 ## Supported Platforms
 
-* Linux (native)
+* Linux (native or Docker)
 * Raspberry Pi (v2, v3, v4, v5)
 * Windows (via Docker)
 * macOS (via Docker)
@@ -110,24 +107,25 @@ Optional auto-update support via an external update server. Check for and apply 
 ```bash
 docker run -d \
   --name rapidcopy \
+  --restart unless-stopped \
   -p 8800:8800 \
   -v /path/to/config:/config \
   -v /path/to/downloads:/downloads \
-  -v ~/.ssh:/home/rapidcopy/.ssh:ro \
-  rapidcopy:latest
+  -v ~/.ssh/id_rsa:/home/rapidcopy/.ssh/id_rsa:ro \
+  rccypher/rapidcopy:latest
 ```
 
-For multiple download destinations, add additional volume mounts:
+For multiple download destinations (e.g., TV + Movies):
 
 ```bash
 docker run -d \
   --name rapidcopy \
+  --restart unless-stopped \
   -p 8800:8800 \
   -v /path/to/config:/config \
-  -v /path/to/tv_downloads:/downloads/tv_shows \
-  -v /path/to/movie_downloads:/downloads/movies \
-  -v ~/.ssh:/home/rapidcopy/.ssh:ro \
-  rapidcopy:latest
+  -v /mnt/media:/mnt/media \
+  -v ~/.ssh/id_rsa:/home/rapidcopy/.ssh/id_rsa:ro \
+  rccypher/rapidcopy:latest
 ```
 
 Access the web UI at `http://localhost:8800`
@@ -137,8 +135,7 @@ Access the web UI at `http://localhost:8800`
 ```yaml
 services:
   rapidcopy:
-    build: .
-    image: rapidcopy:latest
+    image: rccypher/rapidcopy:latest
     container_name: rapidcopy
     restart: unless-stopped
     ports:
@@ -146,16 +143,25 @@ services:
     volumes:
       - ./config:/config
       - /path/to/downloads:/downloads
-      - ~/.ssh:/home/rapidcopy/.ssh:ro
+      - ~/.ssh/id_rsa:/home/rapidcopy/.ssh/id_rsa:ro
 ```
 
 ## Configuration
 
-RapidCopy is configured via the web UI Settings page or by editing the config files directly.
+RapidCopy is configured via the web UI Settings page. Changes take effect immediately without restart.
+
+### Download Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `num_max_parallel_downloads` | `8` | Total simultaneous downloads across all directories |
+| `num_max_parallel_downloads_per_path` | `4` | Maximum simultaneous downloads per path pair |
+| `rate_limit` | `0` (unlimited) | Download speed limit (`1M` = 1 MB/s, `500K` = 500 KB/s) |
+| `num_max_parallel_files_per_download` | `4` | Parallel files within a single directory download |
 
 ### Path Pairs
 
-Configured via the Settings UI or `path_pairs.json` in your config directory:
+Configured via the Settings UI or `path_pairs.json`:
 
 ```json
 {
@@ -163,17 +169,17 @@ Configured via the Settings UI or `path_pairs.json` in your config directory:
   "path_pairs": [
     {
       "id": "unique-id-001",
-      "name": "Movies",
-      "remote_path": "/seedbox/complete/movies",
-      "local_path": "/downloads/movies",
+      "name": "TV Shows",
+      "remote_path": "/seedbox/complete/sonarr",
+      "local_path": "/downloads/tv",
       "enabled": true,
       "auto_queue": true
     },
     {
       "id": "unique-id-002",
-      "name": "TV Shows",
-      "remote_path": "/seedbox/complete/tv",
-      "local_path": "/downloads/tv",
+      "name": "Movies",
+      "remote_path": "/seedbox/complete/radarr",
+      "local_path": "/downloads/movies",
       "enabled": true,
       "auto_queue": true
     }
@@ -186,25 +192,17 @@ Configured via the Settings UI or `path_pairs.json` in your config directory:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `enabled` | `True` | Enable post-download file validation |
-| `algorithm` | `md5` | Hash algorithm (`md5`, `sha256`, `sha1`) |
+| `algorithm` | `xxh128` | Hash algorithm (`xxh128`, `md5`, `sha256`, `sha1`) |
 | `default_chunk_size` | `52428800` (50MB) | Base chunk size for validation |
-| `max_chunk_size` | `104857600` (100MB) | Maximum chunk size after adaptive scaling |
-| `validate_after_file` | `True` | Validate immediately after each file completes |
-| `max_retries` | `3` | Number of retry attempts for corrupt chunks |
-| `enable_adaptive_sizing` | `True` | Automatically scale chunk size based on file size and network conditions |
-
-### Rate Limiting
-
-| Setting | Description | Example |
-|---------|-------------|---------|
-| `rate_limit` | Maximum download speed | `10M` (10 MB/s), `500K` (500 KB/s), `0` (unlimited) |
+| `max_chunk_size` | `104857600` (100MB) | Maximum chunk size |
+| `max_retries` | `3` | Retry attempts for corrupt chunks |
+| `enable_adaptive_sizing` | `True` | Scale chunk size based on conditions |
 
 ### Logging
 
 | Setting | Description | Values |
 |---------|-------------|--------|
 | `log_level` | Minimum log level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
-| `log_format` | Log output format | `standard`, `json` |
 
 ## Development
 
@@ -213,21 +211,22 @@ Configured via the Settings UI or `path_pairs.json` in your config directory:
 - Python 3.11+
 - Docker & Docker Compose
 - Node.js 18+ (for Angular frontend)
+- rclone (for local development)
 
 ### Running Tests
 
 ```bash
-# Python unit tests (via Docker)
+# Python unit tests
 cd src/python
-docker-compose -f ../docker/test/python/compose.yml run --rm tests pytest tests/unittests/ -q
+poetry run pytest tests/unittests/ -v
 
 # Angular unit tests
 cd src/angular
 npx ng test
 
-# Playwright E2E tests (start dev server first)
-cd src/angular && npx ng serve --port 8800 &
-cd src/e2e-playwright && npx playwright test --project=ui-only
+# Playwright E2E tests
+cd src/e2e-playwright
+npx playwright test
 ```
 
 ### Code Quality
@@ -236,7 +235,7 @@ cd src/e2e-playwright && npx playwright test --project=ui-only
 |------|--------|-------------|
 | **Ruff** | 0 issues | Fast Python linter |
 | **Mypy** | 0 errors | Static type checking |
-| **Pytest** | 408 passing | Python unit tests |
+| **Pytest** | 474 passing | Python unit tests |
 | **Playwright** | 62 passing | E2E UI tests |
 
 ## Project Structure
@@ -247,7 +246,7 @@ RapidCopy/
 │   ├── python/              # Python backend
 │   │   ├── common/          # Shared utilities, config, models
 │   │   ├── controller/      # Business logic, scanning, validation
-│   │   ├── lftp/            # LFTP integration
+│   │   ├── rclone/          # rclone transfer backend
 │   │   ├── model/           # Data models (ModelFile, states)
 │   │   ├── ssh/             # SSH utilities
 │   │   ├── system/          # File system operations
@@ -260,12 +259,6 @@ RapidCopy/
 ├── Dockerfile               # Multi-stage Docker build
 └── docker-compose.yml       # Compose template
 ```
-
-## To-Do
-
-- [ ] Add file validation settings to the Settings UI (validation is currently only configurable via `settings.cfg`)
-- [ ] Review all config settings and ensure they are all available from the Settings UI
-- [ ] Publish Docker image to Docker Hub for easier deployment
 
 ## Contributing
 
@@ -284,7 +277,6 @@ See [Developer Readme](doc/DeveloperReadme.md) for detailed setup instructions.
 Please report issues on the [issues page](../../issues).
 Include logs if possible:
 - Docker: `docker logs <container id>`
-- Native: `~/.rapidcopy/log/rapidcopy.log`
 
 ## Credits
 
