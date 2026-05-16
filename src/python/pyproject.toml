@@ -1,6 +1,6 @@
 [tool]
 [tool.poetry]
-name = "seedsync"
+name = "rapidcopy"
 version = "0.0.0"
 description = ""
 authors = []

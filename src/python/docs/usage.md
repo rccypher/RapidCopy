@@ -44,9 +44,9 @@ are placed.
 
 ### How It Works
 
-- SeedSync creates independent scanners for each path mapping.
+- RapidCopy creates independent scanners for each path mapping.
 - Files from all mappings appear together on the Dashboard.
-- When a file is queued, SeedSync automatically uses the correct remote and local paths based on
+- When a file is queued, RapidCopy automatically uses the correct remote and local paths based on
   which mapping the file belongs to.
 - If the same filename exists in multiple mappings, a warning is logged and the first mapping takes priority.
 

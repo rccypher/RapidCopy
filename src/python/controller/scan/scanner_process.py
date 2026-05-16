@@ -71,6 +71,8 @@ class ScannerProcess(AppProcess):
         self.__scanner = scanner
         self.__interval_in_ms = interval_in_ms
         self.verbose = verbose
+        self.__scan_count = 0
+        self.__consecutive_errors = 0
 
     @overrides(AppProcess)
     def run_init(self):
@@ -86,19 +88,30 @@ class ScannerProcess(AppProcess):
         timestamp_start = datetime.now()
         if self.verbose:
             self.logger.debug("Running a scan")
+        self.__scan_count += 1
         try:
             files = self.__scanner.scan()
             result = ScannerResult(timestamp=timestamp_start,
                                    files=files)
+            self.__consecutive_errors = 0
         except ScannerError as e:
             # Non-recoverable errors continue up as a fatal error
             if not e.recoverable:
                 raise
+            self.__consecutive_errors += 1
+            if self.__consecutive_errors <= 3 or self.__consecutive_errors % 10 == 0:
+                self.logger.warning(
+                    "Scan error #{} (consecutive={}): {}".format(
+                        self.__scan_count, self.__consecutive_errors, str(e)
+                    ))
             result = ScannerResult(timestamp=timestamp_start,
                                    files=[],
                                    failed=True,
                                    error_message=str(e))
-        self.__queue.put(result)
+        try:
+            self.__queue.put(result, block=False)
+        except Exception as e:
+            self.logger.error("Failed to put scan result on queue: {}".format(str(e)))
         delta_in_s = (datetime.now() - timestamp_start).total_seconds()
         delta_in_ms = int(delta_in_s * 1000)
         if self.verbose:

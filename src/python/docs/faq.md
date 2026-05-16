@@ -2,9 +2,9 @@
 
 ## General
 
-### How do I restart SeedSync Debian Service?
+### How do I restart RapidCopy Debian Service?
 
-SeedSync can be restarted from the web GUI. If that fails, you can restart the service from command-line:
+RapidCopy can be restarted from the web GUI. If that fails, you can restart the service from command-line:
 
     :::bash
     sudo service seedsync restart
@@ -29,7 +29,7 @@ directory. You can add as many mappings as needed. See the [Usage](usage.md#path
 
 ### How do I verify my downloads are not corrupted?
 
-Enable **Download Validation** in the Settings page. SeedSync will compute SHA256 checksums on both
+Enable **Download Validation** in the Settings page. RapidCopy will compute SHA256 checksums on both
 the remote and local files after each download and automatically re-download any files that don't match.
 For large files, you can enable chunked validation to only re-download the corrupted portions.
 See the [Usage](usage.md#download-validation) page for details.
@@ -37,14 +37,14 @@ See the [Usage](usage.md#download-validation) page for details.
 
 ## Security
 
-### Does SeedSync collect any data?
+### Does RapidCopy collect any data?
 
-No, SeedSync does not collect any data.
+No, RapidCopy does not collect any data.
 
 
 ## Troubleshooting
 
-### SeedSync can't seem to connect to my remote server?
+### RapidCopy can't seem to connect to my remote server?
 
 Make sure your remote server address was entered correctly.
 If using password-based login, make sure the password is correct.
@@ -63,4 +63,4 @@ For Seedsync docker, try adding the following options to the `docker run` comman
 -e LANG=en_US.UTF-8
 ```
 
-See [this issue](https://github.com/ipsingh06/seedsync/issues/66) for more details.
+See [this issue](https://github.com/rccypher/RapidCopy/issues/66) for more details.

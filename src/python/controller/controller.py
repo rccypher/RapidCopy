@@ -9,6 +9,7 @@ import copy
 import os
 import shutil
 import time
+from datetime import datetime
 
 # my libs
 from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
@@ -209,6 +210,15 @@ class Controller:
         self.__downloads_paused_disk_space = False
         self.__last_disk_space_check_time = 0
 
+        # Health monitoring for long-running stability
+        self.__process_count = 0
+        self.__last_health_log_time = 0
+        self.__last_remote_scan_result_time = [None] * len(self.__path_mappings)
+        self.__last_local_scan_result_time = [None] * len(self.__path_mappings)
+        self.__last_model_update_time = None
+        self.__consecutive_empty_remote_scans = [0] * len(self.__path_mappings)
+        self.__consecutive_empty_local_scans = [0] * len(self.__path_mappings)
+
         self.__started = False
 
     def start(self):
@@ -228,6 +238,9 @@ class Controller:
         self.__mp_logger.start()
         self.__started = True
 
+    _HEALTH_LOG_INTERVAL_S = 300
+    _STALE_SCAN_THRESHOLD_S = 600
+
     def process(self):
         """
         Advance the controller state
@@ -236,12 +249,14 @@ class Controller:
         """
         if not self.__started:
             raise ControllerError("Cannot process, controller is not started")
+        self.__process_count += 1
         self.__propagate_exceptions()
         self.__check_disk_space()
         self.__cleanup_commands()
         self.__process_commands()
         self.__check_validation_results()
         self.__update_model()
+        self.__log_health_status()
 
     def exit(self):
         self.logger.debug("Exiting controller")
@@ -350,13 +365,43 @@ class Controller:
             latest_active_scan = self.__active_scan_processes[idx].pop_latest_result()
 
             if latest_remote_scan is not None:
+                self.__last_remote_scan_result_time[idx] = datetime.now()
+                if latest_remote_scan.failed:
+                    self.__consecutive_empty_remote_scans[idx] += 1
+                    self.logger.warning(
+                        "Remote scan {} failed (consecutive={}): {}".format(
+                            idx, self.__consecutive_empty_remote_scans[idx],
+                            latest_remote_scan.error_message
+                        ))
+                else:
+                    if self.__consecutive_empty_remote_scans[idx] > 0:
+                        self.logger.info(
+                            "Remote scan {} recovered after {} failures, found {} files".format(
+                                idx, self.__consecutive_empty_remote_scans[idx],
+                                len(latest_remote_scan.files)
+                            ))
+                    self.__consecutive_empty_remote_scans[idx] = 0
                 self.__model_builder.set_remote_files(latest_remote_scan.files, mapping_index=idx)
-                # Update controller status from first mapping's remote scan
                 if idx == 0:
                     self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
                     self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
                     self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
             if latest_local_scan is not None:
+                self.__last_local_scan_result_time[idx] = datetime.now()
+                if latest_local_scan.failed:
+                    self.__consecutive_empty_local_scans[idx] += 1
+                    self.logger.warning(
+                        "Local scan {} failed (consecutive={}): {}".format(
+                            idx, self.__consecutive_empty_local_scans[idx],
+                            latest_local_scan.error_message
+                        ))
+                else:
+                    if self.__consecutive_empty_local_scans[idx] > 0:
+                        self.logger.info(
+                            "Local scan {} recovered after {} failures".format(
+                                idx, self.__consecutive_empty_local_scans[idx]
+                            ))
+                    self.__consecutive_empty_local_scans[idx] = 0
                 self.__model_builder.set_local_files(latest_local_scan.files, mapping_index=idx)
                 if idx == 0:
                     self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
@@ -411,6 +456,7 @@ class Controller:
 
         # Build the new model, if needed
         if self.__model_builder.has_changes():
+            self.__last_model_update_time = datetime.now()
             new_model = self.__model_builder.build_model()
 
             # Lock the model
@@ -620,6 +666,82 @@ class Controller:
             self.logger.info("Re-queued {} for download after validation failure".format(file_name))
         except LftpError as e:
             self.logger.error("Failed to re-queue {}: {}".format(file_name, str(e)))
+
+    def __log_health_status(self):
+        """Periodically log health diagnostics to help debug long-running stalls"""
+        now = time.monotonic()
+        if now - self.__last_health_log_time < Controller._HEALTH_LOG_INTERVAL_S:
+            return
+        self.__last_health_log_time = now
+
+        now_dt = datetime.now()
+        parts = ["Health check (loop #{}):".format(self.__process_count)]
+
+        for idx in range(len(self.__path_mappings)):
+            remote_alive = self.__remote_scan_processes[idx].is_alive()
+            local_alive = self.__local_scan_processes[idx].is_alive()
+            active_alive = self.__active_scan_processes[idx].is_alive()
+
+            remote_age = "never"
+            if self.__last_remote_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_remote_scan_result_time[idx]).total_seconds()
+                remote_age = "{:.0f}s ago".format(delta)
+            local_age = "never"
+            if self.__last_local_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_local_scan_result_time[idx]).total_seconds()
+                local_age = "{:.0f}s ago".format(delta)
+
+            parts.append(
+                "  Mapping {}: remote_proc={} local_proc={} active_proc={} "
+                "last_remote_result={} last_local_result={} "
+                "empty_remote={} empty_local={}".format(
+                    idx,
+                    "alive" if remote_alive else "DEAD",
+                    "alive" if local_alive else "DEAD",
+                    "alive" if active_alive else "DEAD",
+                    remote_age, local_age,
+                    self.__consecutive_empty_remote_scans[idx],
+                    self.__consecutive_empty_local_scans[idx]
+                )
+            )
+
+            # Warn if a scanner process has died
+            if not remote_alive:
+                self.logger.error("Remote scanner process for mapping {} is DEAD".format(idx))
+            if not local_alive:
+                self.logger.error("Local scanner process for mapping {} is DEAD".format(idx))
+            if not active_alive:
+                self.logger.error("Active scanner process for mapping {} is DEAD".format(idx))
+
+            # Warn if no scan results received for too long
+            if self.__last_remote_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_remote_scan_result_time[idx]).total_seconds()
+                if delta > Controller._STALE_SCAN_THRESHOLD_S:
+                    self.logger.warning(
+                        "No remote scan results for mapping {} in {:.0f}s "
+                        "(proc alive={})".format(idx, delta, remote_alive)
+                    )
+
+        lftp_alive = True
+        try:
+            self.__lftp.status()
+        except LftpError:
+            lftp_alive = False
+        parts.append("  LFTP: {} | model_files={} | downloading={} | extracting={} | validating={}".format(
+            "ok" if lftp_alive else "ERROR",
+            len(self.__model.get_file_names()),
+            len(self.__active_downloading_file_names),
+            len(self.__active_extracting_file_names),
+            len(self.__active_validating_file_names)
+        ))
+
+        model_age = "never"
+        if self.__last_model_update_time is not None:
+            delta = (now_dt - self.__last_model_update_time).total_seconds()
+            model_age = "{:.0f}s ago".format(delta)
+        parts.append("  Last model update: {}".format(model_age))
+
+        self.logger.info(" | ".join(parts))
 
     _DISK_SPACE_CHECK_INTERVAL_S = 30
 

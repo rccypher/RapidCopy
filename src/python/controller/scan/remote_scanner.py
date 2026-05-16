@@ -48,6 +48,8 @@ class RemoteScanner(IScanner):
                            user=remote_username,
                            password=remote_password)
         self.__first_run = True
+        self.__scan_count = 0
+        self.__consecutive_ssh_errors = 0
 
         # Append scan script name to remote path if not there already
         script_name = os.path.basename(self.__local_path_to_scan_script)
@@ -64,19 +66,23 @@ class RemoteScanner(IScanner):
         if self.__first_run:
             self._install_scanfs()
 
+        self.__scan_count += 1
+
         try:
             out = self.__ssh.shell("'{}' '{}'".format(
                 self.__remote_path_to_scan_script,
                 self.__remote_path_to_scan)
             )
         except SshcpError as e:
-            self.logger.warning("Caught an SshcpError: {}".format(str(e)))
+            self.__consecutive_ssh_errors += 1
+            self.logger.warning(
+                "SSH error scanning {} (scan #{}, consecutive_errors={}): {}".format(
+                    self.__remote_path_to_scan, self.__scan_count,
+                    self.__consecutive_ssh_errors, str(e)
+                ))
             recoverable = True
-            # Any scanner errors are fatal
             if "SystemScannerError" in str(e):
                 recoverable = False
-            # First time errors are fatal
-            # User should be prompted to correct these
             if self.__first_run:
                 recoverable = False
             raise ScannerError(
@@ -87,12 +93,19 @@ class RemoteScanner(IScanner):
         try:
             remote_files = _ScanfsUnpickler(io.BytesIO(out)).load()
         except pickle.UnpicklingError as err:
-            self.logger.error("Unpickling error: {}\n{}".format(str(err), out))
+            self.logger.error("Unpickling error (scan #{}, output_len={}): {}\n{}".format(
+                self.__scan_count, len(out) if out else 0, str(err), out[:200] if out else b""
+            ))
             raise ScannerError(
                 Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"),
                 recoverable=False
             )
 
+        if self.__consecutive_ssh_errors > 0:
+            self.logger.info("Remote scan recovered after {} SSH errors, found {} files".format(
+                self.__consecutive_ssh_errors, len(remote_files)
+            ))
+        self.__consecutive_ssh_errors = 0
         self.__first_run = False
         return remote_files
 

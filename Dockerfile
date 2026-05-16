@@ -1,4 +1,4 @@
-# All-in-one SeedSync Dockerfile
+# All-in-one RapidCopy Dockerfile
 # Builds Angular frontend, scanfs script, and Python backend in one image
 # No staging registry required
 

@@ -31,8 +31,8 @@ https://docs.docker.com/compose/install/
 
 ## Fetch code
 ```bash
-git clone git@gitlab.com:ipsingh06/seedsync.git
-cd seedsync
+git clone https://github.com/rccypher/RapidCopy.git
+cd RapidCopy
 ```
 
 ## Setup Poetry project
@@ -162,7 +162,7 @@ git push github gh-pages
 # Setup dev environment
 
 ## PyCharm
-1. Set project root to top-level `seedsync` directory
+1. Set project root to top-level project directory
 
 2. Switch interpreter to virtualenv
 

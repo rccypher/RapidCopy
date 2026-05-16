@@ -1,6 +1,6 @@
 # Updating an Existing Docker Container to the New Build
 
-This guide describes how to update an existing SeedSync Docker container
+This guide describes how to update an existing RapidCopy Docker container
 to include new features: download validation and multi-path mapping support.
 
 ## Overview of Changes
@@ -25,8 +25,8 @@ The new build adds:
 ## Prerequisites
 
 - Docker installed and running
-- Access to the SeedSync Docker image (either built locally or from registry)
-- Existing SeedSync container running (for migration)
+- Access to the RapidCopy Docker image (either built locally or from registry)
+- Existing RapidCopy container running (for migration)
 
 ## Method 1: Pull and Replace (Docker Hub)
 
@@ -34,22 +34,22 @@ If the new version is published to Docker Hub:
 
 ```bash
 # 1. Pull the latest image
-docker pull leanid/seedsync:latest
+docker pull rccypher/rapidcopy:latest
 
 # 2. Stop the current container
-docker stop seedsync
+docker stop rapidcopy
 
 # 3. Remove the old container (data is preserved in volumes)
-docker rm seedsync
+docker rm rapidcopy
 
 # 4. Start a new container with the same volume mounts
 docker run -d \
-  --name seedsync \
+  --name rapidcopy \
   --restart unless-stopped \
   -p 8800:8800 \
   -v /path/to/config:/config \
   -v /path/to/downloads:/downloads \
-  leanid/seedsync:latest
+  rccypher/rapidcopy:latest
 ```
 
 ## Method 2: Build from Source
@@ -58,8 +58,8 @@ If building from the feature branch:
 
 ```bash
 # 1. Clone the repository and checkout the feature branch
-git clone https://github.com/rccypher/seedsync.git
-cd seedsync
+git clone https://github.com/rccypher/rapidcopy.git
+cd rapidcopy
 git checkout claude/add-download-validation-2RuYe
 
 # 2. Build the Docker image
@@ -67,12 +67,12 @@ git checkout claude/add-download-validation-2RuYe
 make build-docker-image
 
 # 3. Stop and remove the existing container
-docker stop seedsync
-docker rm seedsync
+docker stop rapidcopy
+docker rm rapidcopy
 
 # 4. Start a new container using the locally built image
 docker run -d \
-  --name seedsync \
+  --name rapidcopy \
   --restart unless-stopped \
   -p 8800:8800 \
   -v /path/to/config:/config \
@@ -86,7 +86,7 @@ If you only need to test the Python backend changes:
 
 ```bash
 # Build the Docker image stages
-cd seedsync
+cd rapidcopy
 
 # Build the Python runtime image
 docker build \
@@ -103,9 +103,9 @@ If using Docker Compose, update your `docker-compose.yml`:
 ```yaml
 version: "3.4"
 services:
-  seedsync:
-    image: leanid/seedsync:latest  # or your locally built tag
-    container_name: seedsync
+  rapidcopy:
+    image: rccypher/rapidcopy:latest  # or your locally built tag
+    container_name: rapidcopy
     restart: unless-stopped
     ports:
       - "8800:8800"
@@ -131,7 +131,7 @@ configuration changes are required.
 
 Existing configurations are automatically migrated. If your config file has
 the old `remote_path` and `local_path` settings under `[Lftp]` but no
-`[PathMappings]` section, SeedSync will automatically create a single path
+`[PathMappings]` section, RapidCopy will automatically create a single path
 mapping from those values. No action is required.
 
 After migration, you can add additional path mappings via the web UI or
@@ -147,12 +147,12 @@ directory to its corresponding container path:
 
 ```bash
 docker run -d \
-  --name seedsync \
+  --name rapidcopy \
   -p 8800:8800 \
   -v /path/to/config:/config \
   -v /media/files:/downloads \
   -v /media/other:/downloads/media \
-  leanid/seedsync:latest
+  rccypher/rapidcopy:latest
 ```
 
 ### Validation Default Values
@@ -167,7 +167,7 @@ docker run -d \
 ### Enabling Validation After Update
 
 **Via the Web UI:**
-1. Open the SeedSync web interface (default: `http://localhost:8800`)
+1. Open the RapidCopy web interface (default: `http://localhost:8800`)
 2. Navigate to **Settings**
 3. Scroll to the **Download Validation** section
 4. Check **Enable Download Validation**
@@ -190,7 +190,7 @@ validation_chunk_size_mb=4
 
 Then restart the container:
 ```bash
-docker restart seedsync
+docker restart rapidcopy
 ```
 
 ## Verifying the Update
@@ -198,7 +198,7 @@ docker restart seedsync
 ### Check Container Version
 
 ```bash
-docker logs seedsync 2>&1 | head -20
+docker logs rapidcopy 2>&1 | head -20
 ```
 
 ### Verify Validation is Working
@@ -210,7 +210,7 @@ docker logs seedsync 2>&1 | head -20
 4. Check container logs for validation messages:
 
 ```bash
-docker logs -f seedsync 2>&1 | grep -i valid
+docker logs -f rapidcopy 2>&1 | grep -i valid
 ```
 
 Expected log entries:
@@ -230,7 +230,7 @@ Chunked validation PASSED for filename.ext
 To run the validation tests inside a Docker test container:
 
 ```bash
-cd seedsync
+cd rapidcopy
 
 # Run all Python tests (includes validation tests)
 make run-tests-python
@@ -254,20 +254,20 @@ If the update causes issues, roll back to the previous version:
 
 ```bash
 # List available image versions
-docker images leanid/seedsync
+docker images rccypher/rapidcopy
 
 # Stop and remove the new container
-docker stop seedsync
-docker rm seedsync
+docker stop rapidcopy
+docker rm rapidcopy
 
 # Start with the previous version tag
 docker run -d \
-  --name seedsync \
+  --name rapidcopy \
   --restart unless-stopped \
   -p 8800:8800 \
   -v /path/to/config:/config \
   -v /path/to/downloads:/downloads \
-  leanid/seedsync:<previous-version-tag>
+  rccypher/rapidcopy:<previous-version-tag>
 ```
 
 The new config settings (`enable_download_validation`, etc.) in `settings.cfg`
@@ -279,7 +279,7 @@ config file do not cause errors.
 **Validation always shows ERROR:**
 - Check that the remote server is accessible via SSH from inside the container
 - Verify the remote path is correct in Settings > Path Mappings
-- Check container logs: `docker logs seedsync 2>&1 | grep -i "validation error"`
+- Check container logs: `docker logs rapidcopy 2>&1 | grep -i "validation error"`
 
 **High bandwidth usage with chunked validation:**
 - Increase the chunk size (e.g., 8MB or 16MB) to reduce per-chunk overhead
@@ -288,7 +288,7 @@ config file do not cause errors.
 
 **Files not appearing from a path mapping:**
 - Verify both the remote and local paths are correct and accessible
-- Check container logs for scanner errors: `docker logs seedsync 2>&1 | grep -i "scan"`
+- Check container logs for scanner errors: `docker logs rapidcopy 2>&1 | grep -i "scan"`
 - Make sure the local path exists inside the container (mount it with `-v`)
 
 **Duplicate filenames across path mappings:**
@@ -297,6 +297,6 @@ config file do not cause errors.
 - Use distinct directory structures to avoid collisions
 
 **Container won't start after update:**
-- Check for config file syntax errors: `docker logs seedsync`
+- Check for config file syntax errors: `docker logs rapidcopy`
 - Try starting with a fresh config: temporarily rename `/config/settings.cfg`
   and let the application regenerate defaults

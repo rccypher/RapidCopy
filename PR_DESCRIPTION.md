@@ -6,7 +6,7 @@
 
 ## Summary
 
-This PR implements four major features and comprehensive infrastructure improvements for SeedSync:
+This PR implements four major features and comprehensive infrastructure improvements for RapidCopy:
 
 - **Download Validation** - SHA256 integrity verification of downloaded files
 - **Multi-Path Mapping** - Support for multiple remote/local directory mappings
