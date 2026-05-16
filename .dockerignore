@@ -9,8 +9,9 @@ src/angular/dist
 **/.venv
 **/venv
 
-# Build artifacts
-build/
+# Build artifacts (keep build/html for pre-built Angular frontend)
+build/*
+!build/html
 
 # Git
 .git
