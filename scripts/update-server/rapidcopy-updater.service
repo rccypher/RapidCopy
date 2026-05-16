@@ -1,0 +1,37 @@
+[Unit]
+Description=RapidCopy Update Server
+Documentation=https://github.com/rccypher/RapidCopy
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/RapidCopy/scripts/update-server
+
+# Environment configuration
+# UPDATE_TOKEN should be set in /etc/rapidcopy-updater.env for security
+EnvironmentFile=-/etc/rapidcopy-updater.env
+Environment=RAPIDCOPY_PATH=/opt/RapidCopy
+Environment=UPDATE_SERVER_PORT=8801
+
+ExecStart=/usr/bin/python3 /opt/RapidCopy/scripts/update-server/update_server.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+ReadWritePaths=/opt/RapidCopy
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rapidcopy-updater
+
+[Install]
+WantedBy=multi-user.target

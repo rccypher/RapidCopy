@@ -1,0 +1,125 @@
+<div class="path-pairs-container">
+    <div class="header">
+        <h4>Path Pairs</h4>
+        <p class="description">Configure multiple remote/local directory pairs for synchronization.</p>
+        <button class="btn btn-primary btn-sm add-btn" 
+                (click)="startCreate()" 
+                [disabled]="isCreating || isEditing">
+            <span>+ Add Path Pair</span>
+        </button>
+    </div>
+
+    <!-- Create/Edit Form -->
+    <div class="form-card" *ngIf="isCreating || isEditing">
+        <h5>{{ isCreating ? 'New Path Pair' : 'Edit Path Pair' }}</h5>
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" 
+                   id="name" 
+                   class="form-control" 
+                   [(ngModel)]="formName" 
+                   placeholder="e.g., Movies, TV Shows">
+            <small class="form-text text-muted">A friendly name for this path pair (optional)</small>
+        </div>
+        <div class="form-group">
+            <label for="remotePath">Remote Path <span class="required">*</span></label>
+            <input type="text" 
+                   id="remotePath" 
+                   class="form-control" 
+                   [(ngModel)]="formRemotePath" 
+                   placeholder="/seedbox/downloads">
+        </div>
+        <div class="form-group">
+            <label for="localPath">Local Path <span class="required">*</span></label>
+            <input type="text" 
+                   id="localPath" 
+                   class="form-control" 
+                   [(ngModel)]="formLocalPath" 
+                   placeholder="/downloads">
+        </div>
+        <div class="form-group form-check">
+            <input type="checkbox" 
+                   id="enabled" 
+                   class="form-check-input" 
+                   [(ngModel)]="formEnabled">
+            <label for="enabled" class="form-check-label">Enabled</label>
+        </div>
+        <div class="form-group form-check">
+            <input type="checkbox" 
+                   id="autoQueue" 
+                   class="form-check-input" 
+                   [(ngModel)]="formAutoQueue">
+            <label for="autoQueue" class="form-check-label">Auto-queue new files</label>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-secondary btn-sm" (click)="cancel()">Cancel</button>
+            <button class="btn btn-primary btn-sm" (click)="save()">Save</button>
+        </div>
+    </div>
+
+    <!-- Path Pairs List -->
+    <div class="path-pairs-list" *ngIf="pathPairs.length > 0; else emptyState">
+        <div class="path-pair-item" 
+             *ngFor="let pair of pathPairs; let i = index"
+             [class.disabled]="!pair.enabled">
+            <div class="pair-info">
+                <div class="pair-header">
+                    <span class="pair-name">{{ pair.name }}</span>
+                    <span class="pair-status" [class.enabled]="pair.enabled" [class.disabled]="!pair.enabled">
+                        {{ pair.enabled ? 'Active' : 'Inactive' }}
+                    </span>
+                    <span class="auto-queue-badge" *ngIf="pair.auto_queue">Auto-queue</span>
+                </div>
+                <div class="pair-paths">
+                    <div class="path-row">
+                        <span class="path-label">Remote:</span>
+                        <span class="path-value">{{ pair.remote_path }}</span>
+                    </div>
+                    <div class="path-row">
+                        <span class="path-label">Local:</span>
+                        <span class="path-value">{{ pair.local_path }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pair-actions">
+                <div class="reorder-buttons">
+                    <button class="btn btn-sm btn-icon" 
+                            (click)="moveUp(i)" 
+                            [disabled]="i === 0"
+                            title="Move up">
+                        <span class="arrow">&#9650;</span>
+                    </button>
+                    <button class="btn btn-sm btn-icon" 
+                            (click)="moveDown(i)" 
+                            [disabled]="i === pathPairs.length - 1"
+                            title="Move down">
+                        <span class="arrow">&#9660;</span>
+                    </button>
+                </div>
+                <button class="btn btn-sm btn-toggle"
+                        (click)="toggleEnabled(pair)"
+                        [title]="pair.enabled ? 'Disable' : 'Enable'">
+                    {{ pair.enabled ? 'Disable' : 'Enable' }}
+                </button>
+                <button class="btn btn-sm btn-edit" 
+                        (click)="startEdit(pair)"
+                        [disabled]="isCreating || isEditing">
+                    Edit
+                </button>
+                <button class="btn btn-sm btn-danger" 
+                        (click)="delete(pair)"
+                        [disabled]="isCreating || isEditing">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <ng-template #emptyState>
+        <div class="empty-state" *ngIf="!isCreating">
+            <p>No path pairs configured yet.</p>
+            <p class="hint">Click "Add Path Pair" to create your first remote/local directory mapping.</p>
+        </div>
+    </ng-template>
+</div>

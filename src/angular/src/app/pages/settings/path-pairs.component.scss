@@ -1,0 +1,320 @@
+@import '../../common/common';
+
+// Component uses CSS custom properties for theming support
+// Fallback values provided for backwards compatibility
+
+.path-pairs-container {
+    padding: 15px;
+    width: 100%;
+
+    .header {
+        margin-bottom: 20px;
+
+        h4 {
+            margin-bottom: 5px;
+            color: var(--color-text-primary);
+        }
+
+        .description {
+            font-size: 0.9em;
+            color: var(--color-text-muted);
+            margin-bottom: 15px;
+        }
+
+        .add-btn {
+            @extend %button;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+    }
+
+    .form-card {
+        background-color: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+
+        h5 {
+            margin-bottom: 15px;
+            color: var(--color-text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: var(--color-text-primary);
+
+                .required {
+                    color: var(--color-danger);
+                }
+            }
+
+            .form-control {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid var(--color-border);
+                border-radius: 4px;
+                background-color: var(--color-bg-input);
+                color: var(--color-text-primary);
+
+                &:focus {
+                    outline: none;
+                    border-color: var(--color-accent-primary);
+                }
+            }
+
+            .form-text {
+                font-size: 0.85em;
+                margin-top: 4px;
+            }
+
+            &.form-check {
+                display: flex;
+                align-items: center;
+
+                .form-check-input {
+                    width: auto;
+                    margin-right: 8px;
+                }
+
+                .form-check-label {
+                    margin-bottom: 0;
+                    font-weight: normal;
+                }
+            }
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+
+            .btn {
+                padding: 8px 16px;
+                cursor: pointer;
+            }
+
+            .btn-secondary {
+                background-color: var(--color-bg-tertiary);
+                border: 1px solid var(--color-border);
+                color: var(--color-text-primary);
+                border-radius: 4px;
+
+                &:hover {
+                    background-color: var(--color-bg-header);
+                }
+            }
+
+            .btn-primary {
+                @extend %button;
+            }
+        }
+    }
+
+    .path-pairs-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .path-pair-item {
+        background-color: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 15px;
+
+        &.disabled {
+            opacity: 0.6;
+        }
+
+        .pair-info {
+            flex: 1;
+            min-width: 0;
+
+            .pair-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+
+                .pair-name {
+                    font-weight: 600;
+                    font-size: 1.1em;
+                    color: var(--color-text-primary);
+                }
+
+                .pair-status {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    text-transform: uppercase;
+
+                    &.enabled {
+                        background-color: var(--color-success);
+                        color: var(--color-text-inverse);
+                    }
+
+                    &.disabled {
+                        background-color: var(--color-bg-tertiary);
+                        color: var(--color-text-muted);
+                    }
+                }
+
+                .auto-queue-badge {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    background-color: var(--color-info);
+                    color: var(--color-text-inverse);
+                }
+            }
+
+            .pair-paths {
+                .path-row {
+                    display: flex;
+                    font-size: 0.9em;
+                    margin-bottom: 4px;
+
+                    .path-label {
+                        width: 60px;
+                        color: var(--color-text-muted);
+                        flex-shrink: 0;
+                    }
+
+                    .path-value {
+                        color: var(--color-text-primary);
+                        word-break: break-all;
+                        font-family: monospace;
+                    }
+                }
+            }
+        }
+
+        .pair-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+
+            .reorder-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+
+                .btn-icon {
+                    padding: 2px 8px;
+                    line-height: 1;
+                    background-color: var(--color-bg-tertiary);
+                    border: 1px solid var(--color-border);
+                    color: var(--color-text-primary);
+                    border-radius: 3px;
+                    cursor: pointer;
+
+                    .arrow {
+                        font-size: 0.8em;
+                    }
+
+                    &:hover:not(:disabled) {
+                        background-color: var(--color-bg-header);
+                    }
+
+                    &:disabled {
+                        opacity: 0.3;
+                        cursor: not-allowed;
+                    }
+                }
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.85em;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            .btn-toggle {
+                background-color: var(--color-bg-tertiary);
+                border: 1px solid var(--color-border);
+                color: var(--color-text-primary);
+
+                &:hover {
+                    background-color: var(--color-bg-header);
+                }
+            }
+
+            .btn-edit {
+                background-color: var(--color-accent-primary);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    background-color: var(--color-accent-primary-dark);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .btn-danger {
+                background-color: var(--color-danger);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    background-color: var(--color-danger-dark);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        background-color: var(--color-bg-card);
+        border: 1px dashed var(--color-border);
+        border-radius: 4px;
+
+        p {
+            margin-bottom: 10px;
+            color: var(--color-text-muted);
+        }
+
+        .hint {
+            font-size: 0.9em;
+        }
+    }
+}
+
+/* Responsive adjustments */
+@media only screen and (max-width: $small-max-width) {
+    .path-pairs-container {
+        .path-pair-item {
+            flex-direction: column;
+
+            .pair-actions {
+                width: 100%;
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    }
+}

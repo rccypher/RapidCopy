@@ -1,0 +1,381 @@
+@import '../../common/common';
+
+// Component uses CSS custom properties for theming support
+// Fallback values provided for backwards compatibility
+
+.network-mounts-container {
+    padding: 15px;
+    width: 100%;
+
+    .header {
+        margin-bottom: 20px;
+
+        h4 {
+            margin-bottom: 5px;
+            color: var(--color-text-primary);
+        }
+
+        .description {
+            font-size: 0.9em;
+            color: var(--color-text-muted);
+            margin-bottom: 15px;
+        }
+
+        .add-btn {
+            @extend %button;
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+    }
+
+    .form-card {
+        background-color: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 20px;
+        margin-bottom: 20px;
+
+        h5 {
+            margin-bottom: 15px;
+            color: var(--color-text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: 500;
+                color: var(--color-text-primary);
+
+                .required {
+                    color: var(--color-danger);
+                }
+            }
+
+            .form-control {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid var(--color-border);
+                border-radius: 4px;
+                background-color: var(--color-bg-input);
+                color: var(--color-text-primary);
+
+                &:focus {
+                    outline: none;
+                    border-color: var(--color-accent-primary);
+                }
+            }
+
+            select.form-control {
+                cursor: pointer;
+            }
+
+            .form-text {
+                font-size: 0.85em;
+                margin-top: 4px;
+            }
+
+            &.form-check {
+                display: flex;
+                align-items: center;
+
+                .form-check-input {
+                    width: auto;
+                    margin-right: 8px;
+                }
+
+                .form-check-label {
+                    margin-bottom: 0;
+                    font-weight: normal;
+                }
+            }
+        }
+
+        .cifs-fields {
+            border-left: 3px solid var(--color-accent-primary);
+            padding-left: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+
+            .btn {
+                padding: 8px 16px;
+                cursor: pointer;
+            }
+
+            .btn-secondary {
+                background-color: var(--color-bg-tertiary);
+                border: 1px solid var(--color-border);
+                color: var(--color-text-primary);
+                border-radius: 4px;
+
+                &:hover {
+                    background-color: var(--color-bg-header);
+                }
+            }
+
+            .btn-primary {
+                @extend %button;
+            }
+        }
+    }
+
+    .mounts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .mount-item {
+        background-color: var(--color-bg-card);
+        border: 1px solid var(--color-border);
+        border-radius: 4px;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 15px;
+
+        &.disabled {
+            opacity: 0.6;
+        }
+
+        .mount-info {
+            flex: 1;
+            min-width: 0;
+
+            .mount-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+
+                .mount-name {
+                    font-weight: 600;
+                    font-size: 1.1em;
+                    color: var(--color-text-primary);
+                }
+
+                .mount-type-badge {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    background-color: var(--color-info);
+                    color: var(--color-text-inverse);
+                    text-transform: uppercase;
+                }
+
+                .mount-status {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    text-transform: uppercase;
+
+                    &.status-mounted {
+                        background-color: var(--color-success);
+                        color: var(--color-text-inverse);
+                    }
+
+                    &.status-unmounted {
+                        background-color: var(--color-bg-tertiary);
+                        color: var(--color-text-muted);
+                    }
+
+                    &.status-error {
+                        background-color: var(--color-danger);
+                        color: var(--color-text-inverse);
+                    }
+
+                    &.status-unknown {
+                        background-color: var(--color-warning);
+                        color: var(--color-text-inverse);
+                    }
+                }
+
+                .enabled-badge {
+                    font-size: 0.75em;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    background-color: var(--color-bg-tertiary);
+                    color: var(--color-text-muted);
+                }
+            }
+
+            .mount-details {
+                .detail-row {
+                    display: flex;
+                    font-size: 0.9em;
+                    margin-bottom: 4px;
+
+                    .detail-label {
+                        width: 100px;
+                        color: var(--color-text-muted);
+                        flex-shrink: 0;
+                    }
+
+                    .detail-value {
+                        color: var(--color-text-primary);
+                        word-break: break-all;
+                        font-family: monospace;
+                    }
+
+                    &.error-message {
+                        .detail-value {
+                            color: var(--color-danger);
+                        }
+                    }
+                }
+            }
+        }
+
+        .mount-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+
+            .mount-controls {
+                display: flex;
+                gap: 4px;
+            }
+
+            .btn {
+                padding: 6px 12px;
+                font-size: 0.85em;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            .btn-success {
+                background-color: var(--color-success);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    filter: brightness(1.1);
+                }
+            }
+
+            .btn-warning {
+                background-color: var(--color-warning);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    filter: brightness(1.1);
+                }
+            }
+
+            .btn-outline-danger {
+                background-color: transparent;
+                border: 1px solid var(--color-danger);
+                color: var(--color-danger);
+
+                &:hover:not(:disabled) {
+                    background-color: var(--color-danger);
+                    color: var(--color-text-inverse);
+                }
+            }
+
+            .btn-test {
+                background-color: var(--color-info);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    filter: brightness(1.1);
+                }
+            }
+
+            .btn-toggle {
+                background-color: var(--color-bg-tertiary);
+                border: 1px solid var(--color-border);
+                color: var(--color-text-primary);
+
+                &:hover {
+                    background-color: var(--color-bg-header);
+                }
+            }
+
+            .btn-edit {
+                background-color: var(--color-accent-primary);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    background-color: var(--color-accent-primary-dark);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .btn-danger {
+                background-color: var(--color-danger);
+                border: none;
+                color: var(--color-text-inverse);
+
+                &:hover:not(:disabled) {
+                    background-color: var(--color-danger-dark);
+                }
+
+                &:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+            }
+
+            .btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        background-color: var(--color-bg-card);
+        border: 1px dashed var(--color-border);
+        border-radius: 4px;
+
+        p {
+            margin-bottom: 10px;
+            color: var(--color-text-muted);
+        }
+
+        .hint {
+            font-size: 0.9em;
+
+            &.small {
+                font-size: 0.8em;
+            }
+        }
+    }
+}
+
+/* Responsive adjustments */
+@media only screen and (max-width: $small-max-width) {
+    .network-mounts-container {
+        .mount-item {
+            flex-direction: column;
+
+            .mount-actions {
+                width: 100%;
+                justify-content: flex-start;
+                margin-top: 10px;
+            }
+        }
+    }
+}
