@@ -18,10 +18,9 @@
 
     <hr>
 
-    <a class="button theme-toggle"
+    <a class="theme-toggle"
        (click)="onToggleTheme()">
-        <img *ngIf="isDarkMode" src="assets/icons/sun.svg" />
-        <img *ngIf="!isDarkMode" src="assets/icons/moon.svg" />
-        <span class="text">{{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}</span>
+        <img [src]="isDarkTheme ? 'assets/icons/sun.svg' : 'assets/icons/moon.svg'" />
+        <span class="text">{{isDarkTheme ? 'Light Mode' : 'Dark Mode'}}</span>
     </a>
 </div>

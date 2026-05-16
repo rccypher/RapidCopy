@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
-import {Observable} from "rxjs";
-import {BehaviorSubject} from "rxjs";
+import {Observable} from "rxjs/Observable";
+import {BehaviorSubject} from "rxjs/Rx";
 
 import * as Immutable from "immutable";
 
@@ -105,32 +105,6 @@ export class ModelFileService extends BaseStreamService {
         // Double-encode the value
         const fileNameEncoded = encodeURIComponent(encodeURIComponent(file.name));
         const url: string = "/server/command/delete_remote/" + fileNameEncoded;
-        return this._restService.sendRequest(url);
-    }
-
-    /**
-     * Validate a file
-     * @param {ModelFile} file
-     * @returns {Observable<WebReaction>}
-     */
-    public validate(file: ModelFile): Observable<WebReaction> {
-        this._logger.debug("Validate model file: " + file.name);
-        // Double-encode the value
-        const fileNameEncoded = encodeURIComponent(encodeURIComponent(file.name));
-        const url: string = "/server/command/validate/" + fileNameEncoded;
-        return this._restService.sendRequest(url);
-    }
-
-    /**
-     * Prioritize a file (move to front of download queue)
-     * @param {ModelFile} file
-     * @returns {Observable<WebReaction>}
-     */
-    public prioritize(file: ModelFile): Observable<WebReaction> {
-        this._logger.debug(`Prioritize model file: ${file.name}`);
-        // Double-encode the value
-        const fileNameEncoded = encodeURIComponent(encodeURIComponent(file.name));
-        const url: string = `/server/command/prioritize/${fileNameEncoded}`;
         return this._restService.sendRequest(url);
     }
 

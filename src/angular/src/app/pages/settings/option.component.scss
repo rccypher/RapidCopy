@@ -7,9 +7,9 @@
 }
 
 .error {
-    background-color: var(--color-danger);
-    color: var(--color-text-inverse);
-    border: 1px solid var(--color-danger-dark);
+    background-color: var(--danger-bg);
+    color: var(--danger-text);
+    border: 1px solid var(--danger-text);
 }
 
 label {
@@ -21,45 +21,33 @@ label {
 }
 
 span.description {
-    color: var(--color-text-muted);
+    color: var(--text-muted);
     font-size: 80%;
     line-height: initial;
     width: 100%;
     white-space: pre-line;  // renders newline as <br />
 }
 
-label.checkbox-label {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    cursor: pointer;
+input[type="checkbox"] {
+    width: auto;
+    margin-right: 10px;
+    box-shadow: none;
+    height: 20px;
 
-    .checkbox-input {
-        width: 1.2em;
-        height: 1.2em;
-        flex-shrink: 0;
-        margin-top: 0;
-        margin-right: 0.5em;
-        cursor: pointer;
-
-        &:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+    &:focus {
+        box-shadow: none;
     }
 
-    .name {
-        flex: 1;
-        line-height: 1.5;
-    }
-
-    .description {
-        width: 100%;
-        padding-left: calc(1.2em + 0.5em);
+    & ~ .description {
+        margin-left: 23px;
     }
 }
 
 input[type="text"] {
     width: 100%;
+}
+
+.form-group.disabled {
+    opacity: 0.5;
+    pointer-events: none;
 }

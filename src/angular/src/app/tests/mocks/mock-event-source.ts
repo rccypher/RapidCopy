@@ -1,42 +1,21 @@
 declare let spyOn: any;
 
-/**
- * Mock EventSource for testing. Does not implement the full EventSource interface
- * to avoid TypeScript complexity with overloaded methods.
- */
 export class MockEventSource {
     url: string;
-    onopen: ((event: Event) => any) | null = null;
-    onerror: ((event: Event) => any) | null = null;
-    onmessage: ((event: MessageEvent) => any) | null = null;
+    onopen: (event: Event) => any;
+    onerror: (event: Event) => any;
 
-    eventListeners: Map<string, (event: MessageEvent) => void> = new Map();
+    eventListeners: Map<string, EventListener> = new Map();
 
-    // EventSource constants
-    readonly CONNECTING: number = 0;
-    readonly OPEN: number = 1;
-    readonly CLOSED: number = 2;
-
-    readyState: number = 0;
-    withCredentials: boolean = false;
-
-    constructor(url: string, _eventSourceInitDict?: EventSourceInit) {
+    constructor(url: string) {
         this.url = url;
     }
 
-    addEventListener(type: string, listener: (event: MessageEvent) => void, _options?: boolean | AddEventListenerOptions) {
+    addEventListener(type: string, listener: EventListener) {
         this.eventListeners.set(type, listener);
     }
 
-    removeEventListener(_type: string, _listener: (event: MessageEvent) => void, _options?: boolean | EventListenerOptions) {}
-
-    dispatchEvent(_event: Event): boolean {
-        return true;
-    }
-
-    close() {
-        this.readyState = this.CLOSED;
-    }
+    close() {}
 }
 
 export function createMockEventSource(url: string): MockEventSource {

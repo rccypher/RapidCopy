@@ -10,14 +10,9 @@ import {Record} from "immutable";
  */
 interface IGeneral {
     debug: boolean;
-    verbose: boolean;
-    // Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
-    log_level: string;
 }
 const DefaultGeneral: IGeneral = {
-    debug: null,
-    verbose: null,
-    log_level: null
+    debug: null
 };
 const GeneralRecord = Record(DefaultGeneral);
 
@@ -39,10 +34,6 @@ interface ILftp {
     num_max_connections_per_dir_file: number;
     num_max_total_connections: number;
     use_temp_file: boolean;
-    // Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
-    rate_limit: string;
-    // Staging path for in-progress downloads (empty = auto-derive as local_path/incomplete)
-    staging_path: string;
 }
 const DefaultLftp: ILftp = {
     remote_address: null,
@@ -59,8 +50,6 @@ const DefaultLftp: ILftp = {
     num_max_connections_per_dir_file: null,
     num_max_total_connections: null,
     use_temp_file: null,
-    rate_limit: null,
-    staging_path: null,
 };
 const LftpRecord = Record(DefaultLftp);
 
@@ -73,6 +62,12 @@ interface IController {
     interval_ms_downloading_scan: number;
     extract_path: string;
     use_local_path_as_extract_path: boolean;
+    enable_download_validation: boolean;
+    download_validation_max_retries: number;
+    use_chunked_validation: boolean;
+    validation_chunk_size_mb: number;
+    enable_disk_space_check: boolean;
+    disk_space_min_percent: number;
 }
 const DefaultController: IController = {
     interval_ms_remote_scan: null,
@@ -80,6 +75,12 @@ const DefaultController: IController = {
     interval_ms_downloading_scan: null,
     extract_path: null,
     use_local_path_as_extract_path: null,
+    enable_download_validation: null,
+    download_validation_max_retries: null,
+    use_chunked_validation: null,
+    validation_chunk_size_mb: null,
+    enable_disk_space_check: null,
+    disk_space_min_percent: null,
 };
 const ControllerRecord = Record(DefaultController);
 
@@ -109,35 +110,18 @@ const DefaultAutoQueue: IAutoQueue = {
 };
 const AutoQueueRecord = Record(DefaultAutoQueue);
 
-/*
- * VALIDATION
- */
-interface IValidation {
-    enabled: boolean;
-    algorithm: string;
-    default_chunk_size: number;
-    min_chunk_size: number;
-    max_chunk_size: number;
-    validate_after_chunk: boolean;
-    validate_after_file: boolean;
-    max_retries: number;
-    retry_delay_ms: number;
-    enable_adaptive_sizing: boolean;
-}
-const DefaultValidation: IValidation = {
-    enabled: null,
-    algorithm: null,
-    default_chunk_size: null,
-    min_chunk_size: null,
-    max_chunk_size: null,
-    validate_after_chunk: null,
-    validate_after_file: null,
-    max_retries: null,
-    retry_delay_ms: null,
-    enable_adaptive_sizing: null,
-};
-const ValidationRecord = Record(DefaultValidation);
 
+
+/*
+ * PATHMAPPINGS
+ */
+interface IPathMappings {
+    mappings_json: string;
+}
+const DefaultPathMappings: IPathMappings = {
+    mappings_json: null,
+};
+const PathMappingsRecord = Record(DefaultPathMappings);
 
 /*
  * CONFIG
@@ -148,7 +132,7 @@ export interface IConfig {
     controller: IController;
     web: IWeb;
     autoqueue: IAutoQueue;
-    validation: IValidation;
+    pathmappings: IPathMappings;
 }
 const DefaultConfig: IConfig = {
     general: null,
@@ -156,42 +140,28 @@ const DefaultConfig: IConfig = {
     controller: null,
     web: null,
     autoqueue: null,
-    validation: null,
+    pathmappings: null,
 };
 const ConfigRecord = Record(DefaultConfig);
 
 
 export class Config extends ConfigRecord implements IConfig {
+    general: IGeneral;
+    lftp: ILftp;
+    controller: IController;
+    web: IWeb;
+    autoqueue: IAutoQueue;
+    pathmappings: IPathMappings;
+
     constructor(props) {
         // Create immutable members
-        // Use empty objects as fallback if sections are missing (backwards compatibility)
         super({
-            general: GeneralRecord(props.general || {}),
-            lftp: LftpRecord(props.lftp || {}),
-            controller: ControllerRecord(props.controller || {}),
-            web: WebRecord(props.web || {}),
-            autoqueue: AutoQueueRecord(props.autoqueue || {}),
-            validation: ValidationRecord(props.validation || {})
+            general: GeneralRecord(props.general),
+            lftp: LftpRecord(props.lftp),
+            controller: ControllerRecord(props.controller),
+            web: WebRecord(props.web),
+            autoqueue: AutoQueueRecord(props.autoqueue),
+            pathmappings: PathMappingsRecord(props.pathmappings)
         });
-    }
-
-    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
-    get general(): IGeneral { return this.get("general"); }
-    get lftp(): ILftp { return this.get("lftp"); }
-    get controller(): IController { return this.get("controller"); }
-    get web(): IWeb { return this.get("web"); }
-    get autoqueue(): IAutoQueue { return this.get("autoqueue"); }
-    get validation(): IValidation { return this.get("validation"); }
-
-    /**
-     * Safely get a nested config value by section and option name.
-     * Returns null if section or option doesn't exist.
-     */
-    getValue(section: string, option: string): any {
-        const sectionRecord = this.get(section as any);
-        if (sectionRecord && typeof sectionRecord.get === 'function') {
-            return sectionRecord.get(option);
-        }
-        return null;
     }
 }

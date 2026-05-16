@@ -2,7 +2,7 @@
 
 from enum import Enum
 import json
-from typing import Any
+from typing import List, Optional
 
 from .serialize import Serialize
 from model import ModelFile
@@ -20,7 +20,7 @@ class SerializeModel(Serialize):
             REMOVED = 1
             UPDATED = 2
 
-        def __init__(self, change: Change, old_file: ModelFile | None, new_file: ModelFile | None):
+        def __init__(self, change: Change, old_file: Optional[ModelFile], new_file: Optional[ModelFile]):
             self.change = change
             self.old_file = old_file
             self.new_file = new_file
@@ -30,7 +30,7 @@ class SerializeModel(Serialize):
     __EVENT_UPDATE = {
         UpdateEvent.Change.ADDED: "model-added",
         UpdateEvent.Change.REMOVED: "model-removed",
-        UpdateEvent.Change.UPDATED: "model-updated",
+        UpdateEvent.Change.UPDATED: "model-updated"
     }
     __KEY_UPDATE_OLD_FILE = "old_file"
     __KEY_UPDATE_NEW_FILE = "new_file"
@@ -47,9 +47,7 @@ class SerializeModel(Serialize):
         ModelFile.State.DELETED: "deleted",
         ModelFile.State.EXTRACTING: "extracting",
         ModelFile.State.EXTRACTED: "extracted",
-        ModelFile.State.VALIDATING: "validating",
-        ModelFile.State.VALIDATED: "validated",
-        ModelFile.State.CORRUPT: "corrupt",
+        ModelFile.State.VALIDATING: "validating"
     }
     __KEY_FILE_REMOTE_SIZE = "remote_size"
     __KEY_FILE_LOCAL_SIZE = "local_size"
@@ -61,16 +59,12 @@ class SerializeModel(Serialize):
     __KEY_FILE_REMOTE_CREATED_TIMESTAMP = "remote_created_timestamp"
     __KEY_FILE_REMOTE_MODIFIED_TIMESTAMP = "remote_modified_timestamp"
     __KEY_FILE_FULL_PATH = "full_path"
+    __KEY_FILE_MAPPING_INDEX = "mapping_index"
     __KEY_FILE_CHILDREN = "children"
-    __KEY_FILE_PATH_PAIR_ID = "path_pair_id"
-    __KEY_FILE_PATH_PAIR_NAME = "path_pair_name"
-    __KEY_FILE_VALIDATION_PROGRESS = "validation_progress"
-    __KEY_FILE_VALIDATION_ERROR = "validation_error"
-    __KEY_FILE_CORRUPT_CHUNKS = "corrupt_chunks"
 
     @staticmethod
-    def __model_file_to_json_dict(model_file: ModelFile) -> dict[str, Any]:
-        json_dict: dict[str, Any] = dict()
+    def __model_file_to_json_dict(model_file: ModelFile) -> dict:
+        json_dict = dict()
         json_dict[SerializeModel.__KEY_FILE_NAME] = model_file.name
         json_dict[SerializeModel.__KEY_FILE_IS_DIR] = model_file.is_dir
         json_dict[SerializeModel.__KEY_FILE_STATE] = SerializeModel.__VALUES_FILE_STATE[model_file.state]
@@ -79,46 +73,38 @@ class SerializeModel(Serialize):
         json_dict[SerializeModel.__KEY_FILE_DOWNLOADING_SPEED] = model_file.downloading_speed
         json_dict[SerializeModel.__KEY_FILE_ETA] = model_file.eta
         json_dict[SerializeModel.__KEY_FILE_IS_EXTRACTABLE] = model_file.is_extractable
-        json_dict[SerializeModel.__KEY_FILE_LOCAL_CREATED_TIMESTAMP] = (
+        json_dict[SerializeModel.__KEY_FILE_LOCAL_CREATED_TIMESTAMP] = \
             str(model_file.local_created_timestamp.timestamp()) if model_file.local_created_timestamp else None
-        )
-        json_dict[SerializeModel.__KEY_FILE_LOCAL_MODIFIED_TIMESTAMP] = (
+        json_dict[SerializeModel.__KEY_FILE_LOCAL_MODIFIED_TIMESTAMP] = \
             str(model_file.local_modified_timestamp.timestamp()) if model_file.local_modified_timestamp else None
-        )
-        json_dict[SerializeModel.__KEY_FILE_REMOTE_CREATED_TIMESTAMP] = (
+        json_dict[SerializeModel.__KEY_FILE_REMOTE_CREATED_TIMESTAMP] = \
             str(model_file.remote_created_timestamp.timestamp()) if model_file.remote_created_timestamp else None
-        )
-        json_dict[SerializeModel.__KEY_FILE_REMOTE_MODIFIED_TIMESTAMP] = (
+        json_dict[SerializeModel.__KEY_FILE_REMOTE_MODIFIED_TIMESTAMP] = \
             str(model_file.remote_modified_timestamp.timestamp()) if model_file.remote_modified_timestamp else None
-        )
         json_dict[SerializeModel.__KEY_FILE_FULL_PATH] = model_file.full_path
-        json_dict[SerializeModel.__KEY_FILE_PATH_PAIR_ID] = model_file.path_pair_id
-        json_dict[SerializeModel.__KEY_FILE_PATH_PAIR_NAME] = model_file.path_pair_name
-        json_dict[SerializeModel.__KEY_FILE_VALIDATION_PROGRESS] = model_file.validation_progress
-        json_dict[SerializeModel.__KEY_FILE_VALIDATION_ERROR] = model_file.validation_error
-        json_dict[SerializeModel.__KEY_FILE_CORRUPT_CHUNKS] = model_file.corrupt_chunks
+        json_dict[SerializeModel.__KEY_FILE_MAPPING_INDEX] = model_file.mapping_index
         json_dict[SerializeModel.__KEY_FILE_CHILDREN] = list()
         for child in model_file.get_children():
             json_dict[SerializeModel.__KEY_FILE_CHILDREN].append(SerializeModel.__model_file_to_json_dict(child))
         return json_dict
 
-    def model(self, model_files: list[ModelFile]) -> str:
+    def model(self, model_files: List[ModelFile]) -> str:
         """
         Serialize the model
         :return:
         """
         model_json_list = [SerializeModel.__model_file_to_json_dict(f) for f in model_files]
         model_json = json.dumps(model_json_list)
-        return self._sse_pack(event=SerializeModel.__EVENT_INIT, data=model_json)
+        return self._sse_pack(event=SerializeModel.__EVENT_INIT,
+                              data=model_json)
 
     def update_event(self, event: UpdateEvent):
         model_file_json_dict = {
-            SerializeModel.__KEY_UPDATE_OLD_FILE: SerializeModel.__model_file_to_json_dict(event.old_file)
-            if event.old_file
-            else None,
-            SerializeModel.__KEY_UPDATE_NEW_FILE: SerializeModel.__model_file_to_json_dict(event.new_file)
-            if event.new_file
-            else None,
+            SerializeModel.__KEY_UPDATE_OLD_FILE:
+                SerializeModel.__model_file_to_json_dict(event.old_file) if event.old_file else None,
+            SerializeModel.__KEY_UPDATE_NEW_FILE:
+                SerializeModel.__model_file_to_json_dict(event.new_file) if event.new_file else None
         }
         model_file_json = json.dumps(model_file_json_dict)
-        return self._sse_pack(event=SerializeModel.__EVENT_UPDATE[event.change], data=model_file_json)
+        return self._sse_pack(event=SerializeModel.__EVENT_UPDATE[event.change],
+                              data=model_file_json)

@@ -14,14 +14,13 @@ from .job_status_parser import LftpJobStatus, LftpJobStatusParser, LftpJobStatus
 
 
 # How many status errors are allowed before error propagates out
-MAX_CONSECUTIVE_STATUS_ERRORS = 10
+MAX_CONSECUTIVE_STATUS_ERRORS = 2
 
 
 class LftpError(AppError):
     """
     Custom exception that describes the failure of the lftp command
     """
-
     pass
 
 
@@ -29,7 +28,6 @@ class Lftp:
     """
     Lftp command utility
     """
-
     __SET_NUM_PARALLEL_FILES = "mirror:parallel-transfer-count"
     __SET_NUM_CONNECTIONS_PGET = "pget:default-n"
     __SET_NUM_CONNECTIONS_MIRROR = "mirror:use-pget-n"
@@ -43,9 +41,12 @@ class Lftp:
     __SET_TEMP_FILE_NAME = "xfer:temp-file-name"
     __SET_SFTP_AUTO_CONFIRM = "sftp:auto-confirm"
     __SET_SFTP_CONNECT_PROGRAM = "sftp:connect-program"
-    __SET_XFER_UMASK = "xfer:umask"
 
-    def __init__(self, address: str, port: int, user: str, password: str | None):
+    def __init__(self,
+                 address: str,
+                 port: int,
+                 user: str,
+                 password: Optional[str]):
         self.__user = user
         self.__password = password
         self.__address = address
@@ -54,20 +55,18 @@ class Lftp:
         self.logger = logging.getLogger("Lftp")
         self.__expect_pattern = "lftp {}@{}:.*>".format(self.__user, self.__address)
         self.__job_status_parser = LftpJobStatusParser()
-        self.__timeout = 30  # in seconds
+        self.__timeout = 3  # in seconds
         self.__consecutive_status_errors = 0
 
         self.__log_command_output = False
         self.__pending_error = None
 
         args = [
-            "-p",
-            str(port),
-            "-u",
-            "{},{}".format(self.__user, self.__password if self.__password else ""),
-            "sftp://{}".format(self.__address),
+            "-p", str(port),
+            "-u", "{},{}".format(self.__user, self.__password if self.__password else ""),
+            "sftp://{}".format(self.__address)
         ]
-        self.__process = pexpect.spawn("/usr/bin/lftp", args, dimensions=(24, 10000))
+        self.__process = pexpect.spawn("/usr/bin/lftp", args)
         self.__process.expect(self.__expect_pattern)
         self.__setup()
 
@@ -80,32 +79,22 @@ class Lftp:
         :return:
         """
         # Set to kill on exit to prevent a zombie process
-        self.__set(Lftp.__SET_COMMAND_AT_EXIT, '"kill all"')
+        self.__set(Lftp.__SET_COMMAND_AT_EXIT, "\"kill all\"")
         # Auto-add server to known host file
         self.sftp_auto_confirm = True
-        # Set xfer:umask for remote chmod operations on SFTP servers.
-        # Note: local file creation permissions are controlled by the process umask
-        # (set via os.umask(0o002) in rapidcopy.py), not by this setting.
-        self.__set(Lftp.__SET_XFER_UMASK, "002")
-        # Disable mirror permission copying globally so we don't need --no-perms
-        # in each queue command (which confuses the job status parser).
-        # Local file permissions are governed by the process umask instead.
-        self.__set("mirror:set-permissions", "off")
 
-    def with_check_process(method: Callable) -> Callable:  # type: ignore[misc]
+    def with_check_process(method: Callable):
         """
         Decorator that checks for a valid process before executing
         the decorated method
         :param method:
         :return:
         """
-
         @wraps(method)
         def wrapper(inst: "Lftp", *args, **kwargs):
             if inst.__process is None or not inst.__process.isalive():
                 raise LftpError("lftp process is not running")
             return method(inst, *args, **kwargs)
-
         return wrapper
 
     def set_base_logger(self, base_logger: logging.Logger):
@@ -133,29 +122,21 @@ class Lftp:
     @with_check_process
     def __run_command(self, command: str):
         if self.__log_command_output:
-            self.logger.debug("command: {}".format(command.encode("utf8", "surrogateescape").decode("utf8", "replace")))
+            self.logger.debug("command: {}".format(command.encode('utf8', 'surrogateescape')))
         self.__process.sendline(command)
         try:
             self.__process.expect(self.__expect_pattern, timeout=self.__timeout)
         except pexpect.exceptions.TIMEOUT:
-            self.logger.debug("Lftp timeout exception")
+            self.logger.exception("Lftp timeout exception")
             pass
-        except pexpect.exceptions.EOF:
-            self.logger.error("Lftp process died unexpectedly (EOF)")
-            raise LftpError("Lftp process terminated: {}".format(
-                self.__process.before.decode("utf8", "replace").strip()
-            ))
         finally:
-            out = self.__process.before.decode("utf8", "replace")
+            out = self.__process.before.decode('utf8', 'replace')
             out = out.strip()  # remove any CRs
 
             if self.__log_command_output:
                 self.logger.debug("out ({} bytes):\n {}".format(len(out), out))
-                after = (
-                    self.__process.after.decode("utf8", "replace").strip()
-                    if self.__process.after != pexpect.TIMEOUT
-                    else ""
-                )
+                after = self.__process.after.decode('utf8', 'replace').strip() \
+                    if self.__process.after != pexpect.TIMEOUT else ""
                 self.logger.debug("after: {}".format(after))
 
         # let's try and detect some errors
@@ -166,21 +147,15 @@ class Lftp:
             try:
                 self.__process.expect(self.__expect_pattern, timeout=self.__timeout)
             except pexpect.exceptions.TIMEOUT:
-                self.logger.debug("Lftp timeout exception")
+                self.logger.exception("Lftp timeout exception")
                 pass
-            except pexpect.exceptions.EOF:
-                self.logger.error("Lftp process died unexpectedly (EOF) during error recovery")
-                raise LftpError("Lftp process terminated during error recovery")
             finally:
-                out = self.__process.before.decode("utf8", "replace")
+                out = self.__process.before.decode('utf8', 'replace')
                 out = out.strip()  # remove any CRs
                 if self.__log_command_output:
                     self.logger.debug("retry out ({} bytes):\n {}".format(len(out), out))
-                    after = (
-                        self.__process.after.decode("utf8", "replace").strip()
-                        if self.__process.after != pexpect.TIMEOUT
-                        else ""
-                    )
+                    after = self.__process.after.decode('utf8', 'replace').strip() \
+                        if self.__process.after != pexpect.TIMEOUT else ""
                     self.logger.debug("retry after: {}".format(after))
                 self.logger.error("Lftp detected error: {}".format(error_out))
                 # save pending error
@@ -193,9 +168,12 @@ class Lftp:
             "pget: Access failed",
             "pget-chunk: Access failed",
             "mirror: Access failed",
-            "Login failed: Login incorrect",
+            "Login failed: Login incorrect"
         ]
-        return any(error in out for error in errors)
+        for error in errors:
+            if error in out:
+                return True
+        return False
 
     def __set(self, setting: str, value: str):
         """
@@ -214,7 +192,7 @@ class Lftp:
         """
         out = self.__run_command("set -a | grep {}".format(setting))
         m = re.search("set {} (.*)".format(setting), out)
-        if not m or not m.group(1):
+        if not m or not m.group or not m.group(1):
             raise LftpError("Failed to get setting '{}'. Output: '{}'".format(setting, out))
         return m.group(1).strip()
 
@@ -223,7 +201,7 @@ class Lftp:
         # sets are taken from LFTP manual
         if value.lower() in {"true", "on", "yes", "1", "+"}:
             return True
-        elif value.lower() in {"false", "off", "no", "0", "-"}:
+        elif value.lower() in {"false",  "off", "no", "0", "-"}:
             return False
         else:
             raise LftpError("Cannot convert value '{}' to boolean".format(value))
@@ -273,7 +251,7 @@ class Lftp:
         return self.__get(Lftp.__SET_RATE_LIMIT)
 
     @rate_limit.setter
-    def rate_limit(self, rate_limit: int | str):
+    def rate_limit(self, rate_limit: Union[int, str]):
         self.__set(Lftp.__SET_RATE_LIMIT, str(rate_limit))
 
     @property
@@ -281,7 +259,7 @@ class Lftp:
         return self.__get(Lftp.__SET_MIN_CHUNK_SIZE)
 
     @min_chunk_size.setter
-    def min_chunk_size(self, min_chunk_size: int | str):
+    def min_chunk_size(self, min_chunk_size: Union[int, str]):
         self.__set(Lftp.__SET_MIN_CHUNK_SIZE, str(min_chunk_size))
 
     @property
@@ -352,13 +330,8 @@ class Lftp:
                 raise
         return statuses
 
-    def queue(
-        self,
-        name: str,
-        is_dir: bool,
-        remote_path: Optional[str] = None,
-        local_path: Optional[str] = None,
-    ):
+    def queue(self, name: str, is_dir: bool,
+              remote_path: str = None, local_path: str = None):
         """
         Queues a job for download
         This method may cause an exception to be generated in a later method call:
@@ -366,64 +339,28 @@ class Lftp:
           * File/folder does not exist
         :param name: name of file or folder to download
         :param is_dir: true if folder, false if file
-        :param remote_path: optional override for remote base path (for multi-path support)
-        :param local_path: optional override for local base path (for multi-path support)
+        :param remote_path: optional override for the remote base path
+        :param local_path: optional override for the local base path
         :return:
         """
-        # Use provided paths or fall back to defaults
-        remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
-        local_dir = local_path if local_path is not None else self.__base_local_dir_path
+        _remote_dir = remote_path if remote_path is not None else self.__base_remote_dir_path
+        _local_dir = local_path if local_path is not None else self.__base_local_dir_path
 
         # Escape single and double quotes in any string used in queue command
         def escape(s: str) -> str:
-            return s.replace("'", "\\'").replace('"', '\\"')
+            return s.replace("'", "\\'").replace("\"", "\\\"")
 
-        parts = [
+        command = " ".join([
             "queue",
             "'",
             "pget" if not is_dir else "mirror",
             "-c",
-            '"{remote_dir}/{filename}"'.format(remote_dir=escape(remote_dir), filename=escape(name)),
-            "-o" if not is_dir else None,
-            '"{local_dir}/"'.format(local_dir=escape(local_dir)),
-            "'",
-        ]
-        command = " ".join(p for p in parts if p is not None)
-        self.__run_command(command)
-
-    def pget_range(
-        self,
-        remote_path: str,
-        local_path: str,
-        offset: int,
-        end_offset: int,
-    ):
-        """
-        Download a byte range of a remote file and overwrite that range in the local file.
-
-        Uses lftp's pget with --range to fetch only offset..end_offset-1 bytes.
-        The local file must already exist (partially downloaded).
-
-        Args:
-            remote_path: Full path on the remote server (relative to sftp root)
-            local_path: Absolute path of the local file to patch
-            offset: First byte to fetch (inclusive)
-            end_offset: Byte after the last byte to fetch (exclusive)
-        """
-
-        def escape(s: str) -> str:
-            return s.replace("'", "\\'").replace('"', '\\"')
-
-        # lftp range syntax: offset-(end_offset-1)  (both inclusive)
-        range_spec = "{}-{}".format(offset, end_offset - 1)
-        # Run directly (not via queue) so it appears as a normal pget job in "jobs -v"
-        # and doesn't confuse the job status parser.
-        # No -c flag: we want to overwrite the specific byte range, not resume from existing offset.
-        command = 'pget --range={range_spec} "{remote}" -o "{local}"'.format(
-            range_spec=range_spec,
-            remote=escape(remote_path),
-            local=escape(local_path),
-        )
+            "\"{remote_dir}/{filename}\"".format(remote_dir=escape(_remote_dir),
+                                                 filename=escape(name)),
+            "-o" if not is_dir else "",
+            "\"{local_dir}/\"".format(local_dir=escape(_local_dir)),
+            "'"
+        ])
         self.__run_command(command)
 
     def kill(self, name: str) -> bool:
@@ -462,30 +399,6 @@ class Lftp:
         # empty the queue and kill running jobs
         self.__run_command("queue -d *")
         self.__run_command("kill all")
-
-    def prioritize(self, name: str) -> bool:
-        """
-        Move a queued job to the front of the LFTP queue.
-        Uses 'queue --move <id> 1' to move the job before position 1.
-        :param name: name of the queued file or folder
-        :return: True if the job was found and moved, False otherwise
-        """
-        job_to_move = None
-        for status in self.status():
-            if status.name == name:
-                job_to_move = status
-                break
-        if job_to_move is None:
-            self.logger.debug("Prioritize failed to find job '{}'".format(name))
-            return False
-        if job_to_move.state != LftpJobStatus.State.QUEUED:
-            self.logger.debug("Prioritize: job '{}' is not queued (state={})".format(name, job_to_move.state))
-            return False
-        # Move this queue entry before position 1 (i.e., to the front)
-        # Note: there's a chance that job ids change between status() and this command
-        self.logger.debug("Prioritizing queued job '{}' (id={})...".format(name, job_to_move.id))
-        self.__run_command("queue --move {} 1".format(job_to_move.id))
-        return True
 
     def exit(self):
         """

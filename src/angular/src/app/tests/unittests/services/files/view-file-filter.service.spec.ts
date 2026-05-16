@@ -18,9 +18,6 @@ describe("Testing view file filter service", () => {
     let filterCriteria: ViewFileFilterCriteria;
 
     beforeEach(() => {
-        // Reset filterCriteria to ensure test isolation
-        filterCriteria = undefined;
-
         TestBed.configureTestingModule({
             providers: [
                 ViewFileFilterService,
@@ -29,14 +26,14 @@ describe("Testing view file filter service", () => {
                 {provide: ViewFileOptionsService, useClass: MockViewFileOptionsService}
             ]
         });
-        viewFileService = TestBed.inject(ViewFileService);
+        viewFileService = TestBed.get(ViewFileService);
         spyOn(viewFileService, "setFilterCriteria").and.callFake(
             value => filterCriteria = value
         );
 
-        viewFileOptionsService = TestBed.inject(ViewFileOptionsService);
+        viewFileOptionsService = TestBed.get(ViewFileOptionsService);
 
-        viewFilterService = TestBed.inject(ViewFileFilterService);
+        viewFilterService = TestBed.get(ViewFileFilterService);
     });
 
     it("should create an instance", () => {

@@ -1,73 +1,33 @@
-# RapidCopy - Single-stage local build Dockerfile
-# Usage: docker build -t rapidcopy:latest .
+# All-in-one RapidCopy Dockerfile
+# Builds Angular frontend, scanfs script, and Python backend in one image
+# No staging registry required
 
-# ============================================
 # Stage 1: Build Angular frontend
-# ============================================
-FROM node:18-slim AS angular-builder
-
+FROM node:12.16 AS angular_build
+COPY src/angular/package*.json /app/
 WORKDIR /app
-COPY src/angular/package*.json ./
 RUN npm install
+COPY src/angular /app
+RUN mkdir -p /build/html && node_modules/@angular/cli/bin/ng build -prod --output-path /build/html/
 
-COPY src/angular/src ./src
-COPY src/angular/public ./public
-COPY src/angular/angular.json ./
-COPY src/angular/tsconfig*.json ./
-RUN npx ng build --configuration production --output-path /build/html
+# Stage 2: Build Python environment and final image
+FROM python:3.8-slim AS seedsync_run
 
-# ============================================
-# Stage 2: Build scanfs binary
-# ============================================
-FROM python:3.11-slim-bullseye AS scanfs-builder
-
-RUN apt-get update && apt-get install -y \
-    binutils \
-    zlib1g-dev \
-    gcc \
-    build-essential \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir pipx && \
-    pipx install poetry && \
-    pipx ensurepath
-ENV PATH="/root/.local/bin:$PATH"
-RUN poetry config virtualenvs.create false
-
-COPY src/python/pyproject.toml src/python/poetry.lock /app/
-WORKDIR /app
-ENV LC_ALL=C.UTF-8
-ENV LANG=C.UTF-8
-RUN poetry install --only main --no-root && \
-    poetry install --only dev --no-root
-
-COPY src/python /python
-RUN pyinstaller /python/scan_fs.py \
-    -y \
-    --onefile \
-    -p /python \
-    --distpath /build \
-    --workpath /tmp/work \
-    --specpath /tmp \
-    --name scanfs
-
-# ============================================
-# Stage 3: Runtime image
-# ============================================
-FROM python:3.11-slim AS runtime
-
-# Install runtime dependencies
-# Handle both old (sources.list) and new (sources.list.d/*.sources) Debian formats
+# Enable non-free repos (handle both old sources.list and new .sources format)
 RUN if [ -f /etc/apt/sources.list ]; then \
         sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list; \
-    elif [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-        sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
-    fi && \
-    apt-get update && \
+    elif [ -d /etc/apt/sources.list.d ]; then \
+        for f in /etc/apt/sources.list.d/*.sources; do \
+            [ -f "$f" ] && sed -i 's/^Components: main$/Components: main contrib non-free/' "$f"; \
+        done; \
+    fi
+
+# Install dependencies
+RUN apt-get update && \
     apt-get install -y \
         gcc \
         libssl-dev \
+        lftp \
         openssh-client \
         p7zip \
         p7zip-full \
@@ -75,83 +35,69 @@ RUN if [ -f /etc/apt/sources.list ]; then \
         curl \
         libnss-wrapper \
         libxml2-dev libxslt-dev libffi-dev \
-        zlib1g-dev \
-        # Network mount support (NFS/SMB/CIFS)
-        nfs-common \
-        cifs-utils \
-        keyutils \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install rclone (pinned version for reproducibility)
-ARG RCLONE_VERSION=1.68.2
-RUN curl -O https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
-    dpkg -i rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
-    rm rclone-v${RCLONE_VERSION}-linux-amd64.deb
+    && apt-get clean
 
 # Install Poetry
-RUN pip install --no-cache-dir pipx && \
-    pipx install poetry && \
-    pipx ensurepath
-ENV PATH="/root/.local/bin:${PATH}"
+RUN curl -s https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && \
+    python get-pip.py --force-reinstall && \
+    rm get-pip.py
+RUN pip3 install "poetry==1.5.1"
 RUN poetry config virtualenvs.create false
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
 
 # Install Python dependencies
-COPY src/python/pyproject.toml src/python/poetry.lock /app/python/
-RUN cd /app/python && poetry install --only main --no-root
+RUN mkdir -p /app
+COPY src/python/pyproject.toml /app/python/
+COPY src/python/poetry.lock /app/python/
+RUN cd /app/python && poetry install --no-dev
 
-# Copy Python source
+# Copy Python source code
 COPY src/python /app/python
-RUN chmod -R a+rX /app/python
 
-# Copy built artifacts from previous stages
-COPY --from=angular-builder /build/html/browser /app/html
-COPY --from=scanfs-builder /build/scanfs /app/scanfs
+# Copy Angular build output
+COPY --from=angular_build /build/html /app/html
 
-# Copy helper scripts
+# Copy self-contained scanfs script (gets SCP'd to remote servers and executed there)
+COPY src/python/scanfs_standalone.py /app/scanfs
+RUN chmod +x /app/scanfs
+
+# Copy config setup script
 COPY src/docker/build/docker-image/setup_default_config.sh /scripts/
+
+# Disable the known hosts prompt
+RUN mkdir -p /root/.ssh && echo "StrictHostKeyChecking no\nUserKnownHostsFile /dev/null" > /root/.ssh/config
+
+# SSH as any user fix
+# https://stackoverflow.com/a/57531352
 COPY src/docker/build/docker-image/run_as_user /usr/local/bin/
-COPY src/docker/build/docker-image/ssh /usr/local/sbin/
-COPY src/docker/build/docker-image/scp /usr/local/sbin/
+RUN chmod a+x /usr/local/bin/run_as_user
+COPY src/docker/build/docker-image/ssh /usr/local/sbin
+RUN chmod a+x /usr/local/sbin/ssh
+COPY src/docker/build/docker-image/scp /usr/local/sbin
+RUN chmod a+x /usr/local/sbin/scp
 
-RUN chmod a+x /usr/local/bin/run_as_user && \
-    chmod a+x /usr/local/sbin/ssh && \
-    chmod a+x /usr/local/sbin/scp && \
-    chmod a+rx /scripts/setup_default_config.sh
-
-# Disable SSH known hosts prompt
-RUN mkdir -p /root/.ssh && \
-    echo "StrictHostKeyChecking no\nUserKnownHostsFile /dev/null" > /root/.ssh/config
-
-# Create non-root user and add to media group (gid 1002) for Sonarr/Radarr access
-RUN groupadd -g 1000 rapidcopy && \
-    groupadd -g 1002 media && \
-    useradd -r -u 1000 -g rapidcopy -G media rapidcopy && \
-    mkdir /config && \
+# Create non-root user and directories
+RUN groupadd -g 1000 seedsync && \
+    useradd -r -u 1000 -g seedsync seedsync
+RUN mkdir /config && \
     mkdir /downloads && \
-    mkdir /downloads/incomplete && \
-    mkdir /mounts && \
-    mkdir /logs && \
-    chown rapidcopy:rapidcopy /config && \
-    chown -R rapidcopy:rapidcopy /downloads && \
-    chown rapidcopy:rapidcopy /mounts && \
-    chown rapidcopy:rapidcopy /logs
+    chown seedsync:seedsync /config && \
+    chown seedsync:seedsync /downloads
 
-USER rapidcopy
+# Switch to non-root user
+USER seedsync
 
-# Setup default config
+# First time config setup and replacement
 RUN /scripts/setup_default_config.sh
 
 CMD [ \
     "python", \
-    "/app/python/rapidcopy.py", \
+    "/app/python/seedsync.py", \
     "-c", "/config", \
     "--html", "/app/html", \
-    "--scanfs", "/app/scanfs", \
-    "--logdir", "/logs" \
+    "--scanfs", "/app/scanfs" \
 ]
 
 EXPOSE 8800

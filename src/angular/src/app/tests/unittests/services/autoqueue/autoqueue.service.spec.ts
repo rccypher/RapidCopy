@@ -35,9 +35,9 @@ describe("Testing autoqueue service", () => {
             ]
         });
 
-        mockRegistry = TestBed.inject(StreamServiceRegistry);
-        httpMock = TestBed.inject(HttpTestingController);
-        aqService = TestBed.inject(AutoQueueService);
+        mockRegistry = TestBed.get(StreamServiceRegistry);
+        httpMock = TestBed.get(HttpTestingController);
+        aqService = TestBed.get(AutoQueueService);
 
         // Connect the services
         mockRegistry.connect();

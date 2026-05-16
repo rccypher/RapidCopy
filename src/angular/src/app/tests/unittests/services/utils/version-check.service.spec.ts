@@ -7,7 +7,7 @@ import {RestService, WebReaction} from "../../../../services/utils/rest.service"
 import {NotificationService} from "../../../../services/utils/notification.service";
 import {LoggerService} from "../../../../services/utils/logger.service";
 import {MockRestService} from "../../../mocks/mock-rest.service";
-import {Subject} from "rxjs";
+import {Subject} from "rxjs/Subject";
 
 
 describe("Testing version check service", () => {
@@ -27,21 +27,21 @@ describe("Testing version check service", () => {
             ]
         });
 
-        notifService = TestBed.inject(NotificationService);
-        restService = TestBed.inject(RestService);
+        notifService = TestBed.get(NotificationService);
+        restService = TestBed.get(RestService);
 
         spyOn(notifService, "show");
         sendRequestSpy = spyOn(restService, "sendRequest").and.returnValue(
             new Subject<WebReaction>());
 
-        versionCheckService = TestBed.inject(VersionCheckService);
+        versionCheckService = TestBed.get(VersionCheckService);
     });
 
     function createVersionCheckService(): VersionCheckService {
         return new VersionCheckService(
             restService,
             notifService,
-            TestBed.inject(LoggerService)
+            TestBed.get(LoggerService)
         );
     }
 
@@ -51,7 +51,7 @@ describe("Testing version check service", () => {
 
     it("should request the correct github url", fakeAsync(() => {
         expect(restService.sendRequest).toHaveBeenCalledWith(
-            "https://api.github.com/repos/ipsingh06/rapidcopy/releases/latest"
+            "https://api.github.com/repos/ipsingh06/seedsync/releases/latest"
         );
     }));
 

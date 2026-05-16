@@ -9,7 +9,6 @@ from controller import ControllerPersist
 
 class TestControllerPersist(unittest.TestCase):
     def test_from_str(self):
-        # Old format (backward compat): plain "downloaded" list
         content = """
         {
             "downloaded": ["one", "two", "th ree", "fo.ur"],
@@ -24,26 +23,26 @@ class TestControllerPersist(unittest.TestCase):
 
     def test_to_str(self):
         persist = ControllerPersist()
-        persist.record_download("one")
-        persist.record_download("two")
-        persist.record_download("th ree")
-        persist.record_download("fo.ur")
+        persist.downloaded_file_names.add("one")
+        persist.downloaded_file_names.add("two")
+        persist.downloaded_file_names.add("th ree")
+        persist.downloaded_file_names.add("fo.ur")
         persist.extracted_file_names.add("fi\"ve")
         persist.extracted_file_names.add("si@x")
         persist.extracted_file_names.add("se\\ven")
         persist.extracted_file_names.add("ei-ght")
         dct = json.loads(persist.to_str())
-        self.assertTrue("downloaded_timestamps" in dct)
-        self.assertEqual({"one", "two", "th ree", "fo.ur"}, set(dct["downloaded_timestamps"].keys()))
+        self.assertTrue("downloaded" in dct)
+        self.assertEqual({"one", "two", "th ree", "fo.ur"}, set(dct["downloaded"]))
         self.assertTrue("extracted" in dct)
         self.assertEqual({"fi\"ve", "si@x", "se\\ven", "ei-ght"}, set(dct["extracted"]))
 
     def test_to_and_from_str(self):
         persist = ControllerPersist()
-        persist.record_download("one")
-        persist.record_download("two")
-        persist.record_download("th ree")
-        persist.record_download("fo.ur")
+        persist.downloaded_file_names.add("one")
+        persist.downloaded_file_names.add("two")
+        persist.downloaded_file_names.add("th ree")
+        persist.downloaded_file_names.add("fo.ur")
         persist.extracted_file_names.add("fi\"ve")
         persist.extracted_file_names.add("si@x")
         persist.extracted_file_names.add("se\\ven")
@@ -83,7 +82,7 @@ class TestControllerPersist(unittest.TestCase):
         with self.assertRaises(PersistError):
             ControllerPersist.from_str(content)
 
-        # missing extracted key (should still raise)
+        # missing keys
         content = """
         {
             "downloaded": []
@@ -91,11 +90,9 @@ class TestControllerPersist(unittest.TestCase):
         """
         with self.assertRaises(PersistError):
             ControllerPersist.from_str(content)
-
-        # missing extracted key (new format, should still raise)
         content = """
         {
-            "downloaded_timestamps": {}
+            "extracted": []
         }
         """
         with self.assertRaises(PersistError):

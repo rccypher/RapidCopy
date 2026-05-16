@@ -18,7 +18,7 @@ class ModelDiff:
         REMOVED = 1
         UPDATED = 2
 
-    def __init__(self, change: Change, old_file: ModelFile | None, new_file: ModelFile | None):
+    def __init__(self, change: Change, old_file: Optional[ModelFile], new_file: Optional[ModelFile]):
         self.__change = change
         self.__old_file = old_file
         self.__new_file = new_file
@@ -34,11 +34,11 @@ class ModelDiff:
         return self.__change
 
     @property
-    def old_file(self) -> ModelFile | None:
+    def old_file(self) -> Optional[ModelFile]:
         return self.__old_file
 
     @property
-    def new_file(self) -> ModelFile | None:
+    def new_file(self) -> Optional[ModelFile]:
         return self.__new_file
 
 

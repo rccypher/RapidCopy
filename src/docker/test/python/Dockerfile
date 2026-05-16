@@ -1,20 +1,17 @@
-FROM rapidcopy/run/python/devenv AS rapidcopy_test_python
+FROM seedsync/run/python/devenv as seedsync_test_python
 
 RUN ls -l /app/python
 
 # Install dependencies
-# Note: non-free is already enabled in the base image
-# Note: 'rar' package is no longer available in Debian Trixie. 
-# We install 'unrar' for extraction. Tests that create RAR files will be skipped.
 RUN apt-get update && \
     apt-get install -y \
         openssh-server \
-        unrar
+    && apt-get clean
 
 ADD src/docker/test/python/entrypoint.sh /app/
 
 # setup sshd
-RUN mkdir -p /var/run/sshd
+RUN mkdir /var/run/sshd
 RUN ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa && \
     cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
 # Disable the known hosts prompt

@@ -6,12 +6,7 @@
 
 /* selected file */
 .file.selected {
-    background-color: var(--color-accent-secondary);
-}
-
-/* multi-selected file */
-.file.multi-selected {
-    background-color: var(--color-accent-secondary-light, rgba(0, 120, 212, 0.12));
+    background-color: var(--secondary-color);
 }
 
 /* content */
@@ -30,9 +25,8 @@
 }
 
 /* width */
-.content .checkbox-col {width: 36px; min-width: 36px; display: flex; align-items: center; justify-content: center;}
 .content .status   {width: 100px; min-width: 100px;}
-.content .name     {flex-grow: 1; flex-basis: calc(100% - 136px);}
+.content .name     {flex-grow: 1; flex-basis: calc(100% - 100px);}
 .content .speed    {width: 100px; min-width: 100px;}
 /* .content .eta is hidden on mobile */
 .content .size     {flex-grow: 1;}
@@ -60,35 +54,12 @@
         display: flex;
         flex-direction: column;
 
-        .title {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 6px;
-
-                .path-pair-badge {
-                    display: inline-block;
-                    font-size: 10px;
-                    font-weight: 500;
-                    padding: 2px 6px;
-                    border-radius: 3px;
-                    background-color: var(--color-bg-tertiary);
-                    color: var(--color-text-secondary);
-                    border: 1px solid var(--color-border);
-                    white-space: nowrap;
-                    max-width: 120px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-        }
-
         .details {
             display: flex;
             flex-direction: column;
 
             .details-text {
-                color: var(--color-text-muted);
+                color: var(--text-muted);
                 font-size: 80%;
                 line-height: 120%;
 
@@ -115,14 +86,10 @@
     }
 
     // Optical weighting
-    img#downloading, img#downloaded {
+    img#downloading, img#downloaded, img#validating {
         width: 45px;
     }
     img#default-remote {
-        width: 45px;
-        height: 45px;
-    }
-    img#default-local {
         width: 45px;
         height: 45px;
     }
@@ -203,8 +170,8 @@
 
     .loader {
         display: none;
-        border: 5px solid var(--color-text-inverse);
-        border-top: 5px solid var(--color-accent-secondary-dark);
+        border: 5px solid white;
+        border-top: 5px solid var(--secondary-dark-color);
         border-radius: 50%;
         width: 25px;
         height: 25px;
@@ -219,8 +186,8 @@
     // Show loader icon when loading
     &.loading {
         opacity: 1.0;
-        background-color: var(--color-accent-secondary-dark);
-        border-color: var(--color-accent-secondary-darker);
+        background-color: var(--secondary-dark-color);
+        border-color: var(--secondary-darker-color);
 
         img {
             display: none;
@@ -244,12 +211,11 @@
 @media only screen and (min-width: $medium-min-width) {
     /* enable row hover */
     .file:not(.selected):hover {
-        background-color: var(--color-accent-secondary-light);
+        background-color: var(--secondary-light-color);
     }
 
     /* width */
     /* NOTE: make sure this is in-sync with "#file-list #header" */
-    .content .checkbox-col {width: 36px; min-width: 36px;}
     .content .status    {width: 100px; min-width: 100px;}
     .content .name      {flex-grow: 1;}
     .content .speed     {width: 100px; min-width: 100px;}
@@ -264,9 +230,8 @@
     }
 
     /* Re-order columns */
-    .content .checkbox-col {order: 0;}
-    .content .name {order: 1;}
     .content .status {order: 2;}
+    .content .name {order: 1;}
     .content .speed {order: 3;}
     .content .eta {order: 4;}
     .content .size {order: 5;}

@@ -1,16 +1,8 @@
-<div class="file" [class.selected]="file.isSelected" [class.multi-selected]="file.isMultiSelected" #fileElement>
+<div class="file" [class.selected]="file.isSelected" #fileElement>
     <div class="content">
-        <div class="checkbox-col" appClickStopPropagation>
-            <input type="checkbox"
-                   class="file-checkbox"
-                   [checked]="file.isMultiSelected"
-                   (click)="onCheckboxClick($event)" />
-        </div>
         <div class="status">
             <img src="assets/icons/default-remote.svg" id="default-remote"
                  *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize > 0" />
-            <img src="assets/icons/default-local.svg" id="default-local"
-                 *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize === 0 && file.localSize > 0" />
             <img src="assets/icons/queued.svg" id="queued"
                  *ngIf="file.status === ViewFile.Status.QUEUED" />
             <img src="assets/icons/downloading.svg" id="downloading"
@@ -27,15 +19,9 @@
                  *ngIf="file.status === ViewFile.Status.EXTRACTED" />
             <img src="assets/icons/validating.svg" id="validating"
                  *ngIf="file.status === ViewFile.Status.VALIDATING" />
-            <img src="assets/icons/validated.svg" id="validated"
-                 *ngIf="file.status === ViewFile.Status.VALIDATED" />
-            <img src="assets/icons/corrupt.svg" id="corrupt"
-                 *ngIf="file.status === ViewFile.Status.CORRUPT" />
-            <!-- don't show text for default status, except local-only files -->
+            <!-- don't show text for default status -->
             <span *ngIf="file.status != ViewFile.Status.DEFAULT"
                   class="text">{{file.status | capitalize}}</span>
-            <span *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize === 0 && file.localSize > 0"
-                  class="text">Local Only</span>
         </div>
         <div class="name">
             <img src="assets/icons/file-light.svg" *ngIf="!file.isDir && !file.isArchive" />
@@ -45,7 +31,6 @@
             <div class="text">
                 <div class="title">
                     {{file.name}}
-                    <span class="path-pair-badge" *ngIf="file.pathPairName">{{file.pathPairName}}</span>
                 </div>
                 <div class="details" *ngIf="(options | async)?.showDetails">
                     <div class="details-text">
@@ -83,17 +68,19 @@
                 <div class="progress-bar" role="progressbar"
                      [class.progress-bar-animated]="
                         file.status === ViewFile.Status.DOWNLOADING ||
-                        file.status === ViewFile.Status.EXTRACTING
+                        file.status === ViewFile.Status.EXTRACTING ||
+                        file.status === ViewFile.Status.VALIDATING
                      "
                      [class.progress-bar-striped]="
                         file.status === ViewFile.Status.DOWNLOADING ||
-                        file.status === ViewFile.Status.EXTRACTING
+                        file.status === ViewFile.Status.EXTRACTING ||
+                        file.status === ViewFile.Status.VALIDATING
                      "
                      [attr.aria-valuenow]="file.percentDownloaded" aria-valuemin="0" aria-valuemax="100"
                      [style.width]="
                         min(file.percentDownloaded,100) + '%'
                      ">
-                    {{min(file.percentDownloaded, 100)}}%
+                    {{file.percentDownloaded}}%
                 </div>
             </div>
             <div class="size_info">
@@ -106,7 +93,6 @@
     <div class="actions">
         <div class="button" appClickStopPropagation
              [attr.disabled]="isQueueable() ? null : true"
-             [title]="isQueueable() ? 'Queue for download' : 'Cannot queue: ' + file.status"
              (click)="!isQueueable() || onQueue(file)"
              [class.loading]="activeAction == FileAction.QUEUE">
             <div class="loader"></div>
@@ -115,7 +101,6 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isStoppable() ? null : true"
-             [title]="isStoppable() ? 'Stop download' : 'No active download to stop'"
              (click)="!isStoppable() || onStop(file)"
              [class.loading]="activeAction == FileAction.STOP">
             <div class="loader"></div>
@@ -124,7 +109,6 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isExtractable() ? null : true"
-             [title]="isExtractable() ? 'Extract archive' : (!file.isArchive ? 'Not an archive' : 'Cannot extract: ' + file.status)"
              (click)="!isExtractable() || onExtract(file)"
              [class.loading]="activeAction == FileAction.EXTRACT">
             <div class="loader"></div>
@@ -133,7 +117,6 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isLocallyDeletable() ? null : true"
-             [title]="isLocallyDeletable() ? 'Delete local copy' : 'No local copy to delete'"
              (click)="!isLocallyDeletable() || onDeleteLocal(file)"
              [class.loading]="activeAction == FileAction.DELETE_LOCAL">
             <div class="loader"></div>
@@ -142,30 +125,11 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isRemotelyDeletable() ? null : true"
-             [title]="isRemotelyDeletable() ? 'Delete from remote server' : 'Cannot delete: ' + file.status"
              (click)="!isRemotelyDeletable() || onDeleteRemote(file)"
              [class.loading]="activeAction == FileAction.DELETE_REMOTE">
             <div class="loader"></div>
             <img src="assets/icons/delete-remote.svg" />
             <div class="text"><span>Delete Remote</span></div>
-        </div>
-        <div class="button" appClickStopPropagation
-             [attr.disabled]="isValidatable() ? null : true"
-             [title]="isValidatable() ? 'Run integrity validation' : 'Cannot validate: ' + file.status"
-             (click)="!isValidatable() || onValidate(file)"
-             [class.loading]="activeAction == FileAction.VALIDATE">
-            <div class="loader"></div>
-            <img src="assets/icons/validate.svg" />
-            <div class="text"><span>Validate</span></div>
-        </div>
-        <div class="button" appClickStopPropagation
-             [attr.disabled]="isPrioritizable() ? null : true"
-             [title]="isPrioritizable() ? 'Move to front of download queue' : 'Cannot prioritize: ' + file.status"
-             (click)="!isPrioritizable() || onPrioritize(file)"
-             [class.loading]="activeAction == FileAction.PRIORITIZE">
-            <div class="loader"></div>
-            <img src="assets/icons/prioritize.svg" />
-            <div class="text"><span>Prioritize</span></div>
         </div>
     </div>
 </div>

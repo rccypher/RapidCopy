@@ -8,43 +8,26 @@ from enum import Enum
 import copy
 import os
 import shutil
-from datetime import datetime, timedelta
+import time
+from datetime import datetime
 
 # my libs
-from .scan import (
-    ScannerProcess,
-    IScanner,
-    ActiveScanner,
-    LocalScanner,
-    RemoteScanner,
-    MultiPathLocalScanner,
-    MultiPathRemoteScanner,
-    MultiPathActiveScanner,
-)
+from .scan import ScannerProcess, ActiveScanner, LocalScanner, RemoteScanner
 from .extract import ExtractProcess, ExtractStatus
-from .validate import ValidationProcess, CorruptChunkRedownload
 from .model_builder import ModelBuilder
-from common import (
-    Context,
-    AppError,
-    MultiprocessingLogger,
-    AppOneShotProcess,
-    Constants,
-    ValidationConfig,
-    ValidationAlgorithm,
-)
+from common import Context, AppError, MultiprocessingLogger, AppOneShotProcess, Constants
+from common.config import PathMapping
 from model import ModelError, ModelFile, Model, ModelDiff, ModelDiffUtil, IModelListener
-from rclone import Rclone, RcloneError
-from common.job_status import JobStatus
+from lftp import Lftp, LftpError, LftpJobStatus
 from .controller_persist import ControllerPersist
 from .delete import DeleteLocalProcess, DeleteRemoteProcess
+from .validate import ValidateProcess, ValidationResult, ValidationStatus
 
 
 class ControllerError(AppError):
     """
     Exception indicating a controller error
     """
-
     pass
 
 
@@ -52,12 +35,6 @@ class Controller:
     """
     Top-level class that controls the behaviour of the app
     """
-
-    # Scanner instance variables with proper typing for multi-path support
-    __active_scanner: IScanner
-    __local_scanner: IScanner
-    __remote_scanner: IScanner
-
     class Command:
         """
         Class by which clients of Controller can request Actions to be executed
@@ -65,19 +42,15 @@ class Controller:
         Note: callbacks will be executed in Controller thread, so any heavy computation
               should be moved out of the callback
         """
-
         class Action(Enum):
             QUEUE = 0
             STOP = 1
             EXTRACT = 2
             DELETE_LOCAL = 3
             DELETE_REMOTE = 4
-            VALIDATE = 5
-            PRIORITIZE = 6
 
         class ICallback(ABC):
             """Command callback interface"""
-
             @abstractmethod
             def on_success(self):
                 """Called on successful completion of action"""
@@ -91,7 +64,7 @@ class Controller:
         def __init__(self, action: Action, filename: str):
             self.action = action
             self.filename = filename
-            self.callbacks: list[Controller.Command.ICallback] = []
+            self.callbacks = []
 
         def add_callback(self, callback: ICallback):
             self.callbacks.append(callback)
@@ -100,12 +73,13 @@ class Controller:
         """
         Wraps any one-shot command processes launched by the controller
         """
-
         def __init__(self, process: AppOneShotProcess, post_callback: Callable):
             self.process = process
             self.post_callback = post_callback
 
-    def __init__(self, context: Context, persist: ControllerPersist):
+    def __init__(self,
+                 context: Context,
+                 persist: ControllerPersist):
         self.__context = context
         self.__persist = persist
         self.logger = context.logger.getChild("Controller")
@@ -113,210 +87,137 @@ class Controller:
         # Decide the password here
         self.__password = context.config.lftp.remote_password if not context.config.lftp.use_ssh_key else None
 
-        # Resolve staging path (empty string or None = auto-derive as local_path/incomplete)
-        _raw_staging = self.__context.config.lftp.staging_path
-        self.__staging_path = _raw_staging or os.path.join(
-            self.__context.config.lftp.local_path, 'incomplete'
-        )
-        os.makedirs(self.__staging_path, exist_ok=True)
+        # Path mappings
+        self.__path_mappings = context.config.get_path_mappings()
+        if not self.__path_mappings:
+            # Backward compat: fall back to single lftp path
+            self.__path_mappings = [PathMapping(
+                context.config.lftp.remote_path,
+                context.config.lftp.local_path
+            )]
+        self.logger.info("Configured {} path mapping(s)".format(len(self.__path_mappings)))
+        for idx, m in enumerate(self.__path_mappings):
+            self.logger.info("  Mapping {}: {} -> {}".format(idx, m.remote_path, m.local_path))
 
         # The command queue
-        self.__command_queue: Queue[Controller.Command] = Queue()
-
-        # Track when files enter DELETED state for age-off
-        self.__deleted_timestamps: dict[str, datetime] = {}
+        self.__command_queue = Queue()
 
         # The model
         self.__model = Model()
         self.__model.set_base_logger(self.logger)
-        # Lock for the model
-        # Note: While the scanners are in a separate process, the rest of the application
-        #       is threaded in a single process. (The webserver is bottle+paste which is
-        #       multi-threaded). Therefore it is safe to use a threading Lock for the model
-        #       (the scanner processes never try to access the model)
         self.__model_lock = Lock()
 
         # Model builder
-        self.__model_builder = ModelBuilder()
+        self.__model_builder = ModelBuilder(num_mappings=len(self.__path_mappings))
         self.__model_builder.set_base_logger(self.logger)
         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
         self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+        self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+        self.__model_builder.set_validation_enabled(self.__context.config.controller.enable_download_validation)
 
-        # Transfer backend (rclone)
-        self.__transfer = Rclone(
-            address=self.__context.config.lftp.remote_address,
-            port=self.__context.config.lftp.remote_port,
-            user=self.__context.config.lftp.remote_username,
-            password=self.__password,
-        )
-        self.__transfer.set_base_logger(self.logger)
-        self.__transfer.set_base_remote_dir_path(self.__context.config.lftp.remote_path)
-        self.__transfer.set_base_local_dir_path(self.__staging_path)
-        # Configure transfer backend
-        self.__transfer.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
-        _per_path = getattr(self.__context.config.lftp, 'num_max_parallel_downloads_per_path', None)
-        if _per_path is not None:
-            self.__transfer.num_parallel_per_group = _per_path
-        self.__transfer.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
-        self.__transfer.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
-        self.__transfer.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
-        self.__transfer.num_max_total_connections = self.__context.config.lftp.num_max_total_connections
-        self.__transfer.use_temp_file = self.__context.config.lftp.use_temp_file
-        # Set rate limit if configured (format: "0" for unlimited, "1M" for 1 MB/s, "500K" for 500 KB/s)
-        if self.__context.config.lftp.rate_limit:
-            self.__transfer.rate_limit = self.__context.config.lftp.rate_limit
-        self.__transfer.temp_file_name = "*" + Constants.LFTP_TEMP_FILE_SUFFIX
-        self.__transfer.set_verbose_logging(self.__context.config.general.verbose)
+        # Lftp - use first mapping as base paths
+        self.__lftp = Lftp(address=self.__context.config.lftp.remote_address,
+                           port=self.__context.config.lftp.remote_port,
+                           user=self.__context.config.lftp.remote_username,
+                           password=self.__password)
+        self.__lftp.set_base_logger(self.logger)
+        self.__lftp.set_base_remote_dir_path(self.__path_mappings[0].remote_path)
+        self.__lftp.set_base_local_dir_path(self.__path_mappings[0].local_path)
+        # Configure Lftp
+        self.__lftp.num_parallel_jobs = self.__context.config.lftp.num_max_parallel_downloads
+        self.__lftp.num_parallel_files = self.__context.config.lftp.num_max_parallel_files_per_download
+        self.__lftp.num_connections_per_root_file = self.__context.config.lftp.num_max_connections_per_root_file
+        self.__lftp.num_connections_per_dir_file = self.__context.config.lftp.num_max_connections_per_dir_file
+        self.__lftp.num_max_total_connections = self.__context.config.lftp.num_max_total_connections
+        self.__lftp.use_temp_file = self.__context.config.lftp.use_temp_file
+        self.__lftp.temp_file_name = "*" + Constants.LFTP_TEMP_FILE_SUFFIX
+        self.__lftp.set_verbose_logging(self.__context.config.general.verbose)
 
-        # Setup the scanners and scanner processes
-        # Check if path pairs are available for multi-path support
-        path_pairs = []
-        if self.__context.path_pair_manager:
-            path_pairs = self.__context.path_pair_manager.get_enabled_pairs()
+        # Setup per-mapping scanners and scanner processes
+        self.__active_scan_processes = []
+        self.__local_scan_processes = []
+        self.__remote_scan_processes = []
+        self.__active_scanners = []
 
-        if path_pairs:
-            # Multi-path mode: create per-pair staging dirs and scanners
-            local_scanners = []
-            remote_scanners = []
-            path_pair_local_paths = {}   # Map path_pair_id -> final local_path
-            path_pair_staging_paths = {} # Map path_pair_id -> staging_path (in-progress)
-
-            for pair in path_pairs:
-                pair_staging = os.path.join(self.__staging_path, pair.name) if _raw_staging else os.path.join(pair.local_path, "incomplete")
-                os.makedirs(pair_staging, exist_ok=True)
-                path_pair_staging_paths[pair.id] = pair_staging
-
-                local_scanners.append(
-                    LocalScanner(
-                        local_path=pair.local_path,
-                        use_temp_file=self.__context.config.lftp.use_temp_file,
-                        staging_path=pair_staging,
-                        path_pair_id=pair.id,
-                        path_pair_name=pair.name,
-                    )
-                )
-                remote_scanners.append(
-                    RemoteScanner(
-                        remote_address=self.__context.config.lftp.remote_address,
-                        remote_username=self.__context.config.lftp.remote_username,
-                        remote_password=self.__password,
-                        remote_port=self.__context.config.lftp.remote_port,
-                        remote_path_to_scan=pair.remote_path,
-                        local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
-                        remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
-                        path_pair_id=pair.id,
-                        path_pair_name=pair.name,
-                    )
-                )
-                path_pair_local_paths[pair.id] = pair.local_path
-
-            self.__local_scanner = MultiPathLocalScanner(local_scanners)
-            self.__remote_scanner = MultiPathRemoteScanner(remote_scanners)
-            # MultiPathActiveScanner watches STAGING dirs (where LFTP writes in-progress files)
-            self.__active_scanner = MultiPathActiveScanner(path_pair_staging_paths)
-            self.__is_multi_path_mode = True
-
-            # Store path pairs for later use (e.g., queuing, moving)
-            self.__path_pairs = {pair.id: pair for pair in path_pairs}
-            self.__path_pair_staging_paths = path_pair_staging_paths
-        else:
-            # Legacy single-path mode with staging_path support
-            # ActiveScanner watches staging_path (where LFTP writes in-progress files)
-            self.__active_scanner = ActiveScanner(self.__staging_path)
-            # LocalScanner scans both local_path (completed) and staging_path (in-progress)
-            self.__local_scanner = LocalScanner(
-                local_path=self.__context.config.lftp.local_path,
-                use_temp_file=self.__context.config.lftp.use_temp_file,
-                staging_path=self.__staging_path,
+        for idx, mapping in enumerate(self.__path_mappings):
+            active_scanner = ActiveScanner(mapping.local_path)
+            local_scanner = LocalScanner(
+                local_path=mapping.local_path,
+                use_temp_file=self.__context.config.lftp.use_temp_file
             )
-            self.__remote_scanner = RemoteScanner(
+            remote_scanner = RemoteScanner(
                 remote_address=self.__context.config.lftp.remote_address,
                 remote_username=self.__context.config.lftp.remote_username,
                 remote_password=self.__password,
                 remote_port=self.__context.config.lftp.remote_port,
-                remote_path_to_scan=self.__context.config.lftp.remote_path,
+                remote_path_to_scan=mapping.remote_path,
                 local_path_to_scan_script=self.__context.args.local_path_to_scanfs,
-                remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script,
+                remote_path_to_scan_script=self.__context.config.lftp.remote_path_to_scan_script
             )
-            self.__is_multi_path_mode = False
-            self.__path_pairs = {}
 
-        self.__active_scan_process = ScannerProcess(
-            scanner=self.__active_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_downloading_scan,
-            verbose=False,
-        )
-        self.__local_scan_process = ScannerProcess(
-            scanner=self.__local_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_local_scan,
-        )
-        self.__remote_scan_process = ScannerProcess(
-            scanner=self.__remote_scanner,
-            interval_in_ms=self.__context.config.controller.interval_ms_remote_scan,
-        )
+            active_process = ScannerProcess(
+                scanner=active_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_downloading_scan,
+                verbose=False
+            )
+            local_process = ScannerProcess(
+                scanner=local_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_local_scan,
+            )
+            remote_process = ScannerProcess(
+                scanner=remote_scanner,
+                interval_in_ms=self.__context.config.controller.interval_ms_remote_scan,
+            )
 
-        # Setup extract process
+            self.__active_scanners.append(active_scanner)
+            self.__active_scan_processes.append(active_process)
+            self.__local_scan_processes.append(local_process)
+            self.__remote_scan_processes.append(remote_process)
+
+        # Setup extract process (uses first mapping's local path as default)
         if self.__context.config.controller.use_local_path_as_extract_path:
-            out_dir_path = self.__context.config.lftp.local_path
+            out_dir_path = self.__path_mappings[0].local_path
         else:
             out_dir_path = self.__context.config.controller.extract_path
         self.__extract_process = ExtractProcess(
-            out_dir_path=out_dir_path, local_path=self.__context.config.lftp.local_path
-        )
-
-        # Setup validation process
-        validation_cfg = self.__context.config.validation
-        self.__validation_config = ValidationConfig(
-            enabled=validation_cfg.enabled or False,
-            algorithm=ValidationAlgorithm(validation_cfg.algorithm or "xxh128"),
-            default_chunk_size=validation_cfg.default_chunk_size or 52428800,
-            min_chunk_size=validation_cfg.min_chunk_size or 1048576,
-            max_chunk_size=validation_cfg.max_chunk_size or 104857600,
-            validate_after_chunk=validation_cfg.validate_after_chunk
-            if validation_cfg.validate_after_chunk is not None
-            else True,
-            max_retries=validation_cfg.max_retries or 3,
-            retry_delay_ms=validation_cfg.retry_delay_ms or 1000,
-            enable_adaptive_sizing=validation_cfg.enable_adaptive_sizing
-            if validation_cfg.enable_adaptive_sizing is not None
-            else True,
-            settle_delay_secs=float(validation_cfg.settle_delay_secs)
-            if validation_cfg.settle_delay_secs is not None
-            else 5.0,
-        )
-        self.__validation_process = ValidationProcess(
-            config=self.__validation_config,
-            ssh_host=self.__context.config.lftp.remote_address,
-            ssh_port=self.__context.config.lftp.remote_port,
-            ssh_user=self.__context.config.lftp.remote_username,
-            ssh_password=self.__password,
-            local_base_path=self.__context.config.lftp.local_path,
-            remote_base_path=self.__context.config.lftp.remote_path,
+            out_dir_path=out_dir_path,
+            local_path=self.__path_mappings[0].local_path
         )
 
         # Setup multiprocess logging
         self.__mp_logger = MultiprocessingLogger(self.logger)
-        self.__active_scan_process.set_multiprocessing_logger(self.__mp_logger)
-        self.__local_scan_process.set_multiprocessing_logger(self.__mp_logger)
-        self.__remote_scan_process.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__active_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__local_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
+        for proc in self.__remote_scan_processes:
+            proc.set_multiprocessing_logger(self.__mp_logger)
         self.__extract_process.set_multiprocessing_logger(self.__mp_logger)
-        self.__validation_process.set_multiprocessing_logger(self.__mp_logger)
 
         # Keep track of active files
-        self.__active_downloading_file_names: list[str] = []
-        self.__active_extracting_file_names: list[str] = []
-        self.__active_validating_file_names: list[str] = []
-
-        # Track pending chunk re-downloads: local_path -> list of (chunk_index, end_offset)
-        # When a corrupt chunk is requested for re-download, we track the expected end_offset
-        # so we know when the bytes have arrived on disk (local_size >= end_offset).
-        self.__pending_chunk_redownloads: dict[str, list[tuple[int, int]]] = {}
+        self.__active_downloading_file_names = []
+        self.__active_extracting_file_names = []
+        self.__active_validating_file_names = []
 
         # Keep track of active command processes
-        self.__active_command_processes: list[Controller.CommandProcessWrapper] = []
+        self.__active_command_processes = []
 
-        # Flag to ensure startup recovery of interrupted downloads runs only once
-        self.__startup_recovery_done = False
+        # Keep track of active validation processes
+        # Maps file_name -> ValidateProcess
+        self.__active_validation_processes = {}
+
+        # Disk space check state
+        self.__downloads_paused_disk_space = False
+        self.__last_disk_space_check_time = 0
+
+        # Health monitoring for long-running stability
+        self.__process_count = 0
+        self.__last_health_log_time = 0
+        self.__last_remote_scan_result_time = [None] * len(self.__path_mappings)
+        self.__last_local_scan_result_time = [None] * len(self.__path_mappings)
+        self.__last_model_update_time = None
+        self.__consecutive_empty_remote_scans = [0] * len(self.__path_mappings)
+        self.__consecutive_empty_local_scans = [0] * len(self.__path_mappings)
 
         self.__started = False
 
@@ -327,29 +228,18 @@ class Controller:
         :return:
         """
         self.logger.debug("Starting controller")
-        self.__active_scan_process.start()
-        self.__local_scan_process.start()
-        self.__remote_scan_process.start()
+        for proc in self.__active_scan_processes:
+            proc.start()
+        for proc in self.__local_scan_processes:
+            proc.start()
+        for proc in self.__remote_scan_processes:
+            proc.start()
         self.__extract_process.start()
-        if self.__validation_config.enabled:
-            self.__validation_process.start()
         self.__mp_logger.start()
         self.__started = True
 
-    def __apply_config_changes(self):
-        """Re-apply transfer config from the shared Config object. Called each process() cycle."""
-        cfg = self.__context.config.lftp
-        if self.__transfer.num_parallel_jobs != cfg.num_max_parallel_downloads:
-            self.logger.info("Config change: num_max_parallel_downloads = %d", cfg.num_max_parallel_downloads)
-            self.__transfer.num_parallel_jobs = cfg.num_max_parallel_downloads
-        _per_path_cfg = getattr(cfg, 'num_max_parallel_downloads_per_path', None)
-        if _per_path_cfg is not None:
-            if self.__transfer.num_parallel_per_group != _per_path_cfg:
-                self.logger.info("Config change: num_max_parallel_downloads_per_path = %d", _per_path_cfg)
-                self.__transfer.num_parallel_per_group = _per_path_cfg
-        if cfg.rate_limit and self.__transfer.rate_limit != str(cfg.rate_limit):
-            self.logger.info("Config change: rate_limit = %s", cfg.rate_limit)
-            self.__transfer.rate_limit = cfg.rate_limit
+    _HEALTH_LOG_INTERVAL_S = 300
+    _STALE_SCAN_THRESHOLD_S = 600
 
     def process(self):
         """
@@ -359,28 +249,39 @@ class Controller:
         """
         if not self.__started:
             raise ControllerError("Cannot process, controller is not started")
-        self.__apply_config_changes()
+        self.__process_count += 1
         self.__propagate_exceptions()
+        self.__check_disk_space()
         self.__cleanup_commands()
         self.__process_commands()
+        self.__check_validation_results()
         self.__update_model()
+        self.__log_health_status()
 
     def exit(self):
         self.logger.debug("Exiting controller")
         if self.__started:
-            self.__transfer.exit()
-            self.__active_scan_process.terminate()
-            self.__local_scan_process.terminate()
-            self.__remote_scan_process.terminate()
+            self.__lftp.exit()
+            for proc in self.__active_scan_processes:
+                proc.terminate()
+            for proc in self.__local_scan_processes:
+                proc.terminate()
+            for proc in self.__remote_scan_processes:
+                proc.terminate()
             self.__extract_process.terminate()
-            if self.__validation_config.enabled:
-                self.__validation_process.terminate()
-            self.__active_scan_process.join()
-            self.__local_scan_process.join()
-            self.__remote_scan_process.join()
+            # Terminate any active validation processes
+            for process in self.__active_validation_processes.values():
+                process.terminate()
+            for proc in self.__active_scan_processes:
+                proc.join()
+            for proc in self.__local_scan_processes:
+                proc.join()
+            for proc in self.__remote_scan_processes:
+                proc.join()
             self.__extract_process.join()
-            if self.__validation_config.enabled:
-                self.__validation_process.join()
+            for process in self.__active_validation_processes.values():
+                process.join()
+            self.__active_validation_processes.clear()
             self.__mp_logger.stop()
             self.__started = False
             self.logger.info("Exited controller")
@@ -390,8 +291,11 @@ class Controller:
         Returns a copy of all the model files
         :return:
         """
-        with self.__model_lock:
-            model_files = self.__get_model_files()
+        # Lock the model
+        self.__model_lock.acquire()
+        model_files = self.__get_model_files()
+        # Release the model
+        self.__model_lock.release()
         return model_files
 
     def add_model_listener(self, listener: IModelListener):
@@ -400,8 +304,11 @@ class Controller:
         :param listener:
         :return:
         """
-        with self.__model_lock:
-            self.__model.add_listener(listener)
+        # Lock the model
+        self.__model_lock.acquire()
+        self.__model.add_listener(listener)
+        # Release the model
+        self.__model_lock.release()
 
     def remove_model_listener(self, listener: IModelListener):
         """
@@ -409,8 +316,11 @@ class Controller:
         :param listener:
         :return:
         """
-        with self.__model_lock:
-            self.__model.remove_listener(listener)
+        # Lock the model
+        self.__model_lock.acquire()
+        self.__model.remove_listener(listener)
+        # Release the model
+        self.__model_lock.release()
 
     def get_model_files_and_add_listener(self, listener: IModelListener):
         """
@@ -425,20 +335,21 @@ class Controller:
         :param listener:
         :return:
         """
-        with self.__model_lock:
-            self.__model.add_listener(listener)
-            model_files = self.__get_model_files()
+        # Lock the model
+        self.__model_lock.acquire()
+        self.__model.add_listener(listener)
+        model_files = self.__get_model_files()
+        # Release the model
+        self.__model_lock.release()
         return model_files
 
     def queue_command(self, command: Command):
         self.__command_queue.put(command)
 
-    def force_scan_remote(self):
-        """
-        Trigger an immediate rescan of the remote directory.
-        This wakes the remote scanner process without waiting for the next interval.
-        """
-        self.__remote_scan_process.force_scan()
+    def __get_mapping_for_file(self, file: ModelFile) -> PathMapping:
+        """Get the PathMapping for a model file based on its mapping_index"""
+        idx = file.mapping_index if file.mapping_index is not None else 0
+        return self.__path_mappings[idx]
 
     def __get_model_files(self) -> List[ModelFile]:
         model_files = []
@@ -447,17 +358,62 @@ class Controller:
         return model_files
 
     def __update_model(self):
-        # Grab the latest scan results
-        latest_remote_scan = self.__remote_scan_process.pop_latest_result()
-        latest_local_scan = self.__local_scan_process.pop_latest_result()
-        latest_active_scan = self.__active_scan_process.pop_latest_result()
+        # Grab per-mapping scan results
+        for idx in range(len(self.__path_mappings)):
+            latest_remote_scan = self.__remote_scan_processes[idx].pop_latest_result()
+            latest_local_scan = self.__local_scan_processes[idx].pop_latest_result()
+            latest_active_scan = self.__active_scan_processes[idx].pop_latest_result()
 
-        # Grab the transfer backend status
-        transfer_statuses = None
+            if latest_remote_scan is not None:
+                self.__last_remote_scan_result_time[idx] = datetime.now()
+                if latest_remote_scan.failed:
+                    self.__consecutive_empty_remote_scans[idx] += 1
+                    self.logger.warning(
+                        "Remote scan {} failed (consecutive={}): {}".format(
+                            idx, self.__consecutive_empty_remote_scans[idx],
+                            latest_remote_scan.error_message
+                        ))
+                else:
+                    if self.__consecutive_empty_remote_scans[idx] > 0:
+                        self.logger.info(
+                            "Remote scan {} recovered after {} failures, found {} files".format(
+                                idx, self.__consecutive_empty_remote_scans[idx],
+                                len(latest_remote_scan.files)
+                            ))
+                    self.__consecutive_empty_remote_scans[idx] = 0
+                self.__model_builder.set_remote_files(latest_remote_scan.files, mapping_index=idx)
+                if idx == 0:
+                    self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
+                    self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
+                    self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
+            if latest_local_scan is not None:
+                self.__last_local_scan_result_time[idx] = datetime.now()
+                if latest_local_scan.failed:
+                    self.__consecutive_empty_local_scans[idx] += 1
+                    self.logger.warning(
+                        "Local scan {} failed (consecutive={}): {}".format(
+                            idx, self.__consecutive_empty_local_scans[idx],
+                            latest_local_scan.error_message
+                        ))
+                else:
+                    if self.__consecutive_empty_local_scans[idx] > 0:
+                        self.logger.info(
+                            "Local scan {} recovered after {} failures".format(
+                                idx, self.__consecutive_empty_local_scans[idx]
+                            ))
+                    self.__consecutive_empty_local_scans[idx] = 0
+                self.__model_builder.set_local_files(latest_local_scan.files, mapping_index=idx)
+                if idx == 0:
+                    self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+            if latest_active_scan is not None:
+                self.__model_builder.set_active_files(latest_active_scan.files, mapping_index=idx)
+
+        # Grab the Lftp status
+        lftp_statuses = None
         try:
-            transfer_statuses = self.__transfer.status()
-        except RcloneError as e:
-            self.logger.warning("Caught transfer error: {}".format(str(e)))
+            lftp_statuses = self.__lftp.status()
+        except LftpError as e:
+            self.logger.warning("Caught lftp error: {}".format(str(e)))
 
         # Grab the latest extract results
         latest_extract_statuses = self.__extract_process.pop_latest_statuses()
@@ -466,38 +422,24 @@ class Controller:
         latest_extracted_results = self.__extract_process.pop_completed()
 
         # Update list of active file names
-        if transfer_statuses is not None:
+        if lftp_statuses is not None:
             self.__active_downloading_file_names = [
-                s.name for s in transfer_statuses if s.state == JobStatus.State.RUNNING
+                s.name for s in lftp_statuses if s.state == LftpJobStatus.State.RUNNING
             ]
         if latest_extract_statuses is not None:
             self.__active_extracting_file_names = [
                 s.name for s in latest_extract_statuses.statuses if s.state == ExtractStatus.State.EXTRACTING
             ]
+        self.__active_validating_file_names = list(self.__active_validation_processes.keys())
 
-        # Update the active scanner's state
-        if self.__is_multi_path_mode:
-            # Multi-path mode: pass (filename, path_pair_id) tuples
-            active_files_with_pairs = []
-            for name in self.__active_downloading_file_names + self.__active_extracting_file_names:
-                path_pair_id = self.__get_path_pair_id_for_file(name)
-                active_files_with_pairs.append((name, path_pair_id))
-            self.__active_scanner.set_active_files(active_files_with_pairs)
-        else:
-            # Single-path mode: pass plain filenames
-            self.__active_scanner.set_active_files(
+        # Update all active scanners with active file names
+        for scanner in self.__active_scanners:
+            scanner.set_active_files(
                 self.__active_downloading_file_names + self.__active_extracting_file_names
             )
 
-        # Update model builder state
-        if latest_remote_scan is not None:
-            self.__model_builder.set_remote_files(latest_remote_scan.files)
-        if latest_local_scan is not None:
-            self.__model_builder.set_local_files(latest_local_scan.files)
-        if latest_active_scan is not None:
-            self.__model_builder.set_active_files(latest_active_scan.files)
-        if transfer_statuses is not None:
-            self.__model_builder.set_transfer_statuses(transfer_statuses)
+        if lftp_statuses is not None:
+            self.__model_builder.set_lftp_statuses(lftp_statuses)
         if latest_extract_statuses is not None:
             self.__model_builder.set_extract_statuses(latest_extract_statuses.statuses)
         if latest_extracted_results:
@@ -505,165 +447,338 @@ class Controller:
                 self.__persist.extracted_file_names.add(result.name)
             self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
+        # Update model builder with validation statuses
+        validation_statuses = [
+            ValidationStatus(name=name, is_dir=proc.is_dir)
+            for name, proc in self.__active_validation_processes.items()
+        ]
+        self.__model_builder.set_validation_statuses(validation_statuses)
+
         # Build the new model, if needed
         if self.__model_builder.has_changes():
+            self.__last_model_update_time = datetime.now()
             new_model = self.__model_builder.build_model()
 
-            with self.__model_lock:
-                # Preserve validation states from the current model.
-                # The model builder doesn't know about validation states (VALIDATING,
-                # VALIDATED, CORRUPT) — those are applied by __process_validation_results.
-                # Without this, every model rebuild would generate spurious UPDATED diffs
-                # (e.g. VALIDATED→DOWNLOADED→VALIDATED) causing the UI to refresh all files.
-                _VALIDATION_STATES = (
-                    ModelFile.State.VALIDATING,
-                    ModelFile.State.VALIDATED,
-                    ModelFile.State.CORRUPT,
-                )
-                for file_name in new_model.get_file_names():
-                    if file_name in self.__model.get_file_names():
-                        old_file = self.__model.get_file(file_name)
-                        if old_file.state in _VALIDATION_STATES:
-                            new_file = new_model.get_file(file_name)
-                            # Only carry over if the new model has it as DOWNLOADED
-                            # (i.e. the model builder hasn't moved it to a different state)
-                            if new_file.state == ModelFile.State.DOWNLOADED:
-                                new_file.state = old_file.state
-                                new_file.validation_progress = old_file.validation_progress
-                                new_file.validation_error = old_file.validation_error
-                                new_file.corrupt_chunks = old_file.corrupt_chunks
+            # Lock the model
+            self.__model_lock.acquire()
 
-                # Diff the new model with old model
-                model_diff = ModelDiffUtil.diff_models(self.__model, new_model)
+            # Diff the new model with old model
+            model_diff = ModelDiffUtil.diff_models(self.__model, new_model)
 
-                # Apply changes to the new model
-                for diff in model_diff:
-                    if diff.change == ModelDiff.Change.ADDED:
-                        self.__model.add_file(diff.new_file)
-                    elif diff.change == ModelDiff.Change.REMOVED:
-                        self.__model.remove_file(diff.old_file.name)
-                    elif diff.change == ModelDiff.Change.UPDATED:
-                        self.__model.update_file(diff.new_file)
+            # Apply changes to the new model
+            for diff in model_diff:
+                if diff.change == ModelDiff.Change.ADDED:
+                    self.__model.add_file(diff.new_file)
+                elif diff.change == ModelDiff.Change.REMOVED:
+                    self.__model.remove_file(diff.old_file.name)
+                elif diff.change == ModelDiff.Change.UPDATED:
+                    self.__model.update_file(diff.new_file)
 
-                    # Detect if a file was just Downloaded
-                    #   an Added file in Downloaded state
-                    #   an Updated file transitioning to Downloaded state
-                    # If so, update the persist state
-                    # Note: This step is done after the new model is build because
-                    #       model_builder is the one that discovers when a file is Downloaded
-                    downloaded = False
-                    if (
-                        diff.change == ModelDiff.Change.ADDED
-                        and diff.new_file.state == ModelFile.State.DOWNLOADED
-                        or diff.change == ModelDiff.Change.UPDATED
-                        and diff.new_file.state == ModelFile.State.DOWNLOADED
-                        and diff.old_file.state != ModelFile.State.DOWNLOADED
-                    ):
-                        downloaded = True
-                    if downloaded:
-                        self.__persist.downloaded_file_names.add(diff.new_file.name)
-                        self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
-                        # Move completed file from staging_path to local_path
-                        if self.__is_multi_path_mode:
-                            self.__move_from_staging_multi(diff.new_file.name, diff.new_file.path_pair_id)
-                        else:
-                            self.__move_from_staging(diff.new_file.name)
+                # Detect if a file was just Downloaded or needs validation
+                # When validation is enabled, files go to VALIDATING instead of DOWNLOADED
+                # When validation is disabled, files go directly to DOWNLOADED
+                downloaded = False
+                needs_validation = False
+                if diff.change == ModelDiff.Change.ADDED and \
+                        diff.new_file.state == ModelFile.State.DOWNLOADED:
+                    downloaded = True
+                elif diff.change == ModelDiff.Change.UPDATED and \
+                        diff.new_file.state == ModelFile.State.DOWNLOADED and \
+                        diff.old_file.state != ModelFile.State.DOWNLOADED:
+                    downloaded = True
+                elif diff.change == ModelDiff.Change.ADDED and \
+                        diff.new_file.state == ModelFile.State.VALIDATING:
+                    needs_validation = True
+                elif diff.change == ModelDiff.Change.UPDATED and \
+                        diff.new_file.state == ModelFile.State.VALIDATING and \
+                        diff.old_file.state not in (ModelFile.State.VALIDATING, ModelFile.State.DOWNLOADED):
+                    needs_validation = True
 
-                        # Trigger post-download validation once the file is fully on disk.
-                        # Validating after download completes avoids false corrupt-chunk
-                        # detections caused by LFTP's parallel connections writing to
-                        # overlapping byte ranges while the download is still in progress.
-                        if (
-                            self.__validation_config.enabled
-                            and not diff.new_file.is_dir
-                            and diff.new_file.remote_size is not None
-                        ):
-                            self.__validation_process.validate(
-                                file=diff.new_file,
-                                local_path=diff.new_file.name,
-                                remote_path=diff.new_file.name,
-                                file_size=diff.new_file.remote_size,
-                                inline=False,
-                            )
-                            self.logger.info(
-                                "Queued '{}' for post-download validation".format(diff.new_file.name)
-                            )
+                if downloaded or needs_validation:
+                    self.__persist.downloaded_file_names.add(diff.new_file.name)
+                    self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
 
-                # Prune the extracted files list of any files that were deleted locally
-                # This prevents these files from going to EXTRACTED state if they are re-downloaded
-                remove_extracted_file_names = set()
-                existing_file_names = self.__model.get_file_names()
-                for extracted_file_name in self.__persist.extracted_file_names:
-                    if extracted_file_name in existing_file_names:
-                        file = self.__model.get_file(extracted_file_name)
-                        if file.state == ModelFile.State.DELETED:
-                            # Deleted locally, remove
-                            remove_extracted_file_names.add(extracted_file_name)
-                    else:
-                        # Not in the model at all
-                        # This could be because local and remote scans are not yet available
-                        pass
-                if remove_extracted_file_names:
-                    self.logger.info("Removing from extracted list: {}".format(remove_extracted_file_names))
-                    self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
-                    self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
+                if needs_validation:
+                    # Start validation if not already running
+                    if diff.new_file.name not in self.__active_validation_processes:
+                        mi = diff.new_file.mapping_index if diff.new_file.mapping_index is not None else 0
+                        self.__start_validation(diff.new_file.name, diff.new_file.is_dir, mi)
 
-                # Age off DELETED files after a delay.
-                # When a file is deleted locally (e.g., by Sonarr/Radarr after import),
-                # it enters DELETED state. After deleted_age_off_secs, we remove it from
-                # the downloaded set so auto-queue will re-download it if it still exists
-                # on the remote. The delay prevents a race condition where RapidCopy
-                # re-downloads a file that Sonarr/Radarr is still importing.
-                _age_off_secs = self.__context.config.controller.deleted_age_off_secs
-                if _age_off_secs is None:
-                    _age_off_secs = 1800
-                if _age_off_secs > 0:
-                    _now = datetime.now()
-                    _cutoff = _now - timedelta(seconds=_age_off_secs)
-
-                    # Track newly DELETED files
-                    for _name in self.__model.get_file_names():
-                        _file = self.__model.get_file(_name)
-                        if _file.state == ModelFile.State.DELETED:
-                            if _name not in self.__deleted_timestamps:
-                                self.__deleted_timestamps[_name] = _now
-                        else:
-                            # File is no longer DELETED (re-appeared or changed state)
-                            self.__deleted_timestamps.pop(_name, None)
-
-                    # Age off files that have been DELETED longer than the threshold
-                    _aged_off = set()
-                    for _name, _ts in list(self.__deleted_timestamps.items()):
-                        if _ts < _cutoff:
-                            _aged_off.add(_name)
-
-                    if _aged_off:
-                        self.logger.info("Aging off DELETED files (re-download eligible): {}".format(_aged_off))
-                        for _name in _aged_off:
-                            self.__deleted_timestamps.pop(_name, None)
-                            self.__persist.downloaded_file_names.discard(_name)
-                            if _name in self.__model.get_file_names():
-                                self.__model.remove_file(_name)
-                        self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
-
-        # Update the controller status
-        if latest_remote_scan is not None:
-            self.__context.status.controller.latest_remote_scan_time = latest_remote_scan.timestamp
-            self.__context.status.controller.latest_remote_scan_failed = latest_remote_scan.failed
-            self.__context.status.controller.latest_remote_scan_error = latest_remote_scan.error_message
-            # Auto-resume any interrupted downloads left in staging from a previous session
-            if not self.__startup_recovery_done:
-                self.__startup_recovery_done = True
-                if self.__is_multi_path_mode:
-                    self.__recover_interrupted_downloads_multi(latest_remote_scan.files)
+            # Prune the extracted files list of any files that were deleted locally
+            # This prevents these files from going to EXTRACTED state if they are re-downloaded
+            remove_extracted_file_names = set()
+            existing_file_names = self.__model.get_file_names()
+            for extracted_file_name in self.__persist.extracted_file_names:
+                if extracted_file_name in existing_file_names:
+                    file = self.__model.get_file(extracted_file_name)
+                    if file.state == ModelFile.State.DELETED:
+                        # Deleted locally, remove
+                        remove_extracted_file_names.add(extracted_file_name)
                 else:
-                    self.__recover_interrupted_downloads(latest_remote_scan.files)
-        if latest_local_scan is not None:
-            self.__context.status.controller.latest_local_scan_time = latest_local_scan.timestamp
+                    # Not in the model at all
+                    # This could be because local and remote scans are not yet available
+                    pass
+            if remove_extracted_file_names:
+                self.logger.info("Removing from extracted list: {}".format(remove_extracted_file_names))
+                self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
+                self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
-        # Process validation results (if validation is enabled)
-        if self.__validation_config.enabled:
-            self.__process_validation_results()
+            # Prune the validated files list of any files that were deleted locally
+            # This allows re-validation if the file is re-downloaded
+            remove_validated_file_names = set()
+            for validated_file_name in self.__persist.validated_file_names:
+                if validated_file_name in existing_file_names:
+                    file = self.__model.get_file(validated_file_name)
+                    if file.state == ModelFile.State.DELETED:
+                        remove_validated_file_names.add(validated_file_name)
+            if remove_validated_file_names:
+                self.logger.info("Removing from validated list: {}".format(remove_validated_file_names))
+                self.__persist.validated_file_names.difference_update(remove_validated_file_names)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+
+            # Release the model
+            self.__model_lock.release()
+
+        # Note: controller status updated in per-mapping scan loop above
+
+    def __start_validation(self, file_name: str, is_dir: bool, mapping_index: int = 0):
+        """
+        Start a validation process for the given file
+        """
+        mapping = self.__path_mappings[mapping_index]
+        self.logger.info("Starting download validation for: {} (mapping {})".format(file_name, mapping_index))
+        process = ValidateProcess(
+            local_path=mapping.local_path,
+            remote_path=mapping.remote_path,
+            file_name=file_name,
+            is_dir=is_dir,
+            remote_address=self.__context.config.lftp.remote_address,
+            remote_username=self.__context.config.lftp.remote_username,
+            remote_password=self.__password,
+            remote_port=self.__context.config.lftp.remote_port,
+            use_chunked=self.__context.config.controller.use_chunked_validation,
+            chunk_size_bytes=self.__context.config.controller.validation_chunk_size_mb * 1024 * 1024
+        )
+        process.set_multiprocessing_logger(self.__mp_logger)
+        self.__active_validation_processes[file_name] = process
+        process.start()
+
+    def __check_validation_results(self):
+        """
+        Check for completed validation processes and handle results
+        """
+        completed = []
+        for file_name, process in self.__active_validation_processes.items():
+            if not process.is_alive():
+                result = process.pop_result()
+                if result is not None:
+                    completed.append((file_name, result))
+                else:
+                    # Process died without producing a result
+                    self.logger.error("Validation process for {} died without result".format(file_name))
+                    completed.append((file_name, ValidationResult(
+                        file_name=file_name,
+                        is_dir=False,
+                        status=ValidationResult.Status.ERROR,
+                        error_message="Validation process terminated unexpectedly"
+                    )))
+                # Propagate any exceptions
+                process.propagate_exception()
+
+        for file_name, result in completed:
+            del self.__active_validation_processes[file_name]
+
+            if result.status == ValidationResult.Status.PASSED:
+                self.logger.info("Validation passed for: {}".format(file_name))
+                # Mark as validated so it won't be re-validated
+                self.__persist.validated_file_names.add(file_name)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+                # Clear retry count on success
+                if file_name in self.__persist.validation_retry_counts:
+                    del self.__persist.validation_retry_counts[file_name]
+
+            elif result.status == ValidationResult.Status.FAILED:
+                retry_count = self.__persist.validation_retry_counts.get(file_name, 0)
+                max_retries = self.__context.config.controller.download_validation_max_retries
+
+                if retry_count < max_retries:
+                    self.__persist.validation_retry_counts[file_name] = retry_count + 1
+                    self.logger.warning(
+                        "Validation failed for {} (attempt {}/{}): {}. "
+                        "Deleting local copy and re-queuing.".format(
+                            file_name, retry_count + 1, max_retries, result.error_message
+                        ))
+                    # Remove from downloaded set so it can be re-downloaded
+                    self.__persist.downloaded_file_names.discard(file_name)
+                    self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
+                    # Delete local file and re-queue
+                    self.__delete_local_and_requeue(file_name, result.is_dir)
+                else:
+                    self.logger.error(
+                        "Validation failed for {} after {} retries: {}. Giving up.".format(
+                            file_name, max_retries, result.error_message
+                        ))
+                    # Clear retry count
+                    del self.__persist.validation_retry_counts[file_name]
+                    # Mark as validated to stop retrying (failed but exhausted retries)
+                    self.__persist.validated_file_names.add(file_name)
+                    self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+
+            elif result.status == ValidationResult.Status.ERROR:
+                self.logger.error("Validation error for {}: {}".format(
+                    file_name, result.error_message))
+                # Mark as validated to avoid blocking the file forever on errors
+                self.__persist.validated_file_names.add(file_name)
+                self.__model_builder.set_validated_files(self.__persist.validated_file_names)
+
+    def __delete_local_and_requeue(self, file_name: str, is_dir: bool):
+        """
+        Delete the local copy of a file and re-queue it for download
+        """
+        # Look up the mapping for this file from the model
+        mapping_idx = 0
+        try:
+            file = self.__model.get_file(file_name)
+            mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+        except ModelError:
+            pass
+        mapping = self.__path_mappings[mapping_idx]
+
+        local_file_path = os.path.join(mapping.local_path, file_name)
+        self.logger.info("Deleting local file for re-download: {}".format(file_name))
+        try:
+            if os.path.isfile(local_file_path):
+                os.remove(local_file_path)
+            elif os.path.isdir(local_file_path):
+                shutil.rmtree(local_file_path, ignore_errors=True)
+        except OSError as e:
+            self.logger.error("Failed to delete local file {}: {}".format(file_name, str(e)))
+            return
+
+        # Force a local scan to pick up the deletion
+        self.__local_scan_processes[mapping_idx].force_scan()
+
+        # Re-queue the file for download
+        try:
+            self.__lftp.queue(file_name, is_dir,
+                              remote_path=mapping.remote_path,
+                              local_path=mapping.local_path)
+            self.logger.info("Re-queued {} for download after validation failure".format(file_name))
+        except LftpError as e:
+            self.logger.error("Failed to re-queue {}: {}".format(file_name, str(e)))
+
+    def __log_health_status(self):
+        """Periodically log health diagnostics to help debug long-running stalls"""
+        now = time.monotonic()
+        if now - self.__last_health_log_time < Controller._HEALTH_LOG_INTERVAL_S:
+            return
+        self.__last_health_log_time = now
+
+        now_dt = datetime.now()
+        parts = ["Health check (loop #{}):".format(self.__process_count)]
+
+        for idx in range(len(self.__path_mappings)):
+            remote_alive = self.__remote_scan_processes[idx].is_alive()
+            local_alive = self.__local_scan_processes[idx].is_alive()
+            active_alive = self.__active_scan_processes[idx].is_alive()
+
+            remote_age = "never"
+            if self.__last_remote_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_remote_scan_result_time[idx]).total_seconds()
+                remote_age = "{:.0f}s ago".format(delta)
+            local_age = "never"
+            if self.__last_local_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_local_scan_result_time[idx]).total_seconds()
+                local_age = "{:.0f}s ago".format(delta)
+
+            parts.append(
+                "  Mapping {}: remote_proc={} local_proc={} active_proc={} "
+                "last_remote_result={} last_local_result={} "
+                "empty_remote={} empty_local={}".format(
+                    idx,
+                    "alive" if remote_alive else "DEAD",
+                    "alive" if local_alive else "DEAD",
+                    "alive" if active_alive else "DEAD",
+                    remote_age, local_age,
+                    self.__consecutive_empty_remote_scans[idx],
+                    self.__consecutive_empty_local_scans[idx]
+                )
+            )
+
+            # Warn if a scanner process has died
+            if not remote_alive:
+                self.logger.error("Remote scanner process for mapping {} is DEAD".format(idx))
+            if not local_alive:
+                self.logger.error("Local scanner process for mapping {} is DEAD".format(idx))
+            if not active_alive:
+                self.logger.error("Active scanner process for mapping {} is DEAD".format(idx))
+
+            # Warn if no scan results received for too long
+            if self.__last_remote_scan_result_time[idx] is not None:
+                delta = (now_dt - self.__last_remote_scan_result_time[idx]).total_seconds()
+                if delta > Controller._STALE_SCAN_THRESHOLD_S:
+                    self.logger.warning(
+                        "No remote scan results for mapping {} in {:.0f}s "
+                        "(proc alive={})".format(idx, delta, remote_alive)
+                    )
+
+        lftp_alive = True
+        try:
+            self.__lftp.status()
+        except LftpError:
+            lftp_alive = False
+        parts.append("  LFTP: {} | model_files={} | downloading={} | extracting={} | validating={}".format(
+            "ok" if lftp_alive else "ERROR",
+            len(self.__model.get_file_names()),
+            len(self.__active_downloading_file_names),
+            len(self.__active_extracting_file_names),
+            len(self.__active_validating_file_names)
+        ))
+
+        model_age = "never"
+        if self.__last_model_update_time is not None:
+            delta = (now_dt - self.__last_model_update_time).total_seconds()
+            model_age = "{:.0f}s ago".format(delta)
+        parts.append("  Last model update: {}".format(model_age))
+
+        self.logger.info(" | ".join(parts))
+
+    _DISK_SPACE_CHECK_INTERVAL_S = 30
+
+    def __check_disk_space(self):
+        """Check disk space on all local paths and pause downloads if low"""
+        if not self.__context.config.controller.enable_disk_space_check:
+            return
+        if self.__downloads_paused_disk_space:
+            return
+
+        now = time.monotonic()
+        if now - self.__last_disk_space_check_time < Controller._DISK_SPACE_CHECK_INTERVAL_S:
+            return
+        self.__last_disk_space_check_time = now
+
+        threshold = self.__context.config.controller.disk_space_min_percent
+        for mapping in self.__path_mappings:
+            try:
+                usage = shutil.disk_usage(mapping.local_path)
+                percent_free = (usage.free / usage.total) * 100
+                if percent_free < threshold:
+                    self.logger.warning(
+                        "Low disk space on {} ({:.1f}% free, threshold {}%). "
+                        "Pausing all downloads.".format(mapping.local_path, percent_free, threshold)
+                    )
+                    self.__lftp.kill_all()
+                    self.__downloads_paused_disk_space = True
+                    self.__context.status.controller.downloads_paused_disk_space = True
+                    self.__context.status.controller.disk_space_error = \
+                        "Low disk space on {} ({:.1f}% free, threshold {}%)".format(
+                            mapping.local_path, percent_free, threshold
+                        )
+                    return
+            except OSError as e:
+                self.logger.warning("Could not check disk space on {}: {}".format(
+                    mapping.local_path, str(e)
+                ))
 
     def __process_commands(self):
         def _notify_failure(_command: Controller.Command, _msg: str):
@@ -681,27 +796,19 @@ class Controller:
                 continue
 
             if command.action == Controller.Command.Action.QUEUE:
+                if self.__downloads_paused_disk_space:
+                    _notify_failure(command, "Downloads paused: low disk space")
+                    continue
                 if file.remote_size is None:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 try:
-                    # Use path pair paths if available
-                    remote_path = None
-                    local_path = None
-                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
-                        pair = self.__path_pairs[file.path_pair_id]
-                        remote_path = pair.remote_path
-                        # Download to per-pair staging dir; controller moves to local_path on completion
-                        local_path = self.__path_pair_staging_paths.get(
-                            file.path_pair_id, pair.local_path
-                        )
-                    self.__transfer.queue(
-                        file.name, file.is_dir,
-                        remote_path=remote_path, local_path=local_path,
-                        group=file.path_pair_id,
-                    )
-                except RcloneError as e:
-                    _notify_failure(command, "Lftp error: {}".format(str(e)))
+                    mapping = self.__get_mapping_for_file(file)
+                    self.__lftp.queue(file.name, file.is_dir,
+                                     remote_path=mapping.remote_path,
+                                     local_path=mapping.local_path)
+                except LftpError as e:
+                    _notify_failure(command, "Lftp error: ".format(str(e)))
                     continue
 
             elif command.action == Controller.Command.Action.STOP:
@@ -709,27 +816,21 @@ class Controller:
                     _notify_failure(command, "File '{}' is not Queued or Downloading".format(command.filename))
                     continue
                 try:
-                    self.__transfer.kill(file.name)
-                except RcloneError as e:
-                    _notify_failure(command, "Lftp error: {}".format(str(e)))
-                    continue
-
-            elif command.action == Controller.Command.Action.PRIORITIZE:
-                if file.state != ModelFile.State.QUEUED:
-                    _notify_failure(command, "File '{}' is not Queued".format(command.filename))
-                    continue
-                try:
-                    self.__transfer.prioritize(file.name)
-                except RcloneError as e:
-                    _notify_failure(command, "Lftp error: {}".format(str(e)))
+                    self.__lftp.kill(file.name)
+                except LftpError as e:
+                    _notify_failure(command, "Lftp error: ".format(str(e)))
                     continue
 
             elif command.action == Controller.Command.Action.EXTRACT:
                 # Note: We don't check the is_extractable flag because it's just a guess
-                if file.state not in (ModelFile.State.DEFAULT, ModelFile.State.DOWNLOADED, ModelFile.State.EXTRACTED):
-                    _notify_failure(
-                        command, "File '{}' in state {} cannot be extracted".format(command.filename, str(file.state))
-                    )
+                if file.state not in (
+                        ModelFile.State.DEFAULT,
+                        ModelFile.State.DOWNLOADED,
+                        ModelFile.State.EXTRACTED
+                ):
+                    _notify_failure(command, "File '{}' in state {} cannot be extracted".format(
+                        command.filename, str(file.state)
+                    ))
                     continue
                 elif file.local_size is None:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
@@ -738,35 +839,31 @@ class Controller:
                     self.__extract_process.extract(file)
 
             elif command.action == Controller.Command.Action.DELETE_LOCAL:
-                if file.state not in (ModelFile.State.DEFAULT, ModelFile.State.DOWNLOADED, ModelFile.State.EXTRACTED):
-                    _notify_failure(
-                        command,
-                        "Local file '{}' cannot be deleted in state {}".format(command.filename, str(file.state)),
-                    )
+                if file.state not in (
+                    ModelFile.State.DEFAULT,
+                    ModelFile.State.DOWNLOADED,
+                    ModelFile.State.EXTRACTED
+                ):
+                    _notify_failure(command, "Local file '{}' cannot be deleted in state {}".format(
+                        command.filename, str(file.state)
+                    ))
                     continue
                 elif file.local_size is None:
                     _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
                     continue
                 else:
-                    # Use path pair local_path if available
-                    local_path = self.__context.config.lftp.local_path
-                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
-                        local_path = self.__path_pairs[file.path_pair_id].local_path
-                    # If file isn't in local_path, check staging as fallback.
-                    # This handles the edge case where __move_from_staging failed but
-                    # the model already transitioned to DOWNLOADED state.
-                    if not os.path.exists(os.path.join(local_path, file.name)):
-                        staging_fallback = None
-                        if self.__is_multi_path_mode and file.path_pair_id:
-                            staging_fallback = self.__path_pair_staging_paths.get(file.path_pair_id)
-                        elif not self.__is_multi_path_mode:
-                            staging_fallback = self.__staging_path
-                        if staging_fallback and os.path.exists(os.path.join(staging_fallback, file.name)):
-                            local_path = staging_fallback
-                    process = DeleteLocalProcess(local_path=local_path, file_name=file.name)
+                    mapping = self.__get_mapping_for_file(file)
+                    process = DeleteLocalProcess(
+                        local_path=mapping.local_path,
+                        file_name=file.name
+                    )
                     process.set_multiprocessing_logger(self.__mp_logger)
-                    post_callback = self.__local_scan_process.force_scan
-                    command_wrapper = Controller.CommandProcessWrapper(process=process, post_callback=post_callback)
+                    mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+                    post_callback = self.__local_scan_processes[mapping_idx].force_scan
+                    command_wrapper = Controller.CommandProcessWrapper(
+                        process=process,
+                        post_callback=post_callback
+                    )
                     self.__active_command_processes.append(command_wrapper)
                     command_wrapper.process.start()
 
@@ -775,74 +872,34 @@ class Controller:
                     ModelFile.State.DEFAULT,
                     ModelFile.State.DOWNLOADED,
                     ModelFile.State.EXTRACTED,
-                    ModelFile.State.DELETED,
+                    ModelFile.State.DELETED
                 ):
-                    _notify_failure(
-                        command,
-                        "Remote file '{}' cannot be deleted in state {}".format(command.filename, str(file.state)),
-                    )
+                    _notify_failure(command, "Remote file '{}' cannot be deleted in state {}".format(
+                        command.filename, str(file.state)
+                    ))
                     continue
                 elif file.remote_size is None:
                     _notify_failure(command, "File '{}' does not exist remotely".format(command.filename))
                     continue
                 else:
-                    # Use path pair remote_path if available
-                    remote_path = self.__context.config.lftp.remote_path
-                    if file.path_pair_id and file.path_pair_id in self.__path_pairs:
-                        remote_path = self.__path_pairs[file.path_pair_id].remote_path
+                    mapping = self.__get_mapping_for_file(file)
                     process = DeleteRemoteProcess(
                         remote_address=self.__context.config.lftp.remote_address,
                         remote_username=self.__context.config.lftp.remote_username,
                         remote_password=self.__password,
                         remote_port=self.__context.config.lftp.remote_port,
-                        remote_path=remote_path,
-                        file_name=file.name,
+                        remote_path=mapping.remote_path,
+                        file_name=file.name
                     )
                     process.set_multiprocessing_logger(self.__mp_logger)
-                    post_callback = self.__remote_scan_process.force_scan
-                    command_wrapper = Controller.CommandProcessWrapper(process=process, post_callback=post_callback)
+                    mapping_idx = file.mapping_index if file.mapping_index is not None else 0
+                    post_callback = self.__remote_scan_processes[mapping_idx].force_scan
+                    command_wrapper = Controller.CommandProcessWrapper(
+                        process=process,
+                        post_callback=post_callback
+                    )
                     self.__active_command_processes.append(command_wrapper)
                     command_wrapper.process.start()
-
-            elif command.action == Controller.Command.Action.VALIDATE:
-                if not self.__validation_config.enabled:
-                    _notify_failure(command, "Validation is not enabled in configuration")
-                    continue
-                if file.state not in (
-                    ModelFile.State.DEFAULT,
-                    ModelFile.State.DOWNLOADED,
-                    ModelFile.State.EXTRACTED,
-                    ModelFile.State.VALIDATED,
-                    ModelFile.State.CORRUPT,
-                ):
-                    _notify_failure(
-                        command,
-                        "File '{}' in state {} cannot be validated".format(command.filename, str(file.state)),
-                    )
-                    continue
-                elif file.local_size is None:
-                    _notify_failure(command, "File '{}' does not exist locally".format(command.filename))
-                    continue
-                elif file.remote_size is None:
-                    _notify_failure(
-                        command,
-                        "File '{}' does not exist remotely (needed for checksum comparison)".format(command.filename),
-                    )
-                    continue
-                else:
-                    # Determine local and remote paths
-                    local_path = file.name
-                    remote_path = file.name
-                    file_size = file.local_size
-
-                    # Queue for validation
-                    self.__validation_process.validate(
-                        file=file,
-                        local_path=local_path,
-                        remote_path=remote_path,
-                        file_size=file_size,
-                    )
-                    self.logger.info("Queued '{}' for validation".format(file.name))
 
             # If we get here, it was a success
             for callback in command.callbacks:
@@ -853,17 +910,15 @@ class Controller:
         Propagate any exceptions from child processes/threads to this thread
         :return:
         """
-        try:
-            self.__transfer.raise_pending_error()
-        except RcloneError as e:
-            self.logger.warning("Ignoring non-fatal Lftp error: {}".format(str(e)))
-        self.__active_scan_process.propagate_exception()
-        self.__local_scan_process.propagate_exception()
-        self.__remote_scan_process.propagate_exception()
+        self.__lftp.raise_pending_error()
+        for proc in self.__active_scan_processes:
+            proc.propagate_exception()
+        for proc in self.__local_scan_processes:
+            proc.propagate_exception()
+        for proc in self.__remote_scan_processes:
+            proc.propagate_exception()
         self.__mp_logger.propagate_exception()
         self.__extract_process.propagate_exception()
-        if self.__validation_config.enabled:
-            self.__validation_process.propagate_exception()
 
     def __cleanup_commands(self):
         """
@@ -880,334 +935,3 @@ class Controller:
                 # Propagate the exception
                 command_process.process.propagate_exception()
         self.__active_command_processes = still_active_processes
-
-    def __process_validation_results(self):
-        """
-        Process validation results from the validation process.
-        Updates model file states based on validation outcomes.
-        """
-        # Get latest validation statuses for progress updates
-        latest_validation_statuses = self.__validation_process.pop_latest_statuses()
-
-        # Get completed validations
-        completed_validations = self.__validation_process.pop_completed()
-
-        # Update list of active validating file names from statuses
-        if latest_validation_statuses is not None:
-            self.__active_validating_file_names = list(latest_validation_statuses.file_statuses.keys())
-
-            # Update validation progress on model files
-            with self.__model_lock:
-                for file_path, validation_info in latest_validation_statuses.file_statuses.items():
-                    # Extract filename from full path
-                    file_name = self.__extract_filename_from_path(file_path)
-                    if file_name and file_name in self.__model.get_file_names():
-                        file = self.__model.get_file(file_name)
-                        # Calculate progress from chunks
-                        if validation_info.chunks:
-                            validated_chunks = sum(
-                                1 for chunk in validation_info.chunks if chunk.status.name in ("VALID", "CORRUPT")
-                            )
-                            progress = validated_chunks / len(validation_info.chunks)
-                            # Only transition DOWNLOADED -> VALIDATING for this specific file
-                            # Guard: do not touch files in terminal states (VALIDATED, CORRUPT)
-                            # or files that are being re-downloaded (QUEUED, DOWNLOADING)
-                            if file.state == ModelFile.State.DOWNLOADED:
-                                file.state = ModelFile.State.VALIDATING
-                                file.validation_progress = progress
-                                self.__model.update_file(file)
-                            elif file.state == ModelFile.State.VALIDATING:
-                                file.validation_progress = progress
-                                self.__model.update_file(file)
-
-        # Process completed validations
-        if completed_validations:
-            with self.__model_lock:
-                for result in completed_validations:
-                    file_name = result.name
-                    self.logger.info(
-                        "Validation completed for '{}': {}".format(file_name, "VALID" if result.is_valid else "CORRUPT")
-                    )
-
-                    if file_name in self.__model.get_file_names():
-                        file = self.__model.get_file(file_name)
-
-                        # Only apply validation results if the file is still in a
-                        # validation-related state. If it was re-queued for download
-                        # while validation was running, don't overwrite its state.
-                        if file.state not in (
-                            ModelFile.State.VALIDATING,
-                            ModelFile.State.DOWNLOADED,
-                            ModelFile.State.CORRUPT,
-                        ):
-                            self.logger.debug(
-                                "Skipping validation result for '{}' - file state is {}".format(
-                                    file_name, file.state
-                                )
-                            )
-                            continue
-
-                        if result.is_valid:
-                            # File passed validation
-                            file.state = ModelFile.State.VALIDATED
-                            file.validation_progress = 1.0
-                            file.validation_error = None
-                            file.corrupt_chunks = None
-                        else:
-                            # File failed validation
-                            file.state = ModelFile.State.CORRUPT
-                            file.validation_progress = None
-                            file.corrupt_chunks = result.corrupt_chunks if result.corrupt_chunks else None
-                            if result.corrupt_chunks:
-                                file.validation_error = "Corrupt chunks: {}".format(result.corrupt_chunks)
-                            else:
-                                file.validation_error = "Validation failed"
-
-                        self.__model.update_file(file)
-
-                        # Remove from active validating list
-                        if file_name in self.__active_validating_file_names:
-                            self.__active_validating_file_names.remove(file_name)
-
-        # Handle corrupt chunk redownload requests
-        redownload_requests = self.__validation_process.pop_redownloads()
-        for req in redownload_requests:
-            self.logger.info(
-                "Re-downloading corrupt chunk {} of '{}' (bytes {}-{})".format(
-                    req.chunk_index, req.local_path, req.offset, req.end_offset
-                )
-            )
-            try:
-                self.__transfer.pget_range(
-                    remote_path=req.remote_path,
-                    local_path=req.local_path,
-                    offset=req.offset,
-                    end_offset=req.end_offset,
-                )
-                # Track: once local_size reaches end_offset, signal resume_chunk
-                if req.local_path not in self.__pending_chunk_redownloads:
-                    self.__pending_chunk_redownloads[req.local_path] = []
-                self.__pending_chunk_redownloads[req.local_path].append(
-                    (req.chunk_index, req.end_offset)
-                )
-            except RcloneError as e:
-                self.logger.error("Failed to queue chunk re-download: {}".format(e))
-
-        # Check if any pending re-downloads have completed (bytes on disk >= end_offset)
-        if self.__pending_chunk_redownloads:
-            import os as _os
-
-            done_paths = []
-            with self.__model_lock:
-                for local_path, chunks in list(self.__pending_chunk_redownloads.items()):
-                    try:
-                        on_disk = _os.path.getsize(local_path)
-                    except OSError:
-                        continue
-                    still_pending = []
-                    for chunk_index, end_offset in chunks:
-                        if on_disk >= end_offset:
-                            # Extract relative path from absolute path
-                            local_base = self.__context.config.lftp.local_path
-                            rel = local_path
-                            if local_path.startswith(local_base):
-                                rel = local_path[len(local_base):].lstrip(_os.sep)
-                            self.logger.debug(
-                                "Chunk {} re-download complete for '{}', resuming validation".format(
-                                    chunk_index, _os.path.basename(local_path)
-                                )
-                            )
-                            self.__validation_process.resume_chunk(rel, chunk_index)
-                        else:
-                            still_pending.append((chunk_index, end_offset))
-                    if still_pending:
-                        self.__pending_chunk_redownloads[local_path] = still_pending
-                    else:
-                        done_paths.append(local_path)
-            for p in done_paths:
-                del self.__pending_chunk_redownloads[p]
-
-    def __extract_filename_from_path(self, file_path: str) -> str | None:
-        """
-        Extract the root filename from a full file path.
-        Handles paths relative to local_base_path.
-        """
-        import os
-
-        local_base = self.__context.config.lftp.local_path
-        if file_path.startswith(local_base):
-            rel_path = file_path[len(local_base) :].lstrip(os.sep)
-            # Get the root component (first part of the relative path)
-            parts = rel_path.split(os.sep)
-            if parts:
-                return parts[0]
-        # Fallback: just use the basename
-        return os.path.basename(file_path)
-
-    def __get_path_pair_id_for_file(self, filename: str) -> str | None:
-        """
-        Look up the path_pair_id from the model for a given filename.
-
-        Args:
-            filename: The name of the file to look up
-
-        Returns:
-            The path_pair_id if found, or None if not found or error
-        """
-        try:
-            file = self.__model.get_file(filename)
-            return file.path_pair_id
-        except ModelError:
-            return None
-
-    def __move_from_staging(self, name: str):
-        """
-        Move a completed file/directory from staging_path to local_path.
-        Called when a download transitions to DOWNLOADED state.
-        Not used in multi-path mode.
-        """
-        src = os.path.join(self.__staging_path, name)
-        dst = os.path.join(self.__context.config.lftp.local_path, name)
-        if os.path.exists(src):
-            try:
-                shutil.move(src, dst)
-                self.logger.info("Moved '{}' from staging to local_path".format(name))
-            except OSError as e:
-                self.logger.error("Failed to move '{}' from staging to local_path: {}".format(name, e))
-
-    def __recover_interrupted_downloads(self, remote_files: list):
-        """
-        Re-queue any downloads interrupted in a previous session.
-        Called once on startup after the first successful remote scan.
-        Only used in legacy single-path mode (not multi-path).
-        """
-        remote_names = {f.name for f in remote_files}
-        downloaded = self.__persist.downloaded_file_names
-        suffix = Constants.LFTP_TEMP_FILE_SUFFIX
-        try:
-            for fname in os.listdir(self.__staging_path):
-                full_path = os.path.join(self.__staging_path, fname)
-                if fname.endswith(suffix):
-                    # Interrupted single-file download (.lftp temp file)
-                    real_name = fname[:-len(suffix)]
-                    is_dir = False
-                elif os.path.isdir(full_path):
-                    # Interrupted directory download - only re-queue if .lftp files inside
-                    try:
-                        has_lftp_inside = any(
-                            entry.endswith(suffix)
-                            for entry in os.listdir(full_path)
-                        )
-                    except OSError:
-                        continue
-                    if not has_lftp_inside:
-                        continue
-                    real_name = fname
-                    is_dir = True
-                else:
-                    continue
-
-                if real_name in remote_names and real_name not in downloaded:
-                    self.logger.info(
-                        "Auto-resuming interrupted download: {} (is_dir={})".format(real_name, is_dir)
-                    )
-                    try:
-                        self.__transfer.queue(real_name, is_dir)
-                    except RcloneError as e:
-                        self.logger.warning(
-                            "Could not auto-resume '{}' from staging: {}".format(real_name, e)
-                        )
-        except OSError as e:
-            self.logger.warning("Startup recovery scan of staging path failed: {}".format(e))
-
-    def __move_from_staging_multi(self, name: str, path_pair_id):
-        """
-        Move a completed file/directory from a per-pair staging_path to its final local_path
-        in multi-path mode.
-        """
-        if not path_pair_id or path_pair_id not in self.__path_pair_staging_paths:
-            self.logger.warning(
-                "Cannot move '{}' from staging: path_pair_id '{}' not in staging map".format(
-                    name, path_pair_id
-                )
-            )
-            return
-        staging = self.__path_pair_staging_paths[path_pair_id]
-        final = self.__path_pairs[path_pair_id].local_path
-        src = os.path.join(staging, name)
-        dst = os.path.join(final, name)
-        if os.path.exists(src):
-            try:
-                shutil.move(src, dst)
-                self.logger.info(
-                    "Moved '{}' from staging ('{}') to local_path ('{}')".format(name, staging, final)
-                )
-            except OSError as e:
-                self.logger.error(
-                    "Failed to move '{}' from staging to local_path: {}".format(name, e)
-                )
-
-    def __recover_interrupted_downloads_multi(self, remote_files: list):
-        """
-        On startup, re-queue any interrupted downloads found in per-pair staging directories.
-        Only called in multi-path mode.
-        """
-        # Build a per-pair set of remote file names
-        remote_names_by_pair: dict[str | None, set] = {}
-        for f in remote_files:
-            pid = getattr(f, "path_pair_id", None)
-            if pid not in remote_names_by_pair:
-                remote_names_by_pair[pid] = set()
-            remote_names_by_pair[pid].add(f.name)
-
-        downloaded = self.__persist.downloaded_file_names
-        suffix = Constants.LFTP_TEMP_FILE_SUFFIX
-
-        for pair_id, staging_path in self.__path_pair_staging_paths.items():
-            remote_names = remote_names_by_pair.get(pair_id, set())
-            pair = self.__path_pairs.get(pair_id)
-            if not pair:
-                continue
-            try:
-                for fname in os.listdir(staging_path):
-                    full_path = os.path.join(staging_path, fname)
-                    if fname.endswith(suffix):
-                        real_name = fname[:-len(suffix)]
-                        is_dir = False
-                    elif os.path.isdir(full_path):
-                        try:
-                            has_lftp_inside = any(
-                                entry.endswith(suffix) for entry in os.listdir(full_path)
-                            )
-                        except OSError:
-                            continue
-                        if not has_lftp_inside:
-                            continue
-                        real_name = fname
-                        is_dir = True
-                    else:
-                        continue
-                    if real_name in remote_names and real_name not in downloaded:
-                        self.logger.info(
-                            "Auto-resuming interrupted download '{}' for pair '{}' (staging: {})".format(
-                                real_name, pair.name, staging_path
-                            )
-                        )
-                        try:
-                            self.__transfer.queue(
-                                real_name,
-                                is_dir,
-                                remote_path=pair.remote_path,
-                                local_path=staging_path,
-                            )
-                        except RcloneError as e:
-                            self.logger.warning(
-                                "Could not auto-resume '{}' for pair '{}': {}".format(
-                                    real_name, pair.name, e
-                                )
-                            )
-            except OSError as e:
-                self.logger.warning(
-                    "Startup recovery scan of staging '{}' failed: {}".format(staging_path, e)
-                )
-

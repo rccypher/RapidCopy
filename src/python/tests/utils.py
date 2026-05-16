@@ -1,6 +1,5 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
-import contextlib
 import os
 
 
@@ -15,9 +14,13 @@ class TestUtils:
         :return:
         """
         path = from_path
-        with contextlib.suppress(PermissionError):
+        try:
             os.chmod(path, mode)
+        except PermissionError:
+            pass
         while path != "/" and path != to_path:
             path = os.path.dirname(path)
-            with contextlib.suppress(PermissionError):
+            try:
                 os.chmod(path, mode)
+            except PermissionError:
+                pass

@@ -21,9 +21,7 @@ class AutoQueuePattern(Serializable):
     def pattern(self) -> str:
         return self.__pattern
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, AutoQueuePattern):
-            return NotImplemented
+    def __eq__(self, other: "AutoQueuePattern") -> bool:
         return self.__pattern == other.__pattern
 
     def __hash__(self) -> int:
@@ -98,7 +96,9 @@ class AutoQueuePersist(Persist):
                 persist.add_pattern(AutoQueuePattern.from_str(pattern))
             return persist
         except (json.decoder.JSONDecodeError, KeyError) as e:
-            raise PersistError("Error parsing AutoQueuePersist - {}: {}".format(type(e).__name__, str(e))) from e
+            raise PersistError("Error parsing AutoQueuePersist - {}: {}".format(
+                type(e).__name__, str(e))
+            )
 
     @overrides(Persist)
     def to_str(self) -> str:
@@ -109,7 +109,6 @@ class AutoQueuePersist(Persist):
 
 class AutoQueueModelListener(IModelListener):
     """Keeps track of added and modified files"""
-
     def __init__(self):
         self.new_files = []  # list of new files
         self.modified_files = []  # list of pairs (old_file, new_file)
@@ -129,7 +128,6 @@ class AutoQueueModelListener(IModelListener):
 
 class AutoQueuePersistListener(IAutoQueuePersistListener):
     """Keeps track of newly added patterns"""
-
     def __init__(self):
         self.new_patterns = set()
 
@@ -150,8 +148,10 @@ class AutoQueue:
     AutoQueue is in the same thread as Controller, so no synchronization is
     needed for now
     """
-
-    def __init__(self, context: Context, persist: AutoQueuePersist, controller: Controller):
+    def __init__(self,
+                 context: Context,
+                 persist: AutoQueuePersist,
+                 controller: Controller):
         self.logger = context.logger.getChild("AutoQueue")
         self.__persist = persist
         self.__controller = controller
@@ -197,7 +197,7 @@ class AutoQueue:
 
         files_to_queue = self.__filter_candidates(
             candidates=queue_candidate_files,
-            accept=lambda f: f.remote_size is not None and f.state == ModelFile.State.DEFAULT,
+            accept=lambda f: f.remote_size is not None and f.state == ModelFile.State.DEFAULT
         )
 
         ###
@@ -214,19 +214,18 @@ class AutoQueue:
             # Candidate modified files that just became DOWNLOADED
             # But not files that went EXTRACTING -> DOWNLOADED (failed extraction)
             for old_file, new_file in self.__model_listener.modified_files:
-                if (
-                    old_file.state != ModelFile.State.DOWNLOADED
-                    and old_file.state != ModelFile.State.EXTRACTING
-                    and new_file.state == ModelFile.State.DOWNLOADED
-                ):
+                if old_file.state != ModelFile.State.DOWNLOADED and \
+                        old_file.state != ModelFile.State.EXTRACTING and \
+                        new_file.state == ModelFile.State.DOWNLOADED:
                     extract_candidate_files.append(new_file)
 
             files_to_extract = self.__filter_candidates(
                 candidates=extract_candidate_files,
-                accept=lambda f: f.state == ModelFile.State.DOWNLOADED
-                and f.local_size is not None
-                and f.local_size > 0
-                and f.is_extractable,
+                accept=lambda f:
+                    f.state == ModelFile.State.DOWNLOADED and
+                    f.local_size is not None and
+                    f.local_size > 0 and
+                    f.is_extractable
             )
 
         ###
@@ -236,7 +235,8 @@ class AutoQueue:
         # Send the queue commands
         for filename, pattern in files_to_queue:
             self.logger.info(
-                "Auto queueing '{}'".format(filename) + (" for pattern '{}'".format(pattern.pattern) if pattern else "")
+                "Auto queueing '{}'".format(filename) +
+                (" for pattern '{}'".format(pattern.pattern) if pattern else "")
             )
             command = Controller.Command(Controller.Command.Action.QUEUE, filename)
             self.__controller.queue_command(command)
@@ -244,8 +244,8 @@ class AutoQueue:
         # Send the extract commands
         for filename, pattern in files_to_extract:
             self.logger.info(
-                "Auto extracting '{}'".format(filename)
-                + (" for pattern '{}'".format(pattern.pattern) if pattern else "")
+                "Auto extracting '{}'".format(filename) +
+                (" for pattern '{}'".format(pattern.pattern) if pattern else "")
             )
             command = Controller.Command(Controller.Command.Action.EXTRACT, filename)
             self.__controller.queue_command(command)
@@ -256,9 +256,9 @@ class AutoQueue:
         # Clear the new patterns
         self.__persist_listener.new_patterns.clear()
 
-    def __filter_candidates(
-        self, candidates: List[ModelFile], accept: Callable[[ModelFile], bool]
-    ) -> List[Tuple[str, AutoQueuePattern | None]]:
+    def __filter_candidates(self,
+                            candidates: List[ModelFile],
+                            accept: Callable[[ModelFile], bool]) -> List[Tuple[str, AutoQueuePattern]]:
         """
         Given a list of candidate files, filter out those that match the accept criteria
         Also takes into consideration new patterns that were added
@@ -270,7 +270,7 @@ class AutoQueue:
         """
         # Files accepted and matched, filename -> pattern map
         # Filename key prevents a file from being accepted twice
-        files_matched: dict[str, AutoQueuePattern | None] = dict()
+        files_matched = dict()
 
         # Step 1: run candidates through all the patterns if they are enabled
         #         otherwise accept all files
@@ -291,7 +291,7 @@ class AutoQueue:
                     if accept(file) and self.__match(new_pattern, file):
                         files_matched[file.name] = new_pattern
 
-        return list(files_matched.items())
+        return list(zip(files_matched.keys(), files_matched.values()))
 
     @staticmethod
     def __match(pattern: AutoQueuePattern, file: ModelFile) -> bool:
@@ -302,8 +302,9 @@ class AutoQueue:
         :return:
         """
         # make the search case insensitive
-        pattern_str = pattern.pattern.lower()
+        pattern = pattern.pattern.lower()
         filename = file.name.lower()
         # 1. pattern match
         # 2. wildcard match
-        return pattern_str in filename or fnmatch.fnmatch(filename, pattern_str)
+        return pattern in filename or \
+            fnmatch.fnmatch(filename, pattern)

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="612px" height="405px" viewBox="0 100 612 415" style="enable-background:new 0 0 612 612;" xml:space="preserve">
+<g>
+	<g id="cloud-validate">
+		<path d="M494.7,255C476.85,168.3,400.35,102,306,102c-73.95,0-137.7,40.8-168.3,102C58.65,214.2,0,277.95,0,357
+			c0,84.15,68.85,153,153,153h331.5c71.4,0,127.5-56.1,127.5-127.5C612,316.2,558.45,260.1,494.7,255z"/>
+		<path d="M306,260c-8,0-80,40-80,40v120c0,0,40,50,80,70c40-20,80-70,80-70V300C386,300,314,260,306,260z
+			M286,400l-30-30l20-20l10,10l50-50l20,20L286,400z" fill="white"/>
+	</g>
+</g>
+</svg>

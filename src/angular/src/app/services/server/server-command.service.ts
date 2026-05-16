@@ -1,5 +1,5 @@
 import {Injectable} from "@angular/core";
-import {Observable} from "rxjs";
+import {Observable} from "rxjs/Observable";
 
 import {BaseWebService} from "../base/base-web.service";
 import {StreamServiceRegistry} from "../base/stream-service.registry";
@@ -12,7 +12,6 @@ import {RestService, WebReaction} from "../utils/rest.service";
 @Injectable()
 export class ServerCommandService extends BaseWebService {
     private readonly RESTART_URL = "/server/command/restart";
-    private readonly SCAN_REMOTE_URL = "/server/command/scan_remote";
 
     constructor(_streamServiceProvider: StreamServiceRegistry,
                 private _restService: RestService) {
@@ -25,14 +24,6 @@ export class ServerCommandService extends BaseWebService {
      */
     public restart(): Observable<WebReaction> {
         return this._restService.sendRequest(this.RESTART_URL);
-    }
-
-    /**
-     * Trigger an immediate rescan of the remote directory
-     * @returns {Observable<WebReaction>}
-     */
-    public scanRemote(): Observable<WebReaction> {
-        return this._restService.sendPostRequest(this.SCAN_REMOTE_URL);
     }
 
     protected onConnected() {

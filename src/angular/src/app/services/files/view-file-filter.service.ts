@@ -28,19 +28,6 @@ class StatusFilterCriteria implements ViewFileFilterCriteria {
     }
 }
 
-class HideDeletedCriteria implements ViewFileFilterCriteria {
-    constructor(private _hideDeleted: boolean) {}
-
-    get hideDeleted(): boolean {
-        return this._hideDeleted;
-    }
-
-    meetsCriteria(viewFile: ViewFile): boolean {
-        if (!this._hideDeleted) { return true; }
-        return viewFile.status !== ViewFile.Status.DELETED;
-    }
-}
-
 class NameFilterCriteria implements ViewFileFilterCriteria {
     private _name: string = null;
     private _queryCandidates = [];
@@ -84,7 +71,6 @@ class NameFilterCriteria implements ViewFileFilterCriteria {
 export class ViewFileFilterService {
     private _statusFilter: StatusFilterCriteria = null;
     private _nameFilter: NameFilterCriteria = null;
-    private _hideDeletedFilter: HideDeletedCriteria = null;
 
     constructor(private _logger: LoggerService,
                 private _viewFileService: ViewFileService,
@@ -108,14 +94,6 @@ export class ViewFileFilterService {
                 this._logger.debug("Name filter set to: " + options.nameFilter);
             }
 
-            // Check to see if the hide-deleted setting changed
-            if (this._hideDeletedFilter == null ||
-                    this._hideDeletedFilter.hideDeleted !== !!options.hideDeleted) {
-                updateFilterCriteria = true;
-                this._hideDeletedFilter = new HideDeletedCriteria(!!options.hideDeleted);
-                this._logger.debug("Hide deleted filter set to: " + options.hideDeleted);
-            }
-
             // Update the filter criteria if necessary
             if (updateFilterCriteria) {
                 this._viewFileService.setFilterCriteria(this.buildFilterCriteria());
@@ -124,17 +102,14 @@ export class ViewFileFilterService {
     }
 
     private buildFilterCriteria(): ViewFileFilterCriteria {
-        let criteria: ViewFileFilterCriteria = null;
-
-        const filters: ViewFileFilterCriteria[] = [
-            this._statusFilter,
-            this._nameFilter,
-            this._hideDeletedFilter,
-        ].filter(f => f != null);
-
-        for (const f of filters) {
-            criteria = criteria == null ? f : new AndFilterCriteria(criteria, f);
+        if (this._statusFilter != null && this._nameFilter != null) {
+            return new AndFilterCriteria(this._statusFilter, this._nameFilter);
+        } else if (this._statusFilter != null) {
+            return this._statusFilter;
+        } else if (this._nameFilter != null) {
+            return this._nameFilter;
+        } else {
+            return null;
         }
-        return criteria;
     }
 }

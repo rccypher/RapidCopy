@@ -1,4 +1,4 @@
-import {Observable} from "rxjs";
+import {Observable} from "rxjs/Observable";
 
 import {WebReaction} from "../../services/utils/rest.service";
 

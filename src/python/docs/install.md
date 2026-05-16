@@ -39,7 +39,7 @@ Select the section for your platform:
            -p 8800:8800 \
            -v <downloads directory>:/downloads \
            -v <config directory>:/config \
-           ipsingh06/rapidcopy
+           rccypher/rapidcopy
 
     where
 
@@ -60,8 +60,13 @@ Select the section for your platform:
 
 2. Access application GUI by going to [http://localhost:8800](http://localhost:8800) in your browser.
 
-3. Go to the Settings page and fill out the required information.
-   Under the Local Directory setting, enter `/downloads`.
+3. Go to the Settings page and fill out the required information:
+
+    * Under **Server**, enter your remote server address, username, and password.
+    * Under **Path Mappings**, configure at least one mapping:
+        * Set **Remote Path** to the directory on your remote server (e.g. `/home/user/files`).
+        * Set **Local Path** to `/downloads` (the container mount point).
+    * You can add multiple path mappings to sync from several remote directories. See [Usage](usage.md#path-mappings) for details.
 
 4. **While password-based login is supported, key-based authentication is highly recommended!**
    See the [Key-Based Authentication Setup](#key-auth) section for details.
@@ -86,7 +91,7 @@ RapidCopy supports Windows via the Docker container.
            -p 8800:8800 \
            -v <downloads directory>:/downloads \
            -v <config directory>:/config \
-           ipsingh06/rapidcopy
+           rccypher/rapidcopy
 
     where
 
@@ -111,8 +116,12 @@ RapidCopy supports Windows via the Docker container.
 
    3. Verify that RapidCopy dashboard loads.
 
-5. Go to the Settings page and fill out the required information.
-   Under the Local Directory setting, enter `/downloads`.
+5. Go to the Settings page and fill out the required information:
+
+    * Under **Server**, enter your remote server address, username, and password.
+    * Under **Path Mappings**, configure at least one mapping:
+        * Set **Remote Path** to the directory on your remote server (e.g. `/home/user/files`).
+        * Set **Local Path** to `/downloads` (the container mount point).
 
 6. **While password-based login is supported, key-based authentication is highly recommended!**
    See the [Key-Based Authentication Setup](#key-auth) section for details.
@@ -166,12 +175,12 @@ It is strongly recommended that you set up key-based authentication.
 2. Include the following option with your docker command:
 
         :::bash
-        -v <path to .ssh directory>:/home/rapidcopy/.ssh
+        -v <path to .ssh directory>:/home/seedsync/.ssh
 
     Most commonly this should be:
 
         :::bash
-        -v ~/.ssh:/home/rapidcopy/.ssh
+        -v ~/.ssh:/home/seedsync/.ssh
 
 
 !!! note
@@ -181,7 +190,7 @@ It is strongly recommended that you set up key-based authentication.
 
 ## <a name="install-ubuntu"></a> Deb Package (Linux/Ubuntu)
 
-1. Download the deb package from the [latest](https://github.com/ipsingh06/rapidcopy/releases/latest) release
+1. Download the deb package from the [latest](https://github.com/rccypher/RapidCopy/releases/latest) release
 
 2. Install the deb package:
 
@@ -189,7 +198,7 @@ It is strongly recommended that you set up key-based authentication.
         sudo dpkg -i <deb file>
 
 3. During the first install, you will be prompted for a user name:
-   ![Install prompt for username](https://raw.githubusercontent.com/ipsingh06/rapidcopy/master/doc/images/install_1.png)
+   ![Install prompt for username](https://raw.githubusercontent.com/rccypher/RapidCopy/master/doc/images/install_1.png)
    This is the user under which the RapidCopy service will run. The transferred files will be owned by this user.
    It is recommended that you set this to your user (and NOT root).
 

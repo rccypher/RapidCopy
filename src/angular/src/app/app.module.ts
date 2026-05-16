@@ -1,10 +1,11 @@
 import {BrowserModule} from "@angular/platform-browser";
 import {APP_INITIALIZER, NgModule} from "@angular/core";
-import {provideHttpClient, withInterceptorsFromDi} from "@angular/common/http";
+import {HttpClientModule} from "@angular/common/http";
 import {FormsModule} from "@angular/forms";
 import {RouteReuseStrategy, RouterModule} from "@angular/router";
 
-import {NgbModule} from "@ng-bootstrap/ng-bootstrap";
+import {ModalModule} from "ngx-modialog";
+import {bootstrap4Mode, BootstrapModalModule} from "ngx-modialog/plugins/bootstrap";
 
 import {AppComponent} from "./pages/main/app.component";
 import {environment} from "../environments/environment";
@@ -41,17 +42,12 @@ import {ROUTES} from "./routes";
 import {ViewFileOptionsService} from "./services/files/view-file-options.service";
 import {ViewFileSortService} from "./services/files/view-file-sort.service";
 import {DomService} from "./services/utils/dom.service";
-import {StorageServiceModule} from "ngx-webstorage-service";
+import {StorageServiceModule} from "angular-webstorage-service";
 import {VersionCheckService} from "./services/utils/version-check.service";
-import {UpdateService} from "./services/utils/update.service";
-import {PathPairsComponent} from "./pages/settings/path-pairs.component";
-import {PathPairStatsComponent} from "./pages/files/path-pair-stats.component";
-import {PathPairService} from "./services/settings/path-pair.service";
-import {NetworkMountsComponent} from "./pages/settings/network-mounts.component";
-import {NetworkMountService} from "./services/settings/network-mount.service";
 
 @NgModule({
     declarations: [
+        FileSizePipe,
         EtaPipe,
         CapitalizePipe,
         ClickStopPropagationDirective,
@@ -70,17 +66,15 @@ import {NetworkMountService} from "./services/settings/network-mount.service";
     ],
     imports: [
         BrowserModule,
+        HttpClientModule,
         FormsModule,
         RouterModule.forRoot(ROUTES),
-        NgbModule,
-        StorageServiceModule,
-        FileSizePipe,
-        PathPairsComponent,
-        PathPairStatsComponent,
-        NetworkMountsComponent
+
+        ModalModule.forRoot(),
+        BootstrapModalModule,
+        StorageServiceModule
     ],
     providers: [
-        provideHttpClient(withInterceptorsFromDi()),
         {provide: RouteReuseStrategy, useClass: CachedReuseStrategy},
         LoggerService,
         NotificationService,
@@ -91,9 +85,6 @@ import {NetworkMountService} from "./services/settings/network-mount.service";
         ViewFileOptionsService,
         DomService,
         VersionCheckService,
-        UpdateService,
-        PathPairService,
-        NetworkMountService,
 
         // Stream services
         StreamDispatchService,
@@ -136,6 +127,9 @@ export class AppModule {
 }
 
 // noinspection JSUnusedLocalSymbols
-export function dummyFactory(s: unknown): () => null {
+export function dummyFactory(s) {
     return () => null;
 }
+
+// Run the ngx-modialog plugin to work with version 4 of bootstrap
+bootstrap4Mode();

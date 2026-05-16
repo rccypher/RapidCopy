@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:16.04
 
 FROM $BASE_IMAGE
 
@@ -34,8 +34,8 @@ RUN echo "user ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers
 
 WORKDIR /scripts
 
-ADD src/docker/stage/deb/install_rapidcopy.sh /scripts/
-ADD src/docker/stage/deb/expect_rapidcopy.exp /scripts/
+ADD src/docker/stage/deb/install_seedsync.sh /scripts/
+ADD src/docker/stage/deb/expect_seedsync.exp /scripts/
 ADD src/docker/stage/deb/entrypoint.sh /scripts/
 
 ENTRYPOINT ["/scripts/entrypoint.sh"]

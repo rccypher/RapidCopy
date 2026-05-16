@@ -87,7 +87,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return b""
+                return "".encode()
             else:
                 # later tries
                 return pickle.dumps([])
@@ -122,7 +122,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return b""
+                return "".encode()
             else:
                 # later tries
                 return pickle.dumps([])
@@ -153,7 +153,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return b""
+                return "".encode()
             else:
                 # later tries
                 return pickle.dumps([])
@@ -184,7 +184,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return b"d41d8cd98f00b204e9800998ecf8427e"
+                return "d41d8cd98f00b204e9800998ecf8427e".encode()
             else:
                 # later tries
                 return pickle.dumps([])
@@ -216,7 +216,7 @@ class TestRemoteScanner(unittest.TestCase):
             self.ssh_run_command_count += 1
             if self.ssh_run_command_count == 1:
                 # first try
-                return b"some output from md5sum"
+                return "some output from md5sum".encode()
             else:
                 # later tries
                 return pickle.dumps([])
@@ -428,12 +428,12 @@ class TestRemoteScanner(unittest.TestCase):
         )
 
         def ssh_shell(*args):
-            return b"mangled data"
+            return "mangled data".encode()
         self.mock_ssh.shell.side_effect = ssh_shell
 
         with self.assertRaises(ScannerError) as ctx:
             scanner.scan()
-        self.assertEqual(Localization.Error.REMOTE_SERVER_SCAN.format("Invalid scan data format"), str(ctx.exception))
+        self.assertEqual(Localization.Error.REMOTE_SERVER_SCAN.format("Invalid pickled data"), str(ctx.exception))
         self.assertFalse(ctx.exception.recoverable)
 
     def test_raises_nonrecoverable_error_on_failed_scan(self):

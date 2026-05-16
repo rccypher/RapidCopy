@@ -5,75 +5,18 @@
 The Dashboard page shows all the files and directories on the remote server and the local machine.
 Here you can manually queue files to be transferred, extract archives and delete files.
 
-### Path Pair Badges
+Files may show the following states:
 
-When multiple path pairs are configured, each file in the Dashboard displays a **path pair badge** showing which path pair it belongs to. This helps you quickly identify where files are located and where they will be downloaded to.
-
-- The badge shows the **name** of the path pair (e.g., "Movies", "TV Shows")
-- Clicking on a file shows its full remote and local paths
-- Downloads are automatically routed to the correct local directory based on the path pair
-
-## Multiple Path Pairs
-
-RapidCopy supports syncing multiple remote/local directory combinations in a single instance. This is useful when you have:
-
-- Multiple content types on your remote server (movies, TV shows, music)
-- Different source directories that should sync to different local destinations
-- Content that should have different auto-queue behaviors
-
-### How Path Pairs Work
-
-1. **Independent Scanning** - Each path pair is scanned separately for new and changed files
-2. **Path Pair Tagging** - Files are tagged with their path pair ID and name
-3. **Automatic Routing** - Downloads go to the correct local directory based on the path pair
-4. **Selective Auto-Queue** - Each path pair can have auto-queue enabled or disabled independently
-
-### Configuring Path Pairs
-
-Path pairs are configured in `path_pairs.json` in your config directory. See the [Deployment Guide](../../../docs/DEPLOYMENT.md#multi-path-configuration) for detailed setup instructions.
-
-Example configuration:
-
-```json
-{
-  "version": 1,
-  "path_pairs": [
-    {
-      "id": "movies-001",
-      "name": "Movies",
-      "remote_path": "/seedbox/movies",
-      "local_path": "/downloads/movies",
-      "enabled": true,
-      "auto_queue": true
-    },
-    {
-      "id": "tvshows-002",
-      "name": "TV Shows",
-      "remote_path": "/seedbox/tv",
-      "local_path": "/downloads/tv",
-      "enabled": true,
-      "auto_queue": false
-    }
-  ]
-}
-```
-
-### Path Pair Fields
-
-| Field | Description |
+| State | Description |
 |-------|-------------|
-| `id` | Unique identifier for the path pair |
-| `name` | Human-readable name displayed in the UI |
-| `remote_path` | Directory on the remote server to scan |
-| `local_path` | Local destination for downloads |
-| `enabled` | Set to `false` to temporarily disable this path pair |
-| `auto_queue` | Automatically queue new files from this path pair |
-
-### Tips for Multiple Path Pairs
-
-- **Use descriptive names** - The name appears in the UI badge, so make it clear and concise
-- **Disable auto-queue selectively** - You might want auto-queue for TV shows but manual selection for movies
-- **Temporarily disable pairs** - Set `enabled: false` to stop scanning a path pair without removing it
+| Default | File exists on the remote server but has not been queued |
+| Queued | File is waiting to be downloaded |
+| Downloading | File is currently being transferred |
+| Downloaded | File has been fully downloaded |
+| Extracting | Archive is being extracted |
+| Extracted | Archive has been extracted |
+| Validating | File integrity is being verified (see [Download Validation](#download-validation)) |
+| Deleted | File has been deleted |
 
 ## AutoQueue
 
@@ -82,19 +25,92 @@ You can also restrict AutoQueue to pattern-based matches (see this option in the
 When pattern restriction is enabled, the AutoQueue page is where you can add or remove patterns.
 Any files or directories on the remote server that match a pattern will be automatically queued for transfer.
 
-### AutoQueue with Multiple Path Pairs
+## Path Mappings
 
-When using multiple path pairs, auto-queue behavior is controlled **per path pair**:
+Path Mappings allow you to sync files from multiple remote directories to different local directories.
+Each mapping defines a remote path on the server and a corresponding local path where downloaded files
+are placed.
 
-- Set `auto_queue: true` in a path pair to automatically queue all new files from that remote path
-- Set `auto_queue: false` to require manual selection for files in that path pair
-- Pattern-based matching (from the Settings page) applies across all path pairs with auto-queue enabled
+### Configuring Path Mappings
 
-## Dark Mode
+1. Open the Settings page from the menu.
+2. Expand the **Path Mappings** section.
+3. Each mapping has two fields:
+    - **Remote Path**: The directory on the remote server to scan for files (e.g. `/home/user/files`).
+    - **Local Path**: The directory on the local machine where files will be downloaded (e.g. `/downloads/files`).
+4. Click **+ Add Path Mapping** to add additional mappings.
+5. Click **Remove** to delete a mapping (at least one mapping must exist).
+6. Click **Restart** to apply the changes.
 
-RapidCopy includes a dark mode for comfortable viewing in low-light environments.
+### How It Works
 
-- **Toggle location** - Click the theme toggle in the sidebar
-- **Automatic persistence** - Your preference is saved and restored on reload
-- **Full coverage** - All UI elements support dark mode
+- RapidCopy creates independent scanners for each path mapping.
+- Files from all mappings appear together on the Dashboard.
+- When a file is queued, RapidCopy automatically uses the correct remote and local paths based on
+  which mapping the file belongs to.
+- If the same filename exists in multiple mappings, a warning is logged and the first mapping takes priority.
 
+### Example
+
+| Remote Path | Local Path |
+|-------------|------------|
+| `/home/user/movies` | `/downloads/movies` |
+| `/home/user/music` | `/downloads/music` |
+| `/home/user/software` | `/downloads/software` |
+
+This configuration will scan three directories on the remote server and download files to the
+corresponding local directories.
+
+!!! note
+    When using Docker, the local paths must be paths inside the container. Mount host directories
+    to container paths using Docker's `-v` option. For example:
+    ```
+    -v /media/movies:/downloads/movies
+    -v /media/music:/downloads/music
+    ```
+
+## Download Validation
+
+Download Validation verifies the integrity of downloaded files by comparing SHA256 checksums between
+the remote and local copies. This ensures files were transferred without corruption.
+
+### Configuring Download Validation
+
+1. Open the Settings page from the menu.
+2. Expand the **Download Validation** section.
+3. Configure the following settings:
+
+| Setting | Description |
+|---------|-------------|
+| Max Validation Retries | Number of times to re-download a file that fails validation (default: 3) |
+| Chunk Size (MB) | Size of each chunk for chunked validation (default: 4 MB) |
+
+Validation is enabled automatically when the settings are configured. After a file finishes downloading,
+it will briefly enter the **Validating** state while integrity checks are performed.
+
+### Validation Modes
+
+**Whole-File Validation**
+
+- Computes a single SHA256 hash of the entire file on both the remote server and local machine.
+- If the hashes don't match, the entire file is re-downloaded.
+- Best for smaller files or when bandwidth is not a concern.
+
+**Chunked Validation**
+
+- Splits the file into chunks (configurable size) and validates each chunk independently.
+- If a chunk fails validation, only that chunk is re-downloaded instead of the entire file.
+- Significantly reduces bandwidth usage when only a small portion of a large file is corrupted.
+- Enable by setting `use_chunked_validation` to `True` in the config file.
+
+### Config File Settings
+
+The following settings can also be configured directly in `settings.cfg`:
+
+```ini
+[Controller]
+enable_download_validation = True
+download_validation_max_retries = 3
+use_chunked_validation = True
+validation_chunk_size_mb = 4
+```

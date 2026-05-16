@@ -60,8 +60,8 @@ class TestController(unittest.TestCase):
     @staticmethod
     def my_touch(size, *args):
         path = os.path.join(TestController.temp_dir, *args)
-        with open(path, "wb") as f:
-            f.write(bytearray([0xFF] * size))
+        with open(path, 'wb') as f:
+            f.write(bytearray([0xff] * size))
 
     @staticmethod
     def create_archive(*args):
@@ -72,7 +72,7 @@ class TestController(unittest.TestCase):
         """
         path = os.path.join(TestController.temp_dir, *args)
         archive_name = os.path.basename(path)
-        temp_file_path = os.path.join(TestController.work_dir, archive_name + ".txt")
+        temp_file_path = os.path.join(TestController.work_dir, archive_name+".txt")
         with open(temp_file_path, "w") as f:
             f.write(os.path.basename(path))
 
@@ -83,13 +83,17 @@ class TestController(unittest.TestCase):
             zf.write(temp_file_path, os.path.basename(temp_file_path))
             zf.close()
         elif ext == "rar":
-            if shutil.which("rar") is None:
-                # rar not available — create a dummy file so setUp completes
-                with open(path, "wb") as f:
-                    f.write(b"\x00" * 128)
-                return os.path.getsize(path)
-            fnull = open(os.devnull, "w")
-            subprocess.Popen(["rar", "a", "-ep", path, temp_file_path], stdout=fnull).communicate()
+            fnull = open(os.devnull, 'w')
+            subprocess.Popen(
+                [
+                    "rar",
+                    "a",
+                    "-ep",
+                    path,
+                    temp_file_path
+                ],
+                stdout=fnull
+            ).communicate()
         else:
             raise ValueError("Unsupported archive format: {}".format(os.path.basename(path)))
         return os.path.getsize(path)
@@ -124,19 +128,19 @@ class TestController(unittest.TestCase):
         #   lb [file, 2*1024 bytes]
         TestController.my_mkdir("remote")
         TestController.my_mkdir("remote", "ra")
-        TestController.my_touch(1 * 1024, "remote", "ra", "raa")
+        TestController.my_touch(1*1024, "remote", "ra", "raa")
         TestController.my_mkdir("remote", "ra", "rab")
-        TestController.my_touch(5 * 1024, "remote", "ra", "rab", "raba")
-        TestController.my_touch(2 * 1024, "remote", "ra", "rab", "rabb")
+        TestController.my_touch(5*1024, "remote", "ra", "rab", "raba")
+        TestController.my_touch(2*1024, "remote", "ra", "rab", "rabb")
         TestController.my_mkdir("remote", "rb")
-        TestController.my_touch(4 * 1024, "remote", "rb", "rba")
-        TestController.my_touch(5 * 1024, "remote", "rb", "rbb")
-        TestController.my_touch(10 * 1024, "remote", "rc")
+        TestController.my_touch(4*1024, "remote", "rb", "rba")
+        TestController.my_touch(5*1024, "remote", "rb", "rbb")
+        TestController.my_touch(10*1024, "remote", "rc")
         TestController.my_mkdir("local")
         TestController.my_mkdir("local", "la")
-        TestController.my_touch(1 * 1024, "local", "la", "laa")
-        TestController.my_touch(1 * 1024, "local", "la", "lab")
-        TestController.my_touch(2 * 1024, "local", "lb")
+        TestController.my_touch(1*1024, "local", "la", "laa")
+        TestController.my_touch(1*1024, "local", "la", "lab")
+        TestController.my_touch(2*1024, "local", "lb")
 
         # Also create some archives
         # Store the true archive file sizes in a dict
@@ -184,29 +188,29 @@ class TestController(unittest.TestCase):
 
         # Helper object to store the intial state
         f_ra = ModelFile("ra", True)
-        f_ra.remote_size = 8 * 1024
+        f_ra.remote_size = 8*1024
         f_raa = ModelFile("raa", False)
-        f_raa.remote_size = 1 * 1024
+        f_raa.remote_size = 1*1024
         f_ra.add_child(f_raa)
         f_rab = ModelFile("rab", True)
-        f_rab.remote_size = 7 * 1024
+        f_rab.remote_size = 7*1024
         f_ra.add_child(f_rab)
         f_raba = ModelFile("raba", False)
-        f_raba.remote_size = 5 * 1024
+        f_raba.remote_size = 5*1024
         f_rab.add_child(f_raba)
         f_rabb = ModelFile("rabb", False)
-        f_rabb.remote_size = 2 * 1024
+        f_rabb.remote_size = 2*1024
         f_rab.add_child(f_rabb)
         f_rb = ModelFile("rb", True)
-        f_rb.remote_size = 9 * 1024
+        f_rb.remote_size = 9*1024
         f_rba = ModelFile("rba", False)
-        f_rba.remote_size = 4 * 1024
+        f_rba.remote_size = 4*1024
         f_rb.add_child(f_rba)
         f_rbb = ModelFile("rbb", False)
-        f_rbb.remote_size = 5 * 1024
+        f_rbb.remote_size = 5*1024
         f_rb.add_child(f_rbb)
         f_rc = ModelFile("rc", False)
-        f_rc.remote_size = 10 * 1024
+        f_rc.remote_size = 10*1024
 
         f_rd = ModelFile("rd", True)
         f_rd.remote_size = self.archive_sizes["rd.zip"]
@@ -239,15 +243,15 @@ class TestController(unittest.TestCase):
         f_rfb.add_child(f_rfbx)
 
         f_la = ModelFile("la", True)
-        f_la.local_size = 2 * 1024
+        f_la.local_size = 2*1024
         f_laa = ModelFile("laa", False)
-        f_laa.local_size = 1 * 1024
+        f_laa.local_size = 1*1024
         f_la.add_child(f_laa)
         f_lab = ModelFile("lab", False)
-        f_lab.local_size = 1 * 1024
+        f_lab.local_size = 1*1024
         f_la.add_child(f_lab)
         f_lb = ModelFile("lb", False)
-        f_lb.local_size = 2 * 1024
+        f_lb.local_size = 2*1024
 
         f_lc = ModelFile("lc", True)
         f_lc.local_size = self.archive_sizes["lca.rar"] + self.archive_sizes["lcb.zip"]
@@ -261,7 +265,10 @@ class TestController(unittest.TestCase):
         f_lcb.is_extractable = True
         f_lc.add_child(f_lcb)
 
-        self.initial_state = {f.name: f for f in [f_ra, f_rb, f_rc, f_rd, f_re, f_rf, f_la, f_lb, f_lc]}
+        self.initial_state = {f.name: f for f in [
+            f_ra, f_rb, f_rc, f_rd, f_re, f_rf,
+            f_la, f_lb, f_lc
+        ]}
 
         # We need to overwrite the timestamp properties since it's too tedious to make
         # them match manually for all the model files
@@ -299,7 +306,10 @@ class TestController(unittest.TestCase):
         ctx_args.local_path_to_scanfs = local_exe_path
 
         config_dict = {
-            "General": {"debug": "True", "verbose": "True", "log_level": "DEBUG"},
+            "General": {
+                "debug": "True",
+                "verbose": "True"
+            },
             "Lftp": {
                 "remote_address": "localhost",
                 "remote_username": "seedsynctest",
@@ -314,22 +324,23 @@ class TestController(unittest.TestCase):
                 "num_max_connections_per_root_file": "4",
                 "num_max_connections_per_dir_file": "4",
                 "num_max_total_connections": "12",
-                "use_temp_file": "False",
-                "rate_limit": "0",
-                "staging_path": os.path.join(self.temp_dir, "staging"),
+                "use_temp_file": "False"
             },
             "Controller": {
                 "interval_ms_remote_scan": "100",
                 "interval_ms_local_scan": "100",
                 "interval_ms_downloading_scan": "100",
                 "extract_path": "/unused/path",
-                "use_local_path_as_extract_path": True,
-                "deleted_age_off_secs": "1800",
+                "use_local_path_as_extract_path": True
             },
             "Web": {
                 "port": "8800",
             },
-            "AutoQueue": {"enabled": "True", "patterns_only": "True", "auto_extract": "True"},
+            "AutoQueue": {
+                "enabled": "True",
+                "patterns_only": "True",
+                "auto_extract": "True"
+            }
         }
 
         logger = logging.getLogger(TestController.__name__)
@@ -338,13 +349,11 @@ class TestController(unittest.TestCase):
         logger.setLevel(logging.DEBUG)
         formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
         handler.setFormatter(formatter)
-        self.context = Context(
-            logger=logger,
-            web_access_logger=logger,
-            config=Config.from_dict(config_dict),
-            args=ctx_args,
-            status=Status(),
-        )
+        self.context = Context(logger=logger,
+                               web_access_logger=logger,
+                               config=Config.from_dict(config_dict),
+                               args=ctx_args,
+                               status=Status())
         self.controller_persist = ControllerPersist()
         self.controller = None
 
@@ -385,7 +394,10 @@ class TestController(unittest.TestCase):
             while True:
                 self.controller.process()
         # noinspection PyUnreachableCode
-        self.assertEqual(Localization.Error.REMOTE_SERVER_INSTALL.format("Bad hostname: <bad>"), str(error.exception))
+        self.assertEqual(
+            Localization.Error.REMOTE_SERVER_INSTALL.format("Bad hostname: <bad>"),
+            str(error.exception)
+        )
 
     @timeout_decorator.timeout(20)
     def test_bad_config_remote_username_raises_exception(self):
@@ -399,7 +411,7 @@ class TestController(unittest.TestCase):
         # noinspection PyUnreachableCode
         self.assertEqual(
             Localization.Error.REMOTE_SERVER_INSTALL.format("<bad>@localhost: Permission denied (publickey,password)."),
-            str(error.exception),
+            str(error.exception)
         )
 
     @timeout_decorator.timeout(20)
@@ -414,7 +426,7 @@ class TestController(unittest.TestCase):
         # noinspection PyUnreachableCode
         self.assertEqual(
             Localization.Error.REMOTE_SERVER_SCAN.format("SystemScannerError: Path does not exist: <bad>"),
-            str(error.exception),
+            str(error.exception)
         )
 
     @timeout_decorator.timeout(20)
@@ -443,7 +455,7 @@ class TestController(unittest.TestCase):
             Localization.Error.REMOTE_SERVER_INSTALL.format(
                 "Connection refused by server - bash: bad: No such file or directory"
             ),
-            str(error.exception),
+            str(error.exception)
         )
 
     @timeout_decorator.timeout(20)
@@ -457,7 +469,10 @@ class TestController(unittest.TestCase):
             while True:
                 self.controller.process()
         # noinspection PyUnreachableCode
-        self.assertEqual(Localization.Error.REMOTE_SERVER_INSTALL.format("Incorrect password"), str(error.exception))
+        self.assertEqual(
+            Localization.Error.REMOTE_SERVER_INSTALL.format("Incorrect password"),
+            str(error.exception)
+        )
 
     @timeout_decorator.timeout(20)
     def test_initial_model(self):
@@ -470,11 +485,10 @@ class TestController(unittest.TestCase):
         self.assertEqual(len(self.initial_state.keys()), len(model_files))
         files_dict = {f.name: f for f in model_files}
         self.assertEqual(self.initial_state.keys(), files_dict.keys())
-        for filename in self.initial_state:
+        for filename in self.initial_state.keys():
             # Note: put items in a list for a better diff output
-            self.assertEqual(
-                [self.initial_state[filename]], [files_dict[filename]], "Mismatch in file: {}".format(filename)
-            )
+            self.assertEqual([self.initial_state[filename]], [files_dict[filename]],
+                             "Mismatch in file: {}".format(filename))
 
     @timeout_decorator.timeout(20)
     def test_local_file_added(self):
@@ -545,7 +559,7 @@ class TestController(unittest.TestCase):
         # Verify
         self.controller.process()
         lb_old = ModelFile("lb", False)
-        lb_old.local_size = 2 * 1024
+        lb_old.local_size = 2*1024
         lb_new = ModelFile("lb", False)
         lb_new.local_size = 1717
         listener.file_updated.assert_called_once_with(lb_old, lb_new)
@@ -584,7 +598,7 @@ class TestController(unittest.TestCase):
         # Verify
         self.controller.process()
         lb = ModelFile("lb", False)
-        lb.local_size = 2 * 1024
+        lb.local_size = 2*1024
         listener.file_removed.assert_called_once_with(lb)
         listener.file_added.assert_not_called()
         listener.file_updated.assert_not_called()
@@ -644,7 +658,7 @@ class TestController(unittest.TestCase):
             self.controller.process()
 
         rc_old = ModelFile("rc", False)
-        rc_old.remote_size = 10 * 1024
+        rc_old.remote_size = 10*1024
         rc_new = ModelFile("rc", False)
         rc_new.remote_size = 1717
         listener.file_updated.assert_called_once_with(rc_old, rc_new)
@@ -676,7 +690,7 @@ class TestController(unittest.TestCase):
             self.controller.process()
 
         rc = ModelFile("rc", False)
-        rc.remote_size = 10 * 1024
+        rc.remote_size = 10*1024
         listener.file_removed.assert_called_once_with(rc)
         listener.file_added.assert_not_called()
         listener.file_updated.assert_not_called()
@@ -712,7 +726,7 @@ class TestController(unittest.TestCase):
             if call:
                 new_file = call[0][1]
                 self.assertEqual("ra", new_file.name)
-                if new_file.local_size == 8 * 1024:
+                if new_file.local_size == 8*1024:
                     break
 
         # Verify
@@ -720,9 +734,8 @@ class TestController(unittest.TestCase):
         listener.file_removed.assert_not_called()
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
-        dcmp = dircmp(
-            os.path.join(TestController.temp_dir, "remote", "ra"), os.path.join(TestController.temp_dir, "local", "ra")
-        )
+        dcmp = dircmp(os.path.join(TestController.temp_dir, "remote", "ra"),
+                      os.path.join(TestController.temp_dir, "local", "ra"))
         self.assertFalse(dcmp.left_only)
         self.assertFalse(dcmp.right_only)
         self.assertFalse(dcmp.diff_files)
@@ -758,7 +771,7 @@ class TestController(unittest.TestCase):
             if call:
                 new_file = call[0][1]
                 self.assertEqual("rc", new_file.name)
-                if new_file.local_size == 10 * 1024:
+                if new_file.local_size == 10*1024:
                     break
 
         # Verify
@@ -766,9 +779,8 @@ class TestController(unittest.TestCase):
         listener.file_removed.assert_not_called()
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
-        fcmp = cmp(
-            os.path.join(TestController.temp_dir, "remote", "rc"), os.path.join(TestController.temp_dir, "local", "rc")
-        )
+        fcmp = cmp(os.path.join(TestController.temp_dir, "remote", "rc"),
+                   os.path.join(TestController.temp_dir, "local", "rc"))
         self.assertTrue(fcmp)
 
     @timeout_decorator.timeout(20)
@@ -1298,7 +1310,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "re.rar.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path) as f:
+        with open(re_txt_path, "r") as f:
             self.assertEqual("re.rar", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1357,7 +1369,7 @@ class TestController(unittest.TestCase):
         # Verify
         rd_txt_path = os.path.join(TestController.temp_dir, "local", "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(rd_txt_path))
-        with open(rd_txt_path) as f:
+        with open(rd_txt_path, "r") as f:
             self.assertEqual("rd.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1416,11 +1428,11 @@ class TestController(unittest.TestCase):
         # Verify
         rfa_txt_path = os.path.join(TestController.temp_dir, "local", "rf", "rfa", "rfa.zip.txt")
         self.assertTrue(os.path.isfile(rfa_txt_path))
-        with open(rfa_txt_path) as f:
+        with open(rfa_txt_path, "r") as f:
             self.assertEqual("rfa.zip", f.read())
         rfb_txt_path = os.path.join(TestController.temp_dir, "local", "rf", "rfb", "rfb.zip.txt")
         self.assertTrue(os.path.isfile(rfb_txt_path))
-        with open(rfb_txt_path) as f:
+        with open(rfb_txt_path, "r") as f:
             self.assertEqual("rfb.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1460,9 +1472,9 @@ class TestController(unittest.TestCase):
         callback.on_failure.assert_not_called()
 
         # Verify
-        with open(lca_txt_path) as f:
+        with open(lca_txt_path, "r") as f:
             self.assertEqual("lca.rar", f.read())
-        with open(lcb_txt_path) as f:
+        with open(lcb_txt_path, "r") as f:
             self.assertEqual("lcb.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1522,7 +1534,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "re.rar.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path) as f:
+        with open(re_txt_path, "r") as f:
             self.assertEqual("re.rar", f.read())
 
         # Delete the extracted file
@@ -1543,7 +1555,7 @@ class TestController(unittest.TestCase):
 
         # Verify again
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path) as f:
+        with open(re_txt_path, "r") as f:
             self.assertEqual("re.rar", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1651,7 +1663,7 @@ class TestController(unittest.TestCase):
         # Verify
         rd_txt_path = os.path.join(extract_path, "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(rd_txt_path))
-        with open(rd_txt_path) as f:
+        with open(rd_txt_path, "r") as f:
             self.assertEqual("rd.zip", f.read())
 
     @timeout_decorator.timeout(20)
@@ -1715,7 +1727,7 @@ class TestController(unittest.TestCase):
         # Verify
         re_txt_path = os.path.join(TestController.temp_dir, "local", "rd", "rd.zip.txt")
         self.assertTrue(os.path.isfile(re_txt_path))
-        with open(re_txt_path) as f:
+        with open(re_txt_path, "r") as f:
             self.assertEqual("rd.zip", f.read())
 
         # Delete the whole thing
@@ -1743,7 +1755,8 @@ class TestController(unittest.TestCase):
                 new_file = call[0][1]
                 self.assertEqual("rd", new_file.name)
                 # EXTRACTED is wrong, but we check for that later on
-                if new_file.state == ModelFile.State.DOWNLOADED or new_file.state == ModelFile.State.EXTRACTED:
+                if new_file.state == ModelFile.State.DOWNLOADED or \
+                        new_file.state == ModelFile.State.EXTRACTED:
                     break
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
@@ -1795,7 +1808,6 @@ class TestController(unittest.TestCase):
                 elif new_file.name == "rb":
                     rb_downloading = True
             return
-
         listener.file_updated.side_effect = updated_side_effect
         while True:
             self.controller.process()
@@ -1849,7 +1861,6 @@ class TestController(unittest.TestCase):
                 if new_file.name == "ra":
                     ra_downloading = True
             return
-
         listener.file_updated.side_effect = updated_side_effect
         while True:
             self.controller.process()
@@ -1891,9 +1902,8 @@ class TestController(unittest.TestCase):
         def updated_side_effect(old_file: ModelFile, new_file: ModelFile):
             nonlocal rc_downloaded
             if new_file.state == ModelFile.State.DOWNLOADED and new_file.name == "rc":
-                rc_downloaded = True
+                    rc_downloaded = True
             return
-
         listener.file_updated.side_effect = updated_side_effect
         while True:
             self.controller.process()
@@ -1948,7 +1958,6 @@ class TestController(unittest.TestCase):
                 if new_file.name == "ra":
                     ra_downloading = True
             return
-
         listener.file_updated.side_effect = updated_side_effect
         while True:
             self.controller.process()
@@ -2275,22 +2284,22 @@ class TestController(unittest.TestCase):
         path = os.path.join(TestController.temp_dir, "remote", "large")
         local_path = os.path.join(TestController.temp_dir, "local", "large")
         os.mkdir(path)
-        a_path = os.path.join(path, "a" * 200 + ".txt")
-        create_large_file(a_path, 20 * 1024 * 1024)
-        b_path = os.path.join(path, "b" * 200 + ".txt")
-        create_large_file(b_path, 20 * 1024 * 1024)
-        c_path = os.path.join(path, "c" * 200 + ".txt")
-        create_large_file(c_path, 20 * 1024 * 1024)
-        d_path = os.path.join(path, "d" * 200 + ".txt")
-        create_large_file(d_path, 20 * 1024 * 1024)
-        e_path = os.path.join(path, "e" * 200 + ".txt")
-        create_large_file(e_path, 20 * 1024 * 1024)
-        f_path = os.path.join(path, "f" * 200 + ".txt")
-        create_large_file(f_path, 20 * 1024 * 1024)
-        g_path = os.path.join(path, "g" * 200 + ".txt")
-        create_large_file(g_path, 20 * 1024 * 1024)
-        h_path = os.path.join(path, "h" * 200 + ".txt")
-        create_large_file(h_path, 20 * 1024 * 1024)
+        a_path = os.path.join(path, "a"*200 + ".txt")
+        create_large_file(a_path, 20*1024*1024)
+        b_path = os.path.join(path, "b"*200 + ".txt")
+        create_large_file(b_path, 20*1024*1024)
+        c_path = os.path.join(path, "c"*200 + ".txt")
+        create_large_file(c_path, 20*1024*1024)
+        d_path = os.path.join(path, "d"*200 + ".txt")
+        create_large_file(d_path, 20*1024*1024)
+        e_path = os.path.join(path, "e"*200 + ".txt")
+        create_large_file(e_path, 20*1024*1024)
+        f_path = os.path.join(path, "f"*200 + ".txt")
+        create_large_file(f_path, 20*1024*1024)
+        g_path = os.path.join(path, "g"*200 + ".txt")
+        create_large_file(g_path, 20*1024*1024)
+        h_path = os.path.join(path, "h"*200 + ".txt")
+        create_large_file(h_path, 20*1024*1024)
 
         # White box hack: limit the rate of lftp so download doesn't finish
         #                 also set min-chunk size to a small value for lots of connections
@@ -2302,7 +2311,7 @@ class TestController(unittest.TestCase):
         self.controller = Controller(self.context, self.controller_persist)
         self.controller.start()
         # noinspection PyUnresolvedReferences
-        self.controller._Controller__lftp.rate_limit = 5 * 1024
+        self.controller._Controller__lftp.rate_limit = 5*1024
         # noinspection PyUnresolvedReferences
         self.controller._Controller__lftp.min_chunk_size = "10"
 
@@ -2342,7 +2351,7 @@ class TestController(unittest.TestCase):
         while elapsed_secs < 5:
             print("Elapsed secs: ", elapsed_secs)
             self.controller.process()
-            elapsed_secs = (datetime.now() - start_time).total_seconds()
+            elapsed_secs = (datetime.now()-start_time).total_seconds()
 
         # Verify that download is still ongoing
         files = self.controller.get_model_files()
@@ -2406,7 +2415,7 @@ class TestController(unittest.TestCase):
             if call:
                 new_file = call[0][1]
                 self.assertEqual("rc", new_file.name)
-                if new_file.local_size == 10 * 1024:
+                if new_file.local_size == 10*1024:
                     break
 
         # Verify
@@ -2414,7 +2423,6 @@ class TestController(unittest.TestCase):
         listener.file_removed.assert_not_called()
         callback.on_success.assert_called_once_with()
         callback.on_failure.assert_not_called()
-        fcmp = cmp(
-            os.path.join(TestController.temp_dir, "remote", "rc"), os.path.join(TestController.temp_dir, "local", "rc")
-        )
+        fcmp = cmp(os.path.join(TestController.temp_dir, "remote", "rc"),
+                   os.path.join(TestController.temp_dir, "local", "rc"))
         self.assertTrue(fcmp)

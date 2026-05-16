@@ -12,7 +12,6 @@ class StatusListener(IStatusListener, StreamQueue[Status]):
     """
     Status listener used by status streams to listen to status updates
     """
-
     def __init__(self, status: Status):
         super().__init__()
         self.__status = status
@@ -34,15 +33,15 @@ class StatusStreamHandler(IStreamHandler):
         self.status.add_listener(self.status_listener)
 
     @overrides(IStreamHandler)
-    def get_value(self) -> str | None:
+    def get_value(self) -> Optional[str]:
         if self.first_run:
             self.first_run = False
-            current_status = self.status.copy()
-            return self.serialize.status(current_status)
+            status = self.status.copy()
+            return self.serialize.status(status)
         else:
-            next_status: Status | None = self.status_listener.get_next_event()
-            if next_status is not None:
-                return self.serialize.status(next_status)
+            status = self.status_listener.get_next_event()
+            if status is not None:
+                return self.serialize.status(status)
             else:
                 return None
 

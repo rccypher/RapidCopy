@@ -32,6 +32,8 @@ describe("Testing config record initialization", () => {
                 interval_ms_downloading_scan: 1000,
                 extract_path: "/path/to/extract",
                 use_local_path_as_extract_path: true,
+                enable_disk_space_check: true,
+                disk_space_min_percent: 10,
             },
             web: {
                 port: 8800
@@ -40,6 +42,9 @@ describe("Testing config record initialization", () => {
                 enabled: true,
                 patterns_only: false,
                 auto_extract: true,
+            },
+            pathmappings: {
+                mappings_json: '[{"remote_path":"/remote/one","local_path":"/local/one"}]',
             }
         };
         config = new Config(configJson);
@@ -67,10 +72,13 @@ describe("Testing config record initialization", () => {
         expect(config.controller.interval_ms_downloading_scan).toBe(1000);
         expect(config.controller.extract_path).toBe("/path/to/extract");
         expect(config.controller.use_local_path_as_extract_path).toBe(true);
+        expect(config.controller.enable_disk_space_check).toBe(true);
+        expect(config.controller.disk_space_min_percent).toBe(10);
         expect(config.web.port).toBe(8800);
         expect(config.autoqueue.enabled).toBe(true);
         expect(config.autoqueue.patterns_only).toBe(false);
         expect(config.autoqueue.auto_extract).toBe(true);
+        expect(config.pathmappings.mappings_json).toBe('[{"remote_path":"/remote/one","local_path":"/local/one"}]');
     });
 
     it("should be immutable", () => {
@@ -83,5 +91,6 @@ describe("Testing config record initialization", () => {
         expect(config.controller instanceof Immutable.Record).toBe(true);
         expect(config.web instanceof Immutable.Record).toBe(true);
         expect(config.autoqueue instanceof Immutable.Record).toBe(true);
+        expect(config.pathmappings instanceof Immutable.Record).toBe(true);
     });
 });

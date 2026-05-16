@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
 
-import {compare} from "compare-versions";
+import * as compareVersions from "compare-versions";
 
 import {RestService} from "./rest.service";
 import {LoggerService} from "./logger.service";
@@ -19,7 +19,7 @@ const { version: appVersion } = require("../../../../package.json");
 @Injectable()
 export class VersionCheckService {
     private readonly GITHUB_LATEST_RELEASE_URL =
-        "https://api.github.com/repos/rccypher/RapidCopy/releases/latest";
+        "https://api.github.com/repos/ipsingh06/seedsync/releases/latest";
 
     constructor(private _restService: RestService,
                 private _notifService: NotificationService,
@@ -64,6 +64,6 @@ export class VersionCheckService {
         version = version.replace(/^v/, "");
         // Replace - with .
         version = version.replace(/-/g, ".");
-        return compare(version, appVersion, ">");
+        return compareVersions(version, appVersion) > 0;
     }
 }

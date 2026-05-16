@@ -1,11 +1,11 @@
 import {Inject, Injectable} from "@angular/core";
-import {Observable} from "rxjs";
-import {BehaviorSubject} from "rxjs";
+import {Observable} from "rxjs/Observable";
+import {BehaviorSubject} from "rxjs/Rx";
 
 import {LoggerService} from "../utils/logger.service";
 import {ViewFileOptions} from "./view-file-options";
 import {ViewFile} from "./view-file";
-import {LOCAL_STORAGE, StorageService} from "ngx-webstorage-service";
+import {LOCAL_STORAGE, StorageService} from "angular-webstorage-service";
 import {StorageKeys} from "../../common/storage-keys";
 
 
@@ -31,8 +31,6 @@ export class ViewFileOptionsService {
                 ViewFileOptions.SortMethod.STATUS;
         const pinFilter: boolean =
             this._storage.get(StorageKeys.VIEW_OPTION_PIN) || false;
-        const hideDeleted: boolean =
-            this._storage.get(StorageKeys.VIEW_OPTION_HIDE_DELETED) || false;
 
         this._options = new BehaviorSubject(
             new ViewFileOptions({
@@ -41,7 +39,6 @@ export class ViewFileOptionsService {
                 selectedStatusFilter: null,
                 nameFilter: null,
                 pinFilter: pinFilter,
-                hideDeleted: hideDeleted,
             })
         );
     }
@@ -95,16 +92,6 @@ export class ViewFileOptionsService {
             this._options.next(newOptions);
             this._storage.set(StorageKeys.VIEW_OPTION_PIN, pinned);
             this._logger.debug("ViewOption pinFilter set to: " + newOptions.pinFilter);
-        }
-    }
-
-    public setHideDeleted(hide: boolean) {
-        const options = this._options.getValue();
-        if (options.hideDeleted !== hide) {
-            const newOptions = new ViewFileOptions(options.set("hideDeleted", hide));
-            this._options.next(newOptions);
-            this._storage.set(StorageKeys.VIEW_OPTION_HIDE_DELETED, hide);
-            this._logger.debug("ViewOption hideDeleted set to: " + newOptions.hideDeleted);
         }
     }
 }

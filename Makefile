@@ -18,7 +18,7 @@ DEFAULT_STAGING_REGISTRY:=localhost:5000
 
 #DOCKER_BUILDKIT_FLAGS=BUILDKIT_PROGRESS=plain
 DOCKER=${DOCKER_BUILDKIT_FLAGS} DOCKER_BUILDKIT=1 docker
-DOCKER_COMPOSE=${DOCKER_BUILDKIT_FLAGS} COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker compose
+DOCKER_COMPOSE=${DOCKER_BUILDKIT_FLAGS} COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose
 
 .PHONY: builddir deb docker-image clean
 
@@ -30,14 +30,14 @@ builddir:
 scanfs: builddir
 	$(DOCKER) build \
 		-f ${SOURCEDIR}/docker/build/deb/Dockerfile \
-		--target rapidcopy_build_scanfs_export \
+		--target seedsync_build_scanfs_export \
 		--output ${BUILDDIR} \
 		${ROOTDIR}
 
 deb: builddir
 	$(DOCKER) build \
 		-f ${SOURCEDIR}/docker/build/deb/Dockerfile \
-		--target rapidcopy_build_deb_export \
+		--target seedsync_build_deb_export \
 		--output ${BUILDDIR} \
 		${ROOTDIR}
 
@@ -57,32 +57,32 @@ docker-image: docker-buildx
 	# scanfs image
 	$(DOCKER) buildx build \
 		-f ${SOURCEDIR}/docker/build/deb/Dockerfile \
-		--target rapidcopy_build_scanfs_export \
-		--tag $${STAGING_REGISTRY}/rapidcopy/build/scanfs/export:$${STAGING_VERSION} \
-		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy/build/scanfs/export:cache,mode=max \
-		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy/build/scanfs/export:cache \
+		--target seedsync_build_scanfs_export \
+		--tag $${STAGING_REGISTRY}/seedsync/build/scanfs/export:$${STAGING_VERSION} \
+		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/seedsync/build/scanfs/export:cache,mode=max \
+		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/seedsync/build/scanfs/export:cache \
 		--push \
 		${ROOTDIR}
 
 	# angular html export
 	$(DOCKER) buildx build \
 		-f ${SOURCEDIR}/docker/build/deb/Dockerfile \
-		--target rapidcopy_build_angular_export \
-		--tag $${STAGING_REGISTRY}/rapidcopy/build/angular/export:$${STAGING_VERSION} \
-		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy/build/angular/export:cache,mode=max \
-		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy/build/angular/export:cache \
+		--target seedsync_build_angular_export \
+		--tag $${STAGING_REGISTRY}/seedsync/build/angular/export:$${STAGING_VERSION} \
+		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/seedsync/build/angular/export:cache,mode=max \
+		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/seedsync/build/angular/export:cache \
 		--push \
 		${ROOTDIR}
 
 	# final image
 	$(DOCKER) buildx build \
 		-f ${SOURCEDIR}/docker/build/docker-image/Dockerfile \
-		--target rapidcopy_run \
+		--target seedsync_run \
 		--build-arg STAGING_VERSION=$${STAGING_VERSION} \
 		--build-arg STAGING_REGISTRY=$${STAGING_REGISTRY} \
-		--tag $${STAGING_REGISTRY}/rapidcopy:$${STAGING_VERSION} \
-		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy:cache,mode=max \
-		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy:cache \
+		--tag $${STAGING_REGISTRY}/seedsync:$${STAGING_VERSION} \
+		--cache-to=type=registry,ref=$${STAGING_REGISTRY}/seedsync:cache,mode=max \
+		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/seedsync:cache \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		--push \
 		${ROOTDIR}
@@ -108,11 +108,11 @@ docker-image-release:
 	# final image
 	$(DOCKER) buildx build \
 		-f ${SOURCEDIR}/docker/build/docker-image/Dockerfile \
-		--target rapidcopy_run \
+		--target seedsync_run \
 		--build-arg STAGING_VERSION=$${STAGING_VERSION} \
 		--build-arg STAGING_REGISTRY=$${STAGING_REGISTRY} \
-		--tag ${RELEASE_REGISTRY}/rapidcopy:${RELEASE_VERSION} \
-		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/rapidcopy:cache \
+		--tag ${RELEASE_REGISTRY}/seedsync:${RELEASE_VERSION} \
+		--cache-from=type=registry,ref=$${STAGING_REGISTRY}/seedsync:cache \
 		--platform linux/amd64,linux/arm64,linux/arm/v7 \
 		--push \
 		${ROOTDIR}
@@ -121,8 +121,8 @@ tests-python:
 	# python run
 	$(DOCKER) build \
 		-f ${SOURCEDIR}/docker/build/docker-image/Dockerfile \
-		--target rapidcopy_run_python_devenv \
-		--tag rapidcopy/run/python/devenv \
+		--target seedsync_run_python_devenv \
+		--tag seedsync/run/python/devenv \
 		${ROOTDIR}
 	# python tests
 	$(DOCKER_COMPOSE) \
@@ -138,8 +138,8 @@ tests-angular:
 	# angular build
 	$(DOCKER) build \
 		-f ${SOURCEDIR}/docker/build/deb/Dockerfile \
-		--target rapidcopy_build_angular_env \
-		--tag rapidcopy/build/angular/env \
+		--target seedsync_build_angular_env \
+		--tag seedsync/build/angular/env \
 		${ROOTDIR}
 	# angular tests
 	$(DOCKER_COMPOSE) \
@@ -150,35 +150,6 @@ run-tests-angular: tests-angular
 	$(DOCKER_COMPOSE) \
 		-f ${SOURCEDIR}/docker/test/angular/compose.yml \
 		up --force-recreate --exit-code-from tests
-
-# ============================================================================
-# Playwright E2E Tests (new)
-# ============================================================================
-
-tests-e2e-playwright:
-	cd ${SOURCEDIR}/e2e-playwright && npm install
-	cd ${SOURCEDIR}/e2e-playwright && npx playwright install chromium
-
-run-tests-e2e-playwright: tests-e2e-playwright
-	@echo "${green}Running Playwright E2E tests (headless)${reset}"
-	cd ${SOURCEDIR}/e2e-playwright && npx playwright test
-
-run-tests-e2e-playwright-headed: tests-e2e-playwright
-	@echo "${green}Running Playwright E2E tests (headed)${reset}"
-	cd ${SOURCEDIR}/e2e-playwright && npx playwright test --headed
-
-run-tests-e2e-playwright-dev: tests-e2e-playwright
-	@echo "${green}Running Playwright E2E tests against dev server (port 4200)${reset}"
-	cd ${SOURCEDIR}/e2e-playwright && RAPIDCOPY_URL=http://localhost:4200 npx playwright test
-
-run-tests-e2e-playwright-report: tests-e2e-playwright
-	@echo "${green}Running Playwright E2E tests with HTML report${reset}"
-	cd ${SOURCEDIR}/e2e-playwright && npx playwright test --reporter=html
-	cd ${SOURCEDIR}/e2e-playwright && npx playwright show-report
-
-# ============================================================================
-# Legacy Protractor E2E Tests (deprecated - use Playwright instead)
-# ============================================================================
 
 tests-e2e-deps:
 	# deb pre-reqs
@@ -198,24 +169,24 @@ tests-e2e-deps:
 
 run-tests-e2e: tests-e2e-deps
 	# Check our settings
-	@if [[ -z "${STAGING_VERSION}" ]] && [[ -z "${RAPIDCOPY_DEB}" ]]; then \
-		echo "${red}ERROR: One of STAGING_VERSION or RAPIDCOPY_DEB must be set${reset}"; exit 1; \
-	elif [[ ! -z "${STAGING_VERSION}" ]] && [[ ! -z "${RAPIDCOPY_DEB}" ]]; then \
-	  	echo "${red}ERROR: Only one of STAGING_VERSION or RAPIDCOPY_DEB must be set${reset}"; exit 1; \
+	@if [[ -z "${STAGING_VERSION}" ]] && [[ -z "${SEEDSYNC_DEB}" ]]; then \
+		echo "${red}ERROR: One of STAGING_VERSION or SEEDSYNC_DEB must be set${reset}"; exit 1; \
+	elif [[ ! -z "${STAGING_VERSION}" ]] && [[ ! -z "${SEEDSYNC_DEB}" ]]; then \
+	  	echo "${red}ERROR: Only one of STAGING_VERSION or SEEDSYNC_DEB must be set${reset}"; exit 1; \
   	fi
 
 	# Set up environment for deb
-	@if [[ ! -z "${RAPIDCOPY_DEB}" ]] ; then \
-		if [[ -z "${RAPIDCOPY_OS}" ]] ; then \
-			echo "${red}ERROR: RAPIDCOPY_OS is required for DEB e2e test${reset}"; \
+	@if [[ ! -z "${SEEDSYNC_DEB}" ]] ; then \
+		if [[ -z "${SEEDSYNC_OS}" ]] ; then \
+			echo "${red}ERROR: SEEDSYNC_OS is required for DEB e2e test${reset}"; \
 			echo "${red}Options include: ubu1604, ubu1804, ubu2004${reset}"; exit 1; \
 		fi
 	fi
 
 	# Set up environment for image
 	@if [[ ! -z "${STAGING_VERSION}" ]] ; then \
-		if [[ -z "${RAPIDCOPY_ARCH}" ]] ; then \
-			echo "${red}ERROR: RAPIDCOPY_ARCH is required for docker image e2e test${reset}"; \
+		if [[ -z "${SEEDSYNC_ARCH}" ]] ; then \
+			echo "${red}ERROR: SEEDSYNC_ARCH is required for docker image e2e test${reset}"; \
 			echo "${red}Options include: amd64, arm64, arm/v7${reset}"; exit 1; \
 		fi
 		if [[ -z "${STAGING_REGISTRY}" ]] ; then \
@@ -223,16 +194,16 @@ run-tests-e2e: tests-e2e-deps
 		fi;
 		echo "${green}STAGING_REGISTRY=$${STAGING_REGISTRY}${reset}";
 		# Removing and pulling is the only way to select the arch from a multi-arch image :(
-		$(DOCKER) rmi -f $${STAGING_REGISTRY}/rapidcopy:$${STAGING_VERSION}
-		$(DOCKER) pull $${STAGING_REGISTRY}/rapidcopy:$${STAGING_VERSION} --platform linux/$${RAPIDCOPY_ARCH}
+		$(DOCKER) rmi -f $${STAGING_REGISTRY}/seedsync:$${STAGING_VERSION}
+		$(DOCKER) pull $${STAGING_REGISTRY}/seedsync:$${STAGING_VERSION} --platform linux/$${SEEDSYNC_ARCH}
 	fi
 
 	# Set the flags
 	COMPOSE_FLAGS="-f ${SOURCEDIR}/docker/test/e2e/compose.yml "
 	COMPOSE_RUN_FLAGS=""
-	if [[ ! -z "${RAPIDCOPY_DEB}" ]] ; then
+	if [[ ! -z "${SEEDSYNC_DEB}" ]] ; then
 		COMPOSE_FLAGS+="-f ${SOURCEDIR}/docker/stage/deb/compose.yml "
-		COMPOSE_FLAGS+="-f ${SOURCEDIR}/docker/stage/deb/compose-${RAPIDCOPY_OS}.yml "
+		COMPOSE_FLAGS+="-f ${SOURCEDIR}/docker/stage/deb/compose-${SEEDSYNC_OS}.yml "
 	fi
 	if [[ ! -z "${STAGING_VERSION}" ]] ; then \
 		COMPOSE_FLAGS+="-f ${SOURCEDIR}/docker/stage/docker-image/compose.yml "
@@ -271,21 +242,21 @@ run-tests-e2e: tests-e2e-deps
 		$${COMPOSE_RUN_FLAGS}
 
 	if [[ "${DEV}" != "1" ]] ; then
-		$(DOCKER) logs -f rapidcopy_test_e2e
+		$(DOCKER) logs -f seedsync_test_e2e
 	fi
 
-	EXITCODE=`$(DOCKER) inspect rapidcopy_test_e2e | jq '.[].State.ExitCode'`
+	EXITCODE=`$(DOCKER) inspect seedsync_test_e2e | jq '.[].State.ExitCode'`
 	if [[ "$${EXITCODE}" != "0" ]] ; then
 		false
 	fi
 
 run-remote-server:
-	$(DOCKER) container rm -f rapidcopy_test_e2e_remote-dev
+	$(DOCKER) container rm -f seedsync_test_e2e_remote-dev
 	$(DOCKER) run \
 		-it --init \
 		-p 1234:1234 \
-		--name rapidcopy_test_e2e_remote-dev \
-		rapidcopy/test/e2e/remote
+		--name seedsync_test_e2e_remote-dev \
+		seedsync/test/e2e/remote
 
 clean:
 	rm -rf ${BUILDDIR}

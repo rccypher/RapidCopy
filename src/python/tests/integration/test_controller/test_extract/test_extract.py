@@ -4,13 +4,11 @@ import unittest
 import shutil
 import tempfile
 import os
+import subprocess
 import zipfile
 
 from common import overrides
 from controller.extract import Extract, ExtractError
-
-# Directory containing pre-built RAR fixtures (generated once via Docker with `rar`)
-_FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
 class TestExtract(unittest.TestCase):
@@ -47,19 +45,27 @@ class TestExtract(unittest.TestCase):
         zf.write(temp_file, os.path.basename(temp_file))
         zf.close()
 
-        # rar — use pre-bundled fixture (generated once via Docker with `rar a -ep`)
-        # Fixtures contain: one file named "file" with content "12345678" * 10 * 1024
+        # rar
+        fnull = open(os.devnull, 'w')
         TestExtract.ar_rar = os.path.join(archive_dir, "file.rar")
-        shutil.copy(os.path.join(_FIXTURES_DIR, "file.rar"), TestExtract.ar_rar)
+        subprocess.Popen(["rar",
+                          "a",
+                          "-ep",
+                          TestExtract.ar_rar,
+                          temp_file],
+                         stdout=fnull)
 
-        # rar split — use pre-bundled fixtures (generated with `rar a -ep -m0 -v50k`)
+        # rar split
+        subprocess.Popen(["rar",
+                          "a",
+                          "-ep", "-m0", "-v50k",
+                          os.path.join(archive_dir, "file.split.rar"),
+                          temp_file],
+                         stdout=fnull)
         TestExtract.ar_rar_split_p1 = os.path.join(archive_dir, "file.split.part1.rar")
         TestExtract.ar_rar_split_p2 = os.path.join(archive_dir, "file.split.part2.rar")
-        shutil.copy(os.path.join(_FIXTURES_DIR, "file.split.part1.rar"), TestExtract.ar_rar_split_p1)
-        shutil.copy(os.path.join(_FIXTURES_DIR, "file.split.part2.rar"), TestExtract.ar_rar_split_p2)
 
         # tar.gz
-        import subprocess
         TestExtract.ar_tar_gz = os.path.join(archive_dir, "file.tar.gz")
         subprocess.Popen(["tar",
                           "czvf",
@@ -86,7 +92,7 @@ class TestExtract(unittest.TestCase):
     def _assert_extracted_files(self, dir_path):
         path = os.path.join(dir_path, "file")
         self.assertTrue(os.path.isfile(path))
-        with open(path) as f:
+        with open(path, "r") as f:
             self.assertEqual(TestExtract.__FILE_CONTENT, f.read())
 
     def test_is_archive_fast(self):

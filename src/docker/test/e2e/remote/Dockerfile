@@ -1,11 +1,12 @@
-FROM ubuntu:22.04
+FROM ubuntu:18.04
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
-    python3
+    python3.7
 
-# Set python3 as default python
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+# Switch to Python 3.7
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
+RUN update-alternatives --set python /usr/bin/python3.7
 
 # Create non-root user
 RUN useradd --create-home -s /bin/bash remoteuser && \

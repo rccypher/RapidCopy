@@ -1,5 +1,5 @@
 import {ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit} from "@angular/core";
-import {Observable} from "rxjs";
+import {Observable} from "rxjs/Observable";
 
 import * as Immutable from "immutable";
 
@@ -31,7 +31,6 @@ export class FileOptionsComponent implements OnInit {
     public isDownloadingStatusEnabled = false;
     public isQueuedStatusEnabled = false;
     public isStoppedStatusEnabled = false;
-    public isDeletedStatusEnabled = false;
 
     private _latestOptions: ViewFileOptions;
 
@@ -64,9 +63,6 @@ export class FileOptionsComponent implements OnInit {
             this.isStoppedStatusEnabled = FileOptionsComponent.isStatusEnabled(
                 files, ViewFile.Status.STOPPED
             );
-            this.isDeletedStatusEnabled = FileOptionsComponent.isStatusEnabled(
-                files, ViewFile.Status.DELETED
-            );
             this._changeDetector.detectChanges();
         });
 
@@ -92,10 +88,6 @@ export class FileOptionsComponent implements OnInit {
 
     onTogglePinFilter() {
         this.viewFileOptionsService.setPinFilter(!this._latestOptions.pinFilter);
-    }
-
-    onToggleHideDeleted() {
-        this.viewFileOptionsService.setHideDeleted(!this._latestOptions.hideDeleted);
     }
 
     private static isStatusEnabled(files: Immutable.List<ViewFile>, status: ViewFile.Status) {

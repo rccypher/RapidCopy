@@ -5,11 +5,3 @@
 package-lock.json
 src/python/build
 src/python/site
-
-# Security - Never commit private keys
-id_rsa
-*.pem
-*.key
-
-# Local runtime config (user-specific)
-config/

@@ -15,7 +15,7 @@ describe("Testing connected service", () => {
             ]
         });
 
-        connectedService = TestBed.inject(ConnectedService);
+        connectedService = TestBed.get(ConnectedService);
 
         connectedResults = [];
         connectedService.connected.subscribe({

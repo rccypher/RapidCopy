@@ -49,7 +49,7 @@ describe("Testing stream dispatch service", () => {
         spyOn(EventSourceFactory, "createEventSource").and.callFake(
             (url: string) => {
                 mockEventSource = createMockEventSource(url);
-                return mockEventSource as unknown as EventSource;
+                return mockEventSource;
             }
         );
         mockService1 = new MockStreamService();
@@ -57,7 +57,7 @@ describe("Testing stream dispatch service", () => {
         spyOn(mockService1, "getEventNames").and.returnValue(['event1a', 'event1b']);
         spyOn(mockService2, "getEventNames").and.returnValue(['event2a', 'event2b']);
 
-        dispatchService = TestBed.inject(StreamDispatchService);
+        dispatchService = TestBed.get(StreamDispatchService);
 
         dispatchService.registerService(mockService1);
         dispatchService.registerService(mockService2);
@@ -201,7 +201,7 @@ describe("Testing stream service registry", () => {
             ]
         });
 
-        registry = TestBed.inject(StreamServiceRegistry);
+        registry = TestBed.get(StreamServiceRegistry);
     });
 
     it("should create an instance", () => {

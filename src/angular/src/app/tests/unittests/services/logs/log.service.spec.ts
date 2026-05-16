@@ -18,7 +18,7 @@ describe("Testing log service", () => {
             ]
         });
 
-        logService = TestBed.inject(LogService);
+        logService = TestBed.get(LogService);
     });
 
     it("should create an instance", () => {
@@ -47,7 +47,7 @@ describe("Testing log service", () => {
         json = {
             level_name: "DEBUG",
             time: "1514776875.9439101",
-            logger_name: "rapidcopy.Controller.Model",
+            logger_name: "seedsync.Controller.Model",
             message: "LftpModel: Adding a listener"
         };
         logService.notifyEvent("log-record", JSON.stringify(json));
@@ -84,7 +84,7 @@ describe("Testing log service", () => {
         data2 = {
             level_name: "DEBUG",
             time: "1514776875.9439101",
-            logger_name: "rapidcopy.Controller.Model",
+            logger_name: "seedsync.Controller.Model",
             message: "LftpModel: Adding a listener"
         };
 

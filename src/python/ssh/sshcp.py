@@ -13,7 +13,6 @@ class SshcpError(AppError):
     """
     Custom exception that describes the failure of the ssh command
     """
-
     pass
 
 
@@ -21,10 +20,13 @@ class Sshcp:
     """
     Scp command utility
     """
-
     __TIMEOUT_SECS = 180
 
-    def __init__(self, host: str, port: int, user: str | None = None, password: str | None = None):
+    def __init__(self,
+                 host: str,
+                 port: int,
+                 user: str = None,
+                 password: str = None):
         if host is None:
             raise ValueError("Hostname not specified.")
         self.__host = host
@@ -36,28 +38,30 @@ class Sshcp:
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild(self.__class__.__name__)
 
-    def __run_command(self, command: str, flags: str, args: str) -> bytes:
-        command_args = [command, flags]
+    def __run_command(self,
+                      command: str,
+                      flags: str,
+                      args: str) -> bytes:
+
+        command_args = [
+            command,
+            flags
+        ]
 
         # Common flags
         command_args += [
-            "-o",
-            "StrictHostKeyChecking=no",  # ignore host key changes
-            "-o",
-            "UserKnownHostsFile=/dev/null",  # ignore known hosts file
-            "-o",
-            "LogLevel=error",  # suppress warnings
+            "-o", "StrictHostKeyChecking=no",  # ignore host key changes
+            "-o", "UserKnownHostsFile=/dev/null",  # ignore known hosts file
+            "-o", "LogLevel=error",  # suppress warnings
         ]
 
         if self.__password is None:
             command_args += [
-                "-o",
-                "PasswordAuthentication=no",  # don't ask for password
+                "-o", "PasswordAuthentication=no",  # don't ask for password
             ]
         else:
             command_args += [
-                "-o",
-                "PubkeyAuthentication=no",  # don't use key authentication
+                "-o", "PubkeyAuthentication=no"  # don't use key authentication
             ]
 
         command_args.append(args)
@@ -69,15 +73,13 @@ class Sshcp:
         sp = pexpect.spawn(command)
         try:
             if self.__password is not None:
-                i = sp.expect(
-                    [
-                        "password: ",  # i=0, all's good
-                        pexpect.EOF,  # i=1, unknown error
-                        "lost connection",  # i=2, connection refused
-                        "Could not resolve hostname",  # i=3, bad hostname
-                        "Connection refused",  # i=4, connection refused
-                    ]
-                )
+                i = sp.expect([
+                    'password: ',  # i=0, all's good
+                    pexpect.EOF,  # i=1, unknown error
+                    'lost connection',  # i=2, connection refused
+                    'Could not resolve hostname',  # i=3, bad hostname
+                    'Connection refused',  # i=4, connection refused
+                ])
                 if i > 0:
                     before = sp.before.decode().strip() if sp.before != pexpect.EOF else ""
                     after = sp.after.decode().strip() if sp.after != pexpect.EOF else ""
@@ -99,12 +101,12 @@ class Sshcp:
             i = sp.expect(
                 [
                     pexpect.EOF,  # i=0, all's good
-                    "password: ",  # i=1, wrong password
-                    "lost connection",  # i=2, connection refused
-                    "Could not resolve hostname",  # i=3, bad hostname
-                    "Connection refused",  # i=4, connection refused
+                    'password: ',  # i=1, wrong password
+                    'lost connection',  # i=2, connection refused
+                    'Could not resolve hostname',  # i=3, bad hostname
+                    'Connection refused',  # i=4, connection refused
                 ],
-                timeout=self.__TIMEOUT_SECS,
+                timeout=self.__TIMEOUT_SECS
             )
             if i > 0:
                 before = sp.before.decode().strip() if sp.before != pexpect.EOF else ""
@@ -120,22 +122,22 @@ class Sshcp:
                     error_msg += " - " + sp.before.decode().strip()
                 raise SshcpError(error_msg)
 
-        except pexpect.exceptions.TIMEOUT as e:
+        except pexpect.exceptions.TIMEOUT:
             self.logger.exception("Timed out")
             self.logger.error("Command output before:\n{}".format(sp.before))
-            raise SshcpError("Timed out") from e
+            raise SshcpError("Timed out")
         sp.close()
         end_time = time.time()
 
         self.logger.debug("Return code: {}".format(sp.exitstatus))
-        self.logger.debug("Command took {:.3f}s".format(end_time - start_time))
+        self.logger.debug("Command took {:.3f}s".format(end_time-start_time))
         if sp.exitstatus != 0:
             before = sp.before.decode().strip() if sp.before != pexpect.EOF else ""
             after = sp.after.decode().strip() if sp.after != pexpect.EOF else ""
             self.logger.warning("Command failed: '{} - {}'".format(before, after))
             raise SshcpError(sp.before.decode().strip())
 
-        return sp.before.replace(b"\r\n", b"\n").strip()
+        return sp.before.replace(b'\r\n', b'\n').strip()
 
     def shell(self, command: str) -> bytes:
         """
@@ -147,22 +149,25 @@ class Sshcp:
             raise ValueError("Command cannot be empty")
 
         # escape the command
-        if "'" in command and '"' in command:
-            # I don't know how to handle this yet...
-            raise ValueError("Command cannot contain both single and double quotes")
-        elif '"' in command:
-            # double quote in command, cover with single quotes
-            command = "'{}'".format(command)
-        else:
-            # no double quote in command, cover with double quotes
-            command = '"{}"'.format(command)
+        # Always wrap in single quotes for the local shell.
+        # This means $var is NOT expanded locally but IS expanded on the remote shell.
+        # Escape any existing single quotes using the standard POSIX technique:
+        #   ' -> '"'"'  (end single-quote, add double-quoted literal ', start single-quote)
+        escaped = command.replace("'", "'\"'\"'")
+        command = "'{}'".format(escaped)
 
         flags = [
-            "-p",
-            str(self.__port),  # port
+            "-p", str(self.__port),  # port
         ]
-        args = ["{}@{}".format(self.__user, self.__host), command]
-        return self.__run_command(command="ssh", flags=" ".join(flags), args=" ".join(args))
+        args = [
+            "{}@{}".format(self.__user, self.__host),
+            command
+        ]
+        return self.__run_command(
+            command="ssh",
+            flags=" ".join(flags),
+            args=" ".join(args)
+        )
 
     def copy(self, local_path: str, remote_path: str):
         """
@@ -178,8 +183,40 @@ class Sshcp:
 
         flags = [
             "-q",  # quiet
-            "-P",
-            str(self.__port),  # port
+            "-P", str(self.__port),  # port
         ]
-        args = [local_path, "{}@{}:{}".format(self.__user, self.__host, remote_path)]
-        self.__run_command(command="scp", flags=" ".join(flags), args=" ".join(args))
+        args = [
+            local_path,
+            "{}@{}:{}".format(self.__user, self.__host, remote_path)
+        ]
+        self.__run_command(
+            command="scp",
+            flags=" ".join(flags),
+            args=" ".join(args)
+        )
+
+    def copy_from_remote(self, remote_path: str, local_path: str):
+        """
+        Copies remote file at remote_path to local local_path
+        :param remote_path:
+        :param local_path:
+        :return:
+        """
+        if not local_path:
+            raise ValueError("Local path cannot be empty")
+        if not remote_path:
+            raise ValueError("Remote path cannot be empty")
+
+        flags = [
+            "-q",  # quiet
+            "-P", str(self.__port),  # port
+        ]
+        args = [
+            "{}@{}:{}".format(self.__user, self.__host, remote_path),
+            local_path
+        ]
+        self.__run_command(
+            command="scp",
+            flags=" ".join(flags),
+            args=" ".join(args)
+        )

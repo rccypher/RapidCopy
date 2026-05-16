@@ -35,9 +35,9 @@ describe("Testing config service", () => {
             ]
         });
 
-        mockRegistry = TestBed.inject(StreamServiceRegistry);
-        httpMock = TestBed.inject(HttpTestingController);
-        configService = TestBed.inject(ConfigService);
+        mockRegistry = TestBed.get(StreamServiceRegistry);
+        httpMock = TestBed.get(HttpTestingController);
+        configService = TestBed.get(ConfigService);
 
         // Connect the services
         mockRegistry.connect();
@@ -73,7 +73,9 @@ describe("Testing config service", () => {
             controller: {
                 interval_ms_remote_scan: 30000,
                 interval_ms_local_scan: 10000,
-                interval_ms_downloading_scan: 1000
+                interval_ms_downloading_scan: 1000,
+                enable_disk_space_check: true,
+                disk_space_min_percent: 10
             },
             web: {
                 port: 8800
@@ -81,6 +83,9 @@ describe("Testing config service", () => {
             autoqueue: {
                 enabled: true,
                 patterns_only: false
+            },
+            pathmappings: {
+                mappings_json: '[{"remote_path":"/remote","local_path":"/local"}]'
             }
         };
         httpMock.expectOne("/server/config/get").flush(configJson);
@@ -107,6 +112,7 @@ describe("Testing config service", () => {
                 expect(config.web.port).toBe(8800);
                 expect(config.autoqueue.enabled).toBe(true);
                 expect(config.autoqueue.patterns_only).toBe(false);
+                expect(config.pathmappings.mappings_json).toBe('[{"remote_path":"/remote","local_path":"/local"}]');
             }
         });
 

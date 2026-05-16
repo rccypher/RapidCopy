@@ -19,17 +19,15 @@ import {ViewFileOptions} from "./view-file-options";
 const StatusComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
     if (a.status !== b.status) {
         const statusPriorities = {
-            [ViewFile.Status.CORRUPT]: 0,
-            [ViewFile.Status.VALIDATING]: 1,
-            [ViewFile.Status.EXTRACTING]: 2,
-            [ViewFile.Status.DOWNLOADING]: 3,
-            [ViewFile.Status.QUEUED]: 4,
-            [ViewFile.Status.EXTRACTED]: 5,
-            [ViewFile.Status.VALIDATED]: 6,
-            [ViewFile.Status.DOWNLOADED]: 7,
-            [ViewFile.Status.STOPPED]: 8,
-            [ViewFile.Status.DEFAULT]: 9,
-            [ViewFile.Status.DELETED]: 9  // intermix deleted and default
+            [ViewFile.Status.EXTRACTING]: 0,
+            [ViewFile.Status.DOWNLOADING]: 1,
+            [ViewFile.Status.VALIDATING]: 2,
+            [ViewFile.Status.QUEUED]: 3,
+            [ViewFile.Status.EXTRACTED]: 4,
+            [ViewFile.Status.DOWNLOADED]: 5,
+            [ViewFile.Status.STOPPED]: 6,
+            [ViewFile.Status.DEFAULT]: 7,
+            [ViewFile.Status.DELETED]: 7  // intermix deleted and default
         };
         if (statusPriorities[a.status] !== statusPriorities[b.status]) {
             return statusPriorities[a.status] - statusPriorities[b.status];
@@ -62,57 +60,31 @@ const NameDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile):
     return b.name.localeCompare(a.name);
 };
 
-/**
- * Sort by size ascending (smallest first), nulls last, then by name
- */
-const SizeAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
-    const sizeA = a.remoteSize ?? a.localSize ?? -1;
-    const sizeB = b.remoteSize ?? b.localSize ?? -1;
-    if (sizeA !== sizeB) {
-        if (sizeA < 0) return 1;
-        if (sizeB < 0) return -1;
-        return sizeA - sizeB;
-    }
-    return a.name.localeCompare(b.name);
-};
-
-/**
- * Sort by size descending (largest first), nulls last, then by name
- */
-const SizeDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
-    const sizeA = a.remoteSize ?? a.localSize ?? -1;
-    const sizeB = b.remoteSize ?? b.localSize ?? -1;
-    if (sizeA !== sizeB) {
-        if (sizeA < 0) return 1;
-        if (sizeB < 0) return -1;
-        return sizeB - sizeA;
-    }
-    return a.name.localeCompare(b.name);
-};
-
-/**
- * Sort by download speed descending (fastest first), zero/null last, then by name
- */
-const SpeedDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
-    const speedA = a.downloadingSpeed ?? 0;
-    const speedB = b.downloadingSpeed ?? 0;
-    if (speedA !== speedB) {
-        return speedB - speedA;
-    }
-    return a.name.localeCompare(b.name);
-};
-
-/**
- * Sort by ETA ascending (shortest first), zero/null last, then by name
- */
 const EtaAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
-    const etaA = a.eta ?? 0;
-    const etaB = b.eta ?? 0;
-    if (etaA > 0 && etaB <= 0) return -1;
-    if (etaA <= 0 && etaB > 0) return 1;
-    if (etaA !== etaB) {
-        return etaA - etaB;
-    }
+    const aEta = a.eta != null ? a.eta : Number.MAX_SAFE_INTEGER;
+    const bEta = b.eta != null ? b.eta : Number.MAX_SAFE_INTEGER;
+    if (aEta !== bEta) return aEta - bEta;
+    return a.name.localeCompare(b.name);
+};
+
+const EtaDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const aEta = a.eta != null ? a.eta : -1;
+    const bEta = b.eta != null ? b.eta : -1;
+    if (aEta !== bEta) return bEta - aEta;
+    return a.name.localeCompare(b.name);
+};
+
+const SpeedAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const aSpeed = a.downloadingSpeed != null ? a.downloadingSpeed : -1;
+    const bSpeed = b.downloadingSpeed != null ? b.downloadingSpeed : -1;
+    if (aSpeed !== bSpeed) return aSpeed - bSpeed;
+    return a.name.localeCompare(b.name);
+};
+
+const SpeedDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const aSpeed = a.downloadingSpeed != null ? a.downloadingSpeed : -1;
+    const bSpeed = b.downloadingSpeed != null ? b.downloadingSpeed : -1;
+    if (aSpeed !== bSpeed) return bSpeed - aSpeed;
     return a.name.localeCompare(b.name);
 };
 
@@ -143,18 +115,18 @@ export class ViewFileSortService {
                 } else if (this._sortMethod === ViewFileOptions.SortMethod.NAME_ASC) {
                     this._viewFileService.setComparator(NameAscendingComparator);
                     this._logger.debug("Comparator set to: Name Asc");
-                } else if (this._sortMethod === ViewFileOptions.SortMethod.SIZE_ASC) {
-                    this._viewFileService.setComparator(SizeAscendingComparator);
-                    this._logger.debug("Comparator set to: Size Asc");
-                } else if (this._sortMethod === ViewFileOptions.SortMethod.SIZE_DESC) {
-                    this._viewFileService.setComparator(SizeDescendingComparator);
-                    this._logger.debug("Comparator set to: Size Desc");
-                } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_DESC) {
-                    this._viewFileService.setComparator(SpeedDescendingComparator);
-                    this._logger.debug("Comparator set to: Speed Desc");
                 } else if (this._sortMethod === ViewFileOptions.SortMethod.ETA_ASC) {
                     this._viewFileService.setComparator(EtaAscendingComparator);
                     this._logger.debug("Comparator set to: ETA Asc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.ETA_DESC) {
+                    this._viewFileService.setComparator(EtaDescendingComparator);
+                    this._logger.debug("Comparator set to: ETA Desc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_ASC) {
+                    this._viewFileService.setComparator(SpeedAscendingComparator);
+                    this._logger.debug("Comparator set to: Speed Asc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_DESC) {
+                    this._viewFileService.setComparator(SpeedDescendingComparator);
+                    this._logger.debug("Comparator set to: Speed Desc");
                 } else {
                     this._viewFileService.setComparator(null);
                     this._logger.debug("Comparator set to: null");

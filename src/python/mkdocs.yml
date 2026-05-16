@@ -15,8 +15,8 @@ markdown_extensions:
       guess_lang: false
   - toc:
       permalink: true
-repo_name: ipsingh06/rapidcopy
-repo_url: https://github.com/ipsingh06/rapidcopy
+repo_name: rccypher/RapidCopy
+repo_url: https://github.com/rccypher/RapidCopy
 nav:
   - Home: index.md
   - Installation: install.md

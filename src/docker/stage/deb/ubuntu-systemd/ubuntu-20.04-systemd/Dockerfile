@@ -1,9 +1,9 @@
 # Copied from:
 # https://github.com/solita/docker-systemd/blob/master/Dockerfile
 # https://hub.docker.com/r/solita/ubuntu-systemd/
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 
-RUN apt-get update && apt-get install -y systemd && apt-get clean
+RUN apt-get update && apt-get install -y systemd
 
 ENV container docker
 

@@ -1,176 +1,16 @@
 @import '../../common/common';
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-
-/* Combined bulk action / rescan toolbar — always visible */
-#multi-select-toolbar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 6px 12px;
-    background-color: var(--color-accent-primary);
-    color: var(--color-text-inverse);
-    border-bottom: 2px solid var(--color-accent-primary-dark, #0056b3);
-    min-height: 46px;
-
-    .toolbar-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 80px; /* reserve space so actions don't jump when count appears */
-
-        .count {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .clear-btn {
-            font-size: 12px;
-            padding: 2px 8px;
-            color: var(--color-text-inverse);
-            border-color: rgba(255,255,255,0.5);
-            background: transparent;
-
-            &:hover {
-                background: rgba(255,255,255,0.15);
-                border-color: white;
-            }
-        }
-    }
-
-    .toolbar-actions {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 6px;
-        align-items: center;
-    }
-
-    /* Vertical separator between bulk buttons and the Refresh button */
-    .toolbar-separator {
-        width: 1px;
-        height: 28px;
-        background-color: rgba(255,255,255,0.35);
-        margin: 0 4px;
-        flex-shrink: 0;
-    }
-
-    .bulk-btn {
-        @extend %button;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 5px;
-        padding: 4px 10px;
-        height: 34px;
-        min-width: unset;
-        width: auto;
-        border-radius: 4px;
-        font-size: 12px;
-        background-color: rgba(255,255,255,0.15);
-        border-color: rgba(255,255,255,0.3);
-
-        img {
-            width: 16px;
-            height: 16px;
-            filter: invert(1.0);
-        }
-
-        span {
-            white-space: nowrap;
-        }
-
-        .loader {
-            display: none;
-            border: 3px solid rgba(255,255,255,0.4);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            min-width: 16px;
-            animation: spin 1s linear infinite;
-        }
-
-        &.loading {
-            opacity: 0.8;
-            img { display: none; }
-            .rescan-icon { display: none; }
-            .loader { display: block; }
-        }
-
-        &[disabled] {
-            opacity: 0.35;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        &:not([disabled]):hover {
-            background-color: rgba(255,255,255,0.28);
-            border-color: rgba(255,255,255,0.6);
-        }
-
-        /* Refresh Remote button: never fully faded, always clickable when not scanning */
-        &.rescan-btn {
-            background-color: rgba(255,255,255,0.1);
-            border-color: rgba(255,255,255,0.4);
-
-            .rescan-icon {
-                font-size: 17px;
-                line-height: 1;
-                display: inline-block;
-            }
-
-            &[disabled] {
-                opacity: 0.6;
-                pointer-events: none;
-                cursor: not-allowed;
-
-                .rescan-icon {
-                    animation: spin 1s linear infinite;
-                }
-            }
-
-            &:not([disabled]):hover {
-                background-color: rgba(255,255,255,0.25);
-            }
-        }
-    }
-}
-
-/* Checkbox column */
-.checkbox-col {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    min-width: 36px;
-    padding: 0 4px;
-}
-
-.file-checkbox {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: var(--color-accent-primary);
-}
-
 #file-list #header {
     display: none;
 }
 
 /* striped rows */
 #file-list > div:nth-child(even){
-    background-color: var(--color-bg-secondary);
+    background-color: var(--stripe-bg);
 }
 
 /* list separator */
-#file-list > div {border-bottom: 1px solid var(--color-border);}
+#file-list > div {border-bottom: 1px solid var(--file-separator);}
 #file-list > div:last-child{border-bottom: none;}
 
 
@@ -178,17 +18,15 @@
 @media only screen and (min-width: $medium-min-width) {
     #file-list #header {
         display: flex;
-        align-items: center;
     }
 
     /* width */
     /* NOTE: make sure this is in-sync with ".file .content" */
-    #header .checkbox-col  {width: 36px; min-width: 36px;}
-    #header .status        {width: 100px; min-width: 100px;}
-    #header .name          {flex-grow: 1;}
-    #header .speed         {width: 100px; min-width: 100px;}
-    #header .eta           {width: 100px; min-width: 100px;}
-    #header .size          {width: 30%; min-width: 30%;}
+    #header .status     {width: 100px; min-width: 100px;}
+    #header .name       {flex-grow: 1;}
+    #header .speed      {width: 100px; min-width: 100px;}
+    #header .eta        {width: 100px; min-width: 100px;}
+    #header .size       {width: 30%; min-width: 30%;}
 
     /* header and content elements */
     #header > div, .content > div {
@@ -201,97 +39,7 @@
     /* header color */
     #header div {
         font-weight: bold;
-        color: var(--color-text-inverse);
-        background-color: var(--color-text-primary);
-    }
-
-    /* checkbox col in header should not inherit header bg */
-    #header .checkbox-col {
-        background-color: var(--color-text-primary);
-        align-self: stretch; /* fill full row height; parent uses align-items: center */
-    }
-
-    /* clickable sort headers */
-    #header div.sortable {
-        cursor: pointer;
-        user-select: none;
-
-        &:hover {
-            background-color: var(--color-accent-primary);
-        }
-
-        .sort-indicator {
-            margin-left: 4px;
-            font-size: 0.7em;
-            opacity: 0.9;
-        }
-    }
-}
-
-// ---- Pagination bar ----
-#pagination-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-top: 1px solid rgba(128, 128, 128, 0.2);
-    font-size: 0.85rem;
-    flex-wrap: wrap;
-    gap: 8px;
-
-    .pagination-info {
-        color: var(--text-muted, #888);
-        min-width: 120px;
-    }
-
-    .pagination-controls {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-
-        .page-btn {
-            background: none;
-            border: 1px solid rgba(128, 128, 128, 0.4);
-            border-radius: 4px;
-            padding: 3px 10px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            color: inherit;
-
-            &:hover:not([disabled]) {
-                border-color: #3a8eda;
-                color: #3a8eda;
-            }
-
-            &[disabled] {
-                opacity: 0.35;
-                cursor: default;
-            }
-        }
-
-        .page-indicator {
-            color: var(--text-muted, #888);
-            white-space: nowrap;
-        }
-    }
-
-    .page-size-selector {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-
-        label {
-            color: var(--text-muted, #888);
-        }
-
-        select {
-            background: var(--bs-body-bg, #fff);
-            color: inherit;
-            border: 1px solid rgba(128, 128, 128, 0.4);
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
+        color: var(--table-header-text);
+        background-color: var(--table-header-bg);
     }
 }

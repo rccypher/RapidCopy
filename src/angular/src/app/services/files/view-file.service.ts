@@ -1,6 +1,6 @@
 import {Injectable} from "@angular/core";
-import {Observable, forkJoin} from "rxjs";
-import {BehaviorSubject} from "rxjs";
+import {Observable} from "rxjs/Observable";
+import {BehaviorSubject} from "rxjs/Rx";
 
 import * as Immutable from "immutable";
 
@@ -85,13 +85,6 @@ export class ViewFileService {
     private _filterCriteria: ViewFileFilterCriteria = null;
     private _sortComparator: ViewFileComparator = null;
 
-    // Pagination state
-    private _pageSize: number = 50;
-    private _currentPage: number = 0;
-    private _totalFilteredCountSubject: BehaviorSubject<number> = new BehaviorSubject(0);
-    private _pageSizeSubject: BehaviorSubject<number> = new BehaviorSubject(50);
-    private _currentPageSubject: BehaviorSubject<number> = new BehaviorSubject(0);
-
     constructor(private _logger: LoggerService,
                 private _streamServiceRegistry: StreamServiceRegistry) {
         this.modelFileService = _streamServiceRegistry.modelFileService;
@@ -149,7 +142,7 @@ export class ViewFileService {
             name => {
                 const index = this._indices.get(name);
                 const oldViewFile = newViewFiles.get(index);
-                const newViewFile = ViewFileService.createViewFile(modelFiles.get(name), oldViewFile.isSelected, oldViewFile.isMultiSelected);
+                const newViewFile = ViewFileService.createViewFile(modelFiles.get(name), oldViewFile.isSelected);
                 newViewFiles = newViewFiles.set(index, newViewFile);
                 if (this._sortComparator != null && this._sortComparator(oldViewFile, newViewFile) !== 0) {
                     reSort = true;
@@ -199,53 +192,6 @@ export class ViewFileService {
 
     get filteredFiles(): Observable<Immutable.List<ViewFile>> {
         return this._filteredFilesSubject.asObservable();
-    }
-
-    get totalFilteredCount(): Observable<number> {
-        return this._totalFilteredCountSubject.asObservable();
-    }
-
-    get pageSize(): Observable<number> {
-        return this._pageSizeSubject.asObservable();
-    }
-
-    get currentPage(): Observable<number> {
-        return this._currentPageSubject.asObservable();
-    }
-
-    get currentPageSize(): number {
-        return this._pageSize;
-    }
-
-    get currentPageIndex(): number {
-        return this._currentPage;
-    }
-
-    public setPageSize(size: number) {
-        this._pageSize = size;
-        this._currentPage = 0;
-        this._pageSizeSubject.next(size);
-        this._currentPageSubject.next(0);
-        this.pushViewFiles();
-    }
-
-    public setPage(page: number) {
-        this._currentPage = page;
-        this._currentPageSubject.next(page);
-        this.pushViewFiles();
-    }
-
-    public nextPage() {
-        const totalPages = Math.ceil(this._totalFilteredCountSubject.getValue() / this._pageSize);
-        if (this._currentPage < totalPages - 1) {
-            this.setPage(this._currentPage + 1);
-        }
-    }
-
-    public prevPage() {
-        if (this._currentPage > 0) {
-            this.setPage(this._currentPage - 1);
-        }
     }
 
     /**
@@ -308,114 +254,6 @@ export class ViewFileService {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Multi-select helpers
-    // -----------------------------------------------------------------------
-
-    /**
-     * Returns the currently multi-selected files as a plain array.
-     * Reads from the unfiltered list so selections are not lost when the
-     * filter changes.
-     */
-    get multiSelectedFiles(): ViewFile[] {
-        return this._files.filter(f => f.isMultiSelected).toArray();
-    }
-
-    /**
-     * Toggle the multi-select state of a single file.
-     */
-    public toggleMultiSelected(file: ViewFile) {
-        if (!this._indices.has(file.name)) { return; }
-        const index = this._indices.get(file.name);
-        const current = this._files.get(index);
-        this._files = this._files.set(
-            index,
-            new ViewFile(current.set("isMultiSelected", !current.isMultiSelected))
-        );
-        this.pushViewFiles();
-    }
-
-    /**
-     * Shift-click range selection: toggle all files between the last
-     * selected file and the given file (in the current filtered order).
-     */
-    public rangeMultiSelect(file: ViewFile) {
-        // Use the filtered list so range corresponds to what the user sees
-        const filtered = this._filteredFilesSubject.getValue();
-        const clickedIdx = filtered.findIndex(f => f.name === file.name);
-        if (clickedIdx < 0) { return; }
-
-        // Find nearest already-selected file in the filtered list
-        let anchorIdx = -1;
-        for (let i = clickedIdx - 1; i >= 0; i--) {
-            if (filtered.get(i).isMultiSelected) { anchorIdx = i; break; }
-        }
-        if (anchorIdx < 0) {
-            // No anchor above — just toggle the clicked file
-            this.toggleMultiSelected(file);
-            return;
-        }
-
-        // Select everything between anchor and clicked (inclusive)
-        const lo = Math.min(anchorIdx, clickedIdx);
-        const hi = Math.max(anchorIdx, clickedIdx);
-        let newFiles = this._files;
-        for (let i = lo; i <= hi; i++) {
-            const name = filtered.get(i).name;
-            if (this._indices.has(name)) {
-                const idx = this._indices.get(name);
-                const current = newFiles.get(idx);
-                newFiles = newFiles.set(idx, new ViewFile(current.set("isMultiSelected", true)));
-            }
-        }
-        this._files = newFiles;
-        this.pushViewFiles();
-    }
-
-    /**
-     * Clear all multi-selected flags.
-     */
-    public clearMultiSelected() {
-        this._files = this._files.map(
-            f => f.isMultiSelected ? new ViewFile(f.set("isMultiSelected", false)) : f
-        ).toList();
-        this.pushViewFiles();
-    }
-
-    /**
-     * Select all files currently visible in the filtered list.
-     */
-    public selectAllVisible() {
-        const filtered = this._filteredFilesSubject.getValue();
-        let newFiles = this._files;
-        filtered.forEach(f => {
-            if (this._indices.has(f.name)) {
-                const idx = this._indices.get(f.name);
-                const current = newFiles.get(idx);
-                if (!current.isMultiSelected) {
-                    newFiles = newFiles.set(idx, new ViewFile(current.set("isMultiSelected", true)));
-                }
-            }
-        });
-        this._files = newFiles;
-        this.pushViewFiles();
-    }
-
-    /**
-     * Run an action on all multi-selected files that pass the predicate.
-     * Uses forkJoin so all requests are parallel; completes when all finish.
-     */
-    public bulkAction(
-        predicate: (f: ViewFile) => boolean,
-        action: (f: ViewFile) => Observable<WebReaction>
-    ): Observable<WebReaction[]> {
-        const targets = this.multiSelectedFiles.filter(predicate);
-        if (targets.length === 0) {
-            return forkJoin([]);
-        }
-        return forkJoin(targets.map(f => action(f)));
-    }
-
     /**
      * Queue a file for download
      * @param {ViewFile} file
@@ -467,26 +305,6 @@ export class ViewFileService {
     }
 
     /**
-     * Validate a file
-     * @param {ViewFile} file
-     * @returns {Observable<WebReaction>}
-     */
-    public validate(file: ViewFile): Observable<WebReaction> {
-        this._logger.debug("Validate view file: " + file.name);
-        return this.createAction(file, (f) => this.modelFileService.validate(f));
-    }
-
-    /**
-     * Prioritize a file (move to front of download queue)
-     * @param {ViewFile} file
-     * @returns {Observable<WebReaction>}
-     */
-    public prioritize(file: ViewFile): Observable<WebReaction> {
-        this._logger.debug(`Prioritize view file: ${file.name}`);
-        return this.createAction(file, (f) => this.modelFileService.prioritize(f));
-    }
-
-    /**
      * Set a new filter criteria
      * @param {ViewFileFilterCriteria} criteria
      */
@@ -517,7 +335,7 @@ export class ViewFileService {
         this.pushViewFiles();
     }
 
-    private static createViewFile(modelFile: ModelFile, isSelected: boolean = false, isMultiSelected: boolean = false): ViewFile {
+    private static createViewFile(modelFile: ModelFile, isSelected: boolean = false): ViewFile {
         // Use zero for unknown sizes
         let localSize: number = modelFile.local_size;
         if (localSize == null) {
@@ -529,13 +347,9 @@ export class ViewFileService {
         }
         let percentDownloaded: number = null;
         if (remoteSize > 0) {
-            percentDownloaded = Math.round(100.0 * localSize / remoteSize);
-        } else if (localSize > 0) {
-            // Local-only file: no remote size known, treat as 100%
-            percentDownloaded = 100;
+            percentDownloaded = Math.trunc(100.0 * localSize / remoteSize);
         } else {
-            // No local or remote data yet — show 0%
-            percentDownloaded = 0;
+            percentDownloaded = 100;
         }
 
         // Translate the status
@@ -577,52 +391,30 @@ export class ViewFileService {
                 status = ViewFile.Status.VALIDATING;
                 break;
             }
-            case ModelFile.State.VALIDATED: {
-                status = ViewFile.Status.VALIDATED;
-                break;
-            }
-            case ModelFile.State.CORRUPT: {
-                status = ViewFile.Status.CORRUPT;
-                break;
-            }
         }
 
         const isQueueable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
-                                    ViewFile.Status.DELETED,
-                                    ViewFile.Status.CORRUPT].includes(status)
+                                    ViewFile.Status.DELETED].includes(status)
                                     && remoteSize > 0;
         const isStoppable: boolean = [ViewFile.Status.QUEUED,
                                     ViewFile.Status.DOWNLOADING].includes(status);
         const isExtractable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
-                                    ViewFile.Status.EXTRACTED,
-                                    ViewFile.Status.VALIDATED].includes(status)
+                                    ViewFile.Status.EXTRACTED].includes(status)
                                     && localSize > 0;
         const isLocallyDeletable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
-                                    ViewFile.Status.EXTRACTED,
-                                    ViewFile.Status.VALIDATED,
-                                    ViewFile.Status.CORRUPT].includes(status)
+                                    ViewFile.Status.EXTRACTED].includes(status)
                                     && localSize > 0;
         const isRemotelyDeletable: boolean = [ViewFile.Status.DEFAULT,
                                     ViewFile.Status.STOPPED,
                                     ViewFile.Status.DOWNLOADED,
                                     ViewFile.Status.EXTRACTED,
-                                    ViewFile.Status.DELETED,
-                                    ViewFile.Status.VALIDATED,
-                                    ViewFile.Status.CORRUPT].includes(status)
+                                    ViewFile.Status.DELETED].includes(status)
                                     && remoteSize > 0;
-        const isValidatable: boolean = [ViewFile.Status.DEFAULT,
-                                    ViewFile.Status.STOPPED,
-                                    ViewFile.Status.DOWNLOADED,
-                                    ViewFile.Status.EXTRACTED,
-                                    ViewFile.Status.VALIDATED,
-                                    ViewFile.Status.CORRUPT].includes(status)
-                                    && localSize > 0 && remoteSize > 0;
-        const isPrioritizable: boolean = [ViewFile.Status.QUEUED].includes(status);
 
         return new ViewFile({
             name: modelFile.name,
@@ -636,23 +428,15 @@ export class ViewFileService {
             fullPath: modelFile.full_path,
             isArchive: modelFile.is_extractable,
             isSelected: isSelected,
-            isMultiSelected: isMultiSelected,
             isQueueable: isQueueable,
             isStoppable: isStoppable,
             isExtractable: isExtractable,
             isLocallyDeletable: isLocallyDeletable,
             isRemotelyDeletable: isRemotelyDeletable,
-            isValidatable: isValidatable,
-            isPrioritizable: isPrioritizable,
             localCreatedTimestamp: modelFile.local_created_timestamp,
             localModifiedTimestamp: modelFile.local_modified_timestamp,
             remoteCreatedTimestamp: modelFile.remote_created_timestamp,
-            remoteModifiedTimestamp: modelFile.remote_modified_timestamp,
-            pathPairId: modelFile.path_pair_id,
-            pathPairName: modelFile.path_pair_name,
-            validationProgress: modelFile.validation_progress,
-            validationError: modelFile.validation_error,
-            corruptChunks: modelFile.corrupt_chunks
+            remoteModifiedTimestamp: modelFile.remote_modified_timestamp
         });
     }
 
@@ -684,30 +468,13 @@ export class ViewFileService {
         // Unfiltered files
         this._filesSubject.next(this._files);
 
-        // Apply filter
+        // Filtered files
         let filteredFiles = this._files;
         if (this._filterCriteria != null) {
             filteredFiles = Immutable.List<ViewFile>(
                 this._files.filter(f => this._filterCriteria.meetsCriteria(f))
             );
         }
-
-        // Emit total count (before pagination)
-        const totalCount = filteredFiles.size;
-        this._totalFilteredCountSubject.next(totalCount);
-
-        // Clamp page index in case items were removed
-        const totalPages = this._pageSize > 0 ? Math.ceil(totalCount / this._pageSize) : 1;
-        if (this._currentPage >= totalPages && totalPages > 0) {
-            this._currentPage = totalPages - 1;
-            this._currentPageSubject.next(this._currentPage);
-        }
-
-        // Slice to current page
-        const start = this._currentPage * this._pageSize;
-        const end = start + this._pageSize;
-        const pagedFiles = filteredFiles.slice(start, end).toList();
-
-        this._filteredFilesSubject.next(pagedFiles);
+        this._filteredFilesSubject.next(filteredFiles);
     }
 }

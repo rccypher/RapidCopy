@@ -1,8 +1,9 @@
+version: "3.4"
 services:
 
   myapp:
-    image: rapidcopy/stage/deb
-    container_name: rapidcopy_stage_deb
+    image: seedsync/stage/deb
+    container_name: seedsync_stage_deb
     build:
       context: ../../../..
       dockerfile: src/docker/stage/deb/Dockerfile
@@ -14,8 +15,8 @@ services:
       - seccomp:unconfined
     volumes:
       - type: bind
-        source: ${RAPIDCOPY_DEB}
-        target: /install/rapidcopy.deb
+        source: ${SEEDSYNC_DEB}
+        target: /install/seedsync.deb
         read_only: true
 
       - type: bind

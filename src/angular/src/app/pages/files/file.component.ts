@@ -3,7 +3,7 @@ import {
     EventEmitter, OnChanges, SimpleChanges, ViewChild
 } from "@angular/core";
 
-import {NgbModal} from "@ng-bootstrap/ng-bootstrap";
+import {Modal} from "ngx-modialog/plugins/bootstrap";
 
 import {ViewFile} from "../../services/files/view-file";
 import {Localization} from "../../common/localization";
@@ -33,19 +33,16 @@ export class FileComponent implements OnChanges {
     @Input() file: ViewFile;
     @Input() options: ViewFileOptions;
 
-    @Output() checkboxEvent = new EventEmitter<{file: ViewFile, shiftKey: boolean}>();
     @Output() queueEvent = new EventEmitter<ViewFile>();
     @Output() stopEvent = new EventEmitter<ViewFile>();
     @Output() extractEvent = new EventEmitter<ViewFile>();
     @Output() deleteLocalEvent = new EventEmitter<ViewFile>();
     @Output() deleteRemoteEvent = new EventEmitter<ViewFile>();
-    @Output() validateEvent = new EventEmitter<ViewFile>();
-    @Output() prioritizeEvent = new EventEmitter<ViewFile>();
 
     // Indicates an active action on-going
     activeAction: FileAction = null;
 
-    constructor(private modalService: NgbModal) {}
+    constructor(private modal: Modal) {}
 
     ngOnChanges(changes: SimpleChanges): void {
         // Check for status changes
@@ -63,11 +60,23 @@ export class FileComponent implements OnChanges {
     }
 
     showDeleteConfirmation(title: string, message: string, callback: () => void) {
-        // Simple confirmation using native browser dialog
-        // Can be enhanced with NgbModal for a styled modal if needed
-        if (confirm(`${title}\n\n${message}`)) {
-            callback();
-        }
+        const dialogRef = this.modal.confirm()
+            .title(title)
+            .okBtn("Delete")
+            .okBtnClass("btn btn-danger")
+            .cancelBtn("Cancel")
+            .cancelBtnClass("btn btn-secondary")
+            .isBlocking(false)
+            .showClose(false)
+            .body(message)
+            .open();
+
+        dialogRef.then( dRef => {
+           dRef.result.then(
+               () => { callback(); },
+               () => { return; }
+           );
+        });
     }
 
     isQueueable() {
@@ -88,19 +97,6 @@ export class FileComponent implements OnChanges {
 
     isRemotelyDeletable() {
         return this.activeAction == null && this.file.isRemotelyDeletable;
-    }
-
-    isValidatable() {
-        return this.activeAction == null && this.file.isValidatable;
-    }
-
-    isPrioritizable() {
-        return this.activeAction == null && this.file.isPrioritizable;
-    }
-
-    onCheckboxClick(event: MouseEvent) {
-        event.stopPropagation();
-        this.checkboxEvent.emit({file: this.file, shiftKey: event.shiftKey});
     }
 
     onQueue(file: ViewFile) {
@@ -145,18 +141,6 @@ export class FileComponent implements OnChanges {
         );
     }
 
-    onValidate(file: ViewFile) {
-        this.activeAction = FileAction.VALIDATE;
-        // Pass to parent component
-        this.validateEvent.emit(file);
-    }
-
-    onPrioritize(file: ViewFile) {
-        this.activeAction = FileAction.PRIORITIZE;
-        // Pass to parent component
-        this.prioritizeEvent.emit(file);
-    }
-
     // Source: https://stackoverflow.com/a/7557433
     private static isElementInViewport (el) {
         const rect = el.getBoundingClientRect();
@@ -174,7 +158,5 @@ export enum FileAction {
     STOP,
     EXTRACT,
     DELETE_LOCAL,
-    DELETE_REMOTE,
-    VALIDATE,
-    PRIORITIZE
+    DELETE_REMOTE
 }

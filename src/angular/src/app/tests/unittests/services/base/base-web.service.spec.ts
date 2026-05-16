@@ -32,9 +32,9 @@ describe("Testing base web service", () => {
             ]
         });
 
-        mockRegistry = TestBed.inject(StreamServiceRegistry);
+        mockRegistry = TestBed.get(StreamServiceRegistry);
 
-        baseWebService = TestBed.inject(TestBaseWebService);
+        baseWebService = TestBed.get(TestBaseWebService);
         spyOn(baseWebService, "onConnected");
         spyOn(baseWebService, "onDisconnected");
 

@@ -1,18 +1,21 @@
 ARG STAGING_REGISTRY=localhost:5000
 ARG STAGING_VERSION=latest
 
-# Creates environment to run RapidCopy python code
+# Creates environment to run Seedsync python code
 # Installs all python dependencies
-FROM python:3.11-slim AS rapidcopy_run_python_env
+FROM python:3.8-slim as seedsync_run_python_env
 
-# Install dependencies
-# Handle both old (sources.list) and new (sources.list.d/*.sources) Debian formats
+# Enable non-free repos (handle both old sources.list and new .sources format)
 RUN if [ -f /etc/apt/sources.list ]; then \
         sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list; \
-    elif [ -f /etc/apt/sources.list.d/debian.sources ]; then \
-        sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
-    fi && \
-    apt-get update && \
+    elif [ -d /etc/apt/sources.list.d ]; then \
+        for f in /etc/apt/sources.list.d/*.sources; do \
+            [ -f "$f" ] && sed -i 's/^Components: main$/Components: main contrib non-free/' "$f"; \
+        done; \
+    fi
+
+# Install dependencies
+RUN apt-get update && \
     apt-get install -y \
         gcc \
         libssl-dev \
@@ -20,27 +23,17 @@ RUN if [ -f /etc/apt/sources.list ]; then \
         openssh-client \
         p7zip \
         p7zip-full \
-        p7zip-rar \
         bzip2 \
         curl \
         libnss-wrapper \
         libxml2-dev libxslt-dev libffi-dev \
-        zlib1g-dev \
     && apt-get clean
-# Fix for patoolib (only needed in older Debian versions with p7zip)
-# See: https://github.com/wummel/patool/issues/90
-RUN if [ -f /usr/lib/p7zip/Codecs/Rar.so ]; then \
-        ln -s /usr/lib/p7zip/Codecs/Rar.so /usr/lib/p7zip/Codecs/Rar29.so; \
-    fi
 
-# Install Poetry via pipx (isolated from project dependencies)
-RUN curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+# Install Poetry
+RUN curl -s https://bootstrap.pypa.io/pip/3.8/get-pip.py -o get-pip.py && \
     python get-pip.py --force-reinstall && \
     rm get-pip.py
-RUN pip3 install pipx && \
-    pipx install poetry && \
-    pipx ensurepath
-ENV PATH="/root/.local/bin:${PATH}"
+RUN pip3 install "poetry==1.5.1"
 RUN poetry config virtualenvs.create false
 
 ENV LC_ALL=C.UTF-8
@@ -50,26 +43,26 @@ ENV LANG=C.UTF-8
 RUN mkdir -p /app
 COPY src/python/pyproject.toml /app/python/
 COPY src/python/poetry.lock /app/python/
-RUN cd /app/python && poetry install --only main --no-root
+RUN cd /app/python && poetry install --no-dev
 
 
 # Creates environment for Python dev
-FROM rapidcopy_run_python_env AS rapidcopy_run_python_devenv
-RUN cd /app/python && poetry install --no-root
+FROM seedsync_run_python_env as seedsync_run_python_devenv
+RUN cd /app/python && poetry install
 
 
-# Installs RapidCopy python code
-FROM rapidcopy_run_python_env AS rapidcopy_run_python
+# Installs Seedsync python code
+FROM seedsync_run_python_env as seedsync_run_python
 RUN mkdir -p /app
 COPY src/python /app/python
 
 
-# Full RapidCopy docker image
-FROM ${STAGING_REGISTRY}/rapidcopy/build/angular/export:${STAGING_VERSION} AS rapidcopy_build_angular_export
-FROM ${STAGING_REGISTRY}/rapidcopy/build/scanfs/export:${STAGING_VERSION} AS rapidcopy_build_scanfs_export
-FROM rapidcopy_run_python AS rapidcopy_run
-COPY --from=rapidcopy_build_angular_export /html /app/html
-COPY --from=rapidcopy_build_scanfs_export /scanfs /app/scanfs
+# Full Seedsync docker image
+FROM ${STAGING_REGISTRY}/seedsync/build/angular/export:${STAGING_VERSION} as seedsync_build_angular_export
+FROM ${STAGING_REGISTRY}/seedsync/build/scanfs/export:${STAGING_VERSION} as seedsync_build_scanfs_export
+FROM seedsync_run_python as seedsync_run
+COPY --from=seedsync_build_angular_export /html /app/html
+COPY --from=seedsync_build_scanfs_export /scanfs /app/scanfs
 COPY src/docker/build/docker-image/setup_default_config.sh /scripts/
 
 # Disable the known hosts prompt
@@ -86,16 +79,15 @@ RUN chmod a+x /usr/local/sbin/scp
 
 
 # Create non-root user and directories under that user
-RUN groupadd -g 1000 rapidcopy && \
-    useradd -r -u 1000 -g rapidcopy rapidcopy
+RUN groupadd -g 1000 seedsync && \
+    useradd -r -u 1000 -g seedsync seedsync
 RUN mkdir /config && \
     mkdir /downloads && \
-    mkdir /downloads/incomplete && \
-    chown rapidcopy:rapidcopy /config && \
-    chown -R rapidcopy:rapidcopy /downloads
+    chown seedsync:seedsync /config && \
+    chown seedsync:seedsync /downloads
 
 # Switch to non-root user
-USER rapidcopy
+USER seedsync
 
 # First time config setup and replacement
 RUN /scripts/setup_default_config.sh
@@ -104,7 +96,7 @@ RUN /scripts/setup_default_config.sh
 # Otherwise the container crashes as soon as a child process exits
 CMD [ \
     "python", \
-    "/app/python/rapidcopy.py", \
+    "/app/python/seedsync.py", \
     "-c", "/config", \
     "--html", "/app/html", \
     "--scanfs", "/app/scanfs" \

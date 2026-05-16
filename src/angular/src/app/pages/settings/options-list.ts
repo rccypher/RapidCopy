@@ -5,6 +5,7 @@ export interface IOption {
     label: string;
     valuePath: [string, string];
     description: string;
+    enabledBy?: [string, string];
 }
 export interface IOptionsContext {
     header: string;
@@ -38,26 +39,7 @@ export const OPTIONS_CONTEXT_SERVER: IOptionsContext = {
             type: OptionType.Checkbox,
             label: "Use password-less key-based authentication",
             valuePath: ["lftp", "use_ssh_key"],
-            description: "Mount your SSH private key to /root/.ssh/id_rsa in the container. " +
-                         "The key must not have a passphrase."
-        },
-        {
-            type: OptionType.Text,
-            label: "Server Directory",
-            valuePath: ["lftp", "remote_path"],
-            description: "Path to your files on the remote server"
-        },
-        {
-            type: OptionType.Text,
-            label: "Local Directory",
-            valuePath: ["lftp", "local_path"],
-            description: "Completed downloads are placed here (Sonarr/Radarr monitor this directory)"
-        },
-        {
-            type: OptionType.Text,
-            label: "Staging Directory",
-            valuePath: ["lftp", "staging_path"],
-            description: "In-progress downloads go here. Files move to Local Directory when complete. Leave blank to use {local_path}/incomplete (default)."
+            description: null
         },
         {
             type: OptionType.Text,
@@ -70,12 +52,6 @@ export const OPTIONS_CONTEXT_SERVER: IOptionsContext = {
             label: "Server Script Path",
             valuePath: ["lftp", "remote_path_to_scan_script"],
             description: "Where to install scanner script on remote server"
-        },
-        {
-            type: OptionType.Text,
-            label: "Staging Directory",
-            valuePath: ["lftp", "staging_path"],
-            description: "In-progress downloads go here. Files move to the download directory when complete. Leave blank to use {local_path}/incomplete (default)."
         }
     ]
 };
@@ -106,33 +82,49 @@ export const OPTIONS_CONTEXT_DISCOVERY: IOptionsContext = {
 };
 
 export const OPTIONS_CONTEXT_CONNECTIONS: IOptionsContext = {
-    header: "Downloads",
+    header: "Connections",
     id: "connections",
     options: [
         {
             type: OptionType.Text,
             label: "Max Parallel Downloads",
             valuePath: ["lftp", "num_max_parallel_downloads"],
-            description: "Total simultaneous downloads across all directories."
+            description: "How many items download in parallel.\n" +
+                         "(cmd:queue-parallel)"
         },
         {
             type: OptionType.Text,
-            label: "Max Downloads Per Directory",
-            valuePath: ["lftp", "num_max_parallel_downloads_per_path"],
-            description: "Maximum simultaneous downloads per path pair (e.g., 4 for TV, 4 for Movies)."
+            label: "Max Total Connections",
+            valuePath: ["lftp", "num_max_total_connections"],
+            description: "Maximum number of connections.\n" +
+                         "(net:connection-limit)"
         },
         {
             type: OptionType.Text,
-            label: "Download Rate Limit",
-            valuePath: ["lftp", "rate_limit"],
-            description: "Limit download speed. Use '0' for unlimited, " +
-                         "or specify like '1M' (1 MB/s), '500K' (500 KB/s), '10M' (10 MB/s)."
+            label: "Max Connections Per File (Single-File)",
+            valuePath: ["lftp", "num_max_connections_per_root_file"],
+            description: "Number of connections for single-file download.\n" +
+                         "(pget:default-n)"
+        },
+        {
+            type: OptionType.Text,
+            label: "Max Connections Per File (Directory)",
+            valuePath: ["lftp", "num_max_connections_per_dir_file"],
+            description: "Number of per-file connections for directory download.\n" +
+                         "(mirror:use-pget-n)"
         },
         {
             type: OptionType.Text,
             label: "Max Parallel Files (Directory)",
             valuePath: ["lftp", "num_max_parallel_files_per_download"],
-            description: "Maximum number of files to fetch in parallel within a single directory download."
+            description: "Maximum number of files to fetch in parallel for single directory download.\n" +
+                         "(mirror:parallel-transfer-count)"
+        },
+        {
+            type: OptionType.Checkbox,
+            label: "Rename unfinished/downloading files",
+            valuePath: ["lftp", "use_temp_file"],
+            description: "Unfinished and downloading files will be named *.lftp"
         },
     ]
 };
@@ -151,14 +143,7 @@ export const OPTIONS_CONTEXT_OTHER: IOptionsContext = {
             type: OptionType.Checkbox,
             label: "Enable Debug",
             valuePath: ["general", "debug"],
-            description: "Enables debug logging (overrides Log Level to DEBUG)."
-        },
-        {
-            type: OptionType.Text,
-            label: "Log Level",
-            valuePath: ["general", "log_level"],
-            description: "Set logging verbosity. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL.\n" +
-                         "Default is INFO. Ignored when Debug is enabled."
+            description: "Enables debug logging."
         },
     ]
 };
@@ -207,58 +192,42 @@ export const OPTIONS_CONTEXT_EXTRACT: IOptionsContext = {
     ]
 };
 
+export const OPTIONS_CONTEXT_DISK_SPACE: IOptionsContext = {
+    header: "Disk Space",
+    id: "disk-space",
+    options: [
+        {
+            type: OptionType.Checkbox,
+            label: "Enable Disk Space Check",
+            valuePath: ["controller", "enable_disk_space_check"],
+            description: "Automatically pause downloads when disk space is low"
+        },
+        {
+            type: OptionType.Text,
+            label: "Minimum Free Space (%)",
+            valuePath: ["controller", "disk_space_min_percent"],
+            description: "Pause downloads when free space drops below this percentage"
+        },
+    ]
+};
+
 export const OPTIONS_CONTEXT_VALIDATION: IOptionsContext = {
     header: "Download Validation",
     id: "validation",
     options: [
         {
-            type: OptionType.Checkbox,
-            label: "Enable download validation",
-            valuePath: ["validation", "enabled"],
-            description: "Validate chunk checksums during download. Corrupt chunks are automatically re-downloaded."
+            type: OptionType.Text,
+            label: "Max Validation Retries",
+            valuePath: ["controller", "download_validation_max_retries"],
+            description: "Maximum number of times to re-download a file or chunk that fails " +
+                         "integrity validation after download"
         },
         {
             type: OptionType.Text,
-            label: "Checksum Algorithm",
-            valuePath: ["validation", "algorithm"],
-            description: "Hash algorithm used for chunk validation. Valid values: xxh128, md5, sha256, sha1.\n" +
-                         "xxh128 is fastest; sha256 is most secure."
-        },
-        {
-            type: OptionType.Checkbox,
-            label: "Enable adaptive chunk sizing",
-            valuePath: ["validation", "enable_adaptive_sizing"],
-            description: "Automatically adjust chunk size based on network conditions."
-        },
-        {
-            type: OptionType.Text,
-            label: "Default Chunk Size (bytes)",
-            valuePath: ["validation", "default_chunk_size"],
-            description: "Starting chunk size in bytes (default: 52428800 = 50 MB)."
-        },
-        {
-            type: OptionType.Text,
-            label: "Min Chunk Size (bytes)",
-            valuePath: ["validation", "min_chunk_size"],
-            description: "Minimum chunk size in bytes (default: 1048576 = 1 MB)."
-        },
-        {
-            type: OptionType.Text,
-            label: "Max Chunk Size (bytes)",
-            valuePath: ["validation", "max_chunk_size"],
-            description: "Maximum chunk size in bytes (default: 104857600 = 100 MB)."
-        },
-        {
-            type: OptionType.Text,
-            label: "Max Retries",
-            valuePath: ["validation", "max_retries"],
-            description: "Maximum re-download attempts for a corrupt chunk."
-        },
-        {
-            type: OptionType.Text,
-            label: "Retry Delay (ms)",
-            valuePath: ["validation", "retry_delay_ms"],
-            description: "Delay in milliseconds between retry attempts."
+            label: "Chunk Size (MB)",
+            valuePath: ["controller", "validation_chunk_size_mb"],
+            description: "Size of each chunk in megabytes for chunked validation and repair. " +
+                         "Smaller chunks mean less re-download on failure but more overhead."
         },
     ]
 };

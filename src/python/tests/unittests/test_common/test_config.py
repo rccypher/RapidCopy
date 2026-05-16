@@ -1,10 +1,11 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
+import json
 import unittest
 import os
 import tempfile
 
-from common import Config, ConfigError, PersistError
+from common import Config, ConfigError, PersistError, PathMapping
 from common.config import InnerConfig, Checkers, Converters
 
 
@@ -184,6 +185,7 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(config.has_section("controller"))
         self.assertTrue(config.has_section("web"))
         self.assertTrue(config.has_section("autoqueue"))
+        self.assertTrue(config.has_section("pathmappings"))
         self.assertFalse(config.has_section("nope"))
         self.assertFalse(config.has_section("from_file"))
         self.assertFalse(config.has_section("__init__"))
@@ -192,21 +194,17 @@ class TestConfig(unittest.TestCase):
         good_dict = {
             "debug": "True",
             "verbose": "False",
-            "log_level": "INFO",
         }
         general = Config.General.from_dict(good_dict)
         self.assertEqual(True, general.debug)
         self.assertEqual(False, general.verbose)
-        self.assertEqual("INFO", general.log_level)
 
         self.check_common(Config.General,
                           good_dict,
                           {
                               "debug",
-                              "verbose",
+                              "verbose"
                           })
-        # log_level uses Checkers.null so empty is allowed — only test missing
-        self.__check_missing_error(Config.General, good_dict, "log_level")
 
         # bad values
         self.check_bad_value_error(Config.General, good_dict, "debug", "SomeString")
@@ -229,8 +227,7 @@ class TestConfig(unittest.TestCase):
             "num_max_connections_per_root_file": "4",
             "num_max_connections_per_dir_file": "6",
             "num_max_total_connections": "7",
-            "use_temp_file": "True",
-            "rate_limit": "0",
+            "use_temp_file": "True"
         }
         lftp = Config.Lftp.from_dict(good_dict)
         self.assertEqual("remote.server.com", lftp.remote_address)
@@ -247,7 +244,6 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(6, lftp.num_max_connections_per_dir_file)
         self.assertEqual(7, lftp.num_max_total_connections)
         self.assertEqual(True, lftp.use_temp_file)
-        self.assertEqual("0", lftp.rate_limit)
 
         self.check_common(Config.Lftp,
                           good_dict,
@@ -265,10 +261,8 @@ class TestConfig(unittest.TestCase):
                               "num_max_connections_per_root_file",
                               "num_max_connections_per_dir_file",
                               "num_max_total_connections",
-                              "use_temp_file",
+                              "use_temp_file"
                           })
-        # rate_limit uses Checkers.null so empty is allowed — only test missing
-        self.__check_missing_error(Config.Lftp, good_dict, "rate_limit")
 
         # bad values
         self.check_bad_value_error(Config.Lftp, good_dict, "remote_port", "-1")
@@ -294,7 +288,12 @@ class TestConfig(unittest.TestCase):
             "interval_ms_downloading_scan": "2000",
             "extract_path": "/extract/path",
             "use_local_path_as_extract_path": "True",
-            "deleted_age_off_secs": "1800"
+            "enable_download_validation": "True",
+            "download_validation_max_retries": "3",
+            "use_chunked_validation": "False",
+            "validation_chunk_size_mb": "4",
+            "enable_disk_space_check": "True",
+            "disk_space_min_percent": "10",
         }
         controller = Config.Controller.from_dict(good_dict)
         self.assertEqual(30000, controller.interval_ms_remote_scan)
@@ -302,6 +301,12 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(2000, controller.interval_ms_downloading_scan)
         self.assertEqual("/extract/path", controller.extract_path)
         self.assertEqual(True, controller.use_local_path_as_extract_path)
+        self.assertEqual(True, controller.enable_download_validation)
+        self.assertEqual(3, controller.download_validation_max_retries)
+        self.assertEqual(False, controller.use_chunked_validation)
+        self.assertEqual(4, controller.validation_chunk_size_mb)
+        self.assertEqual(True, controller.enable_disk_space_check)
+        self.assertEqual(10, controller.disk_space_min_percent)
 
         self.check_common(Config.Controller,
                           good_dict,
@@ -311,7 +316,12 @@ class TestConfig(unittest.TestCase):
                               "interval_ms_downloading_scan",
                               "extract_path",
                               "use_local_path_as_extract_path",
-                              "deleted_age_off_secs"
+                              "enable_download_validation",
+                              "download_validation_max_retries",
+                              "use_chunked_validation",
+                              "validation_chunk_size_mb",
+                              "enable_disk_space_check",
+                              "disk_space_min_percent",
                           })
 
         # bad values
@@ -323,6 +333,15 @@ class TestConfig(unittest.TestCase):
         self.check_bad_value_error(Config.Controller, good_dict, "interval_ms_downloading_scan", "0")
         self.check_bad_value_error(Config.Controller, good_dict, "use_local_path_as_extract_path", "SomeString")
         self.check_bad_value_error(Config.Controller, good_dict, "use_local_path_as_extract_path", "-1")
+        self.check_bad_value_error(Config.Controller, good_dict, "enable_download_validation", "SomeString")
+        self.check_bad_value_error(Config.Controller, good_dict, "download_validation_max_retries", "-1")
+        self.check_bad_value_error(Config.Controller, good_dict, "download_validation_max_retries", "0")
+        self.check_bad_value_error(Config.Controller, good_dict, "use_chunked_validation", "SomeString")
+        self.check_bad_value_error(Config.Controller, good_dict, "validation_chunk_size_mb", "-1")
+        self.check_bad_value_error(Config.Controller, good_dict, "validation_chunk_size_mb", "0")
+        self.check_bad_value_error(Config.Controller, good_dict, "enable_disk_space_check", "SomeString")
+        self.check_bad_value_error(Config.Controller, good_dict, "disk_space_min_percent", "-1")
+        self.check_bad_value_error(Config.Controller, good_dict, "disk_space_min_percent", "0")
 
     def test_web(self):
         good_dict = {
@@ -367,6 +386,81 @@ class TestConfig(unittest.TestCase):
         self.check_bad_value_error(Config.AutoQueue, good_dict, "auto_extract", "SomeString")
         self.check_bad_value_error(Config.AutoQueue, good_dict, "auto_extract", "-1")
 
+    def test_pathmappings(self):
+        good_dict = {
+            "mappings_json": json.dumps([
+                {"remote_path": "/remote/path1", "local_path": "/local/path1"},
+                {"remote_path": "/remote/path2", "local_path": "/local/path2"},
+            ])
+        }
+        pm = Config.PathMappings.from_dict(good_dict)
+        self.assertIsNotNone(pm.mappings_json)
+
+        # Test via Config helper methods
+        config = Config()
+        config.pathmappings = pm
+        mappings = config.get_path_mappings()
+        self.assertEqual(2, len(mappings))
+        self.assertEqual("/remote/path1", mappings[0].remote_path)
+        self.assertEqual("/local/path1", mappings[0].local_path)
+        self.assertEqual("/remote/path2", mappings[1].remote_path)
+        self.assertEqual("/local/path2", mappings[1].local_path)
+
+        # Test set_path_mappings
+        config.set_path_mappings([
+            PathMapping("/new/remote", "/new/local")
+        ])
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/new/remote", mappings[0].remote_path)
+        self.assertEqual("/new/local", mappings[0].local_path)
+
+        # Test empty mappings
+        config.set_path_mappings([])
+        self.assertEqual(0, len(config.get_path_mappings()))
+
+    def test_pathmappings_backward_compat(self):
+        """Test that config without PathMappings section migrates from lftp paths"""
+        config_dict = {
+            "General": {"debug": "True", "verbose": "False"},
+            "Lftp": {
+                "remote_address": "server.com",
+                "remote_username": "user",
+                "remote_password": "pass",
+                "remote_port": "22",
+                "remote_path": "/data/files",
+                "local_path": "/downloads/files",
+                "remote_path_to_scan_script": "/tmp",
+                "use_ssh_key": "False",
+                "num_max_parallel_downloads": "2",
+                "num_max_parallel_files_per_download": "3",
+                "num_max_connections_per_root_file": "4",
+                "num_max_connections_per_dir_file": "4",
+                "num_max_total_connections": "8",
+                "use_temp_file": "False",
+            },
+            "Controller": {
+                "interval_ms_remote_scan": "30000",
+                "interval_ms_local_scan": "10000",
+                "interval_ms_downloading_scan": "1000",
+                "extract_path": "/tmp",
+                "use_local_path_as_extract_path": "True",
+                "enable_download_validation": "True",
+                "download_validation_max_retries": "3",
+                "use_chunked_validation": "False",
+                "validation_chunk_size_mb": "4",
+                "enable_disk_space_check": "True",
+                "disk_space_min_percent": "10",
+            },
+            "Web": {"port": "8800"},
+            "AutoQueue": {"enabled": "True", "patterns_only": "False", "auto_extract": "True"},
+        }
+        config = Config.from_dict(config_dict)
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/data/files", mappings[0].remote_path)
+        self.assertEqual("/downloads/files", mappings[0].local_path)
+
     def test_from_file(self):
         # Create empty config file
         config_file = open(tempfile.mktemp(suffix="test_config"), "w")
@@ -375,7 +469,6 @@ class TestConfig(unittest.TestCase):
         [General]
         debug=False
         verbose=True
-        log_level=WARNING
 
         [Lftp]
         remote_address=remote.server.com
@@ -392,7 +485,6 @@ class TestConfig(unittest.TestCase):
         num_max_connections_per_dir_file=5
         num_max_total_connections=7
         use_temp_file=False
-        rate_limit=0
 
         [Controller]
         interval_ms_remote_scan=30000
@@ -400,7 +492,12 @@ class TestConfig(unittest.TestCase):
         interval_ms_downloading_scan=2000
         extract_path=/path/where/to/extract/stuff
         use_local_path_as_extract_path=False
-        deleted_age_off_secs=1800
+        enable_download_validation=True
+        download_validation_max_retries=5
+        use_chunked_validation=True
+        validation_chunk_size_mb=8
+        enable_disk_space_check=True
+        disk_space_min_percent=15
 
         [Web]
         port=88
@@ -415,7 +512,6 @@ class TestConfig(unittest.TestCase):
 
         self.assertEqual(False, config.general.debug)
         self.assertEqual(True, config.general.verbose)
-        self.assertEqual("WARNING", config.general.log_level)
 
         self.assertEqual("remote.server.com", config.lftp.remote_address)
         self.assertEqual("remote-user", config.lftp.remote_username)
@@ -431,19 +527,30 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(5, config.lftp.num_max_connections_per_dir_file)
         self.assertEqual(7, config.lftp.num_max_total_connections)
         self.assertEqual(False, config.lftp.use_temp_file)
-        self.assertEqual("0", config.lftp.rate_limit)
 
         self.assertEqual(30000, config.controller.interval_ms_remote_scan)
         self.assertEqual(10000, config.controller.interval_ms_local_scan)
         self.assertEqual(2000, config.controller.interval_ms_downloading_scan)
         self.assertEqual("/path/where/to/extract/stuff", config.controller.extract_path)
         self.assertEqual(False, config.controller.use_local_path_as_extract_path)
+        self.assertEqual(True, config.controller.enable_download_validation)
+        self.assertEqual(5, config.controller.download_validation_max_retries)
+        self.assertEqual(True, config.controller.use_chunked_validation)
+        self.assertEqual(8, config.controller.validation_chunk_size_mb)
+        self.assertEqual(True, config.controller.enable_disk_space_check)
+        self.assertEqual(15, config.controller.disk_space_min_percent)
 
         self.assertEqual(88, config.web.port)
 
         self.assertEqual(False, config.autoqueue.enabled)
         self.assertEqual(True, config.autoqueue.patterns_only)
         self.assertEqual(True, config.autoqueue.auto_extract)
+
+        # PathMappings should be auto-migrated from lftp paths
+        mappings = config.get_path_mappings()
+        self.assertEqual(1, len(mappings))
+        self.assertEqual("/path/on/remote/server", mappings[0].remote_path)
+        self.assertEqual("/path/on/local/server", mappings[0].local_path)
 
         # unknown section error
         config_file.write("""
@@ -465,7 +572,6 @@ class TestConfig(unittest.TestCase):
         config = Config()
         config.general.debug = True
         config.general.verbose = False
-        config.general.log_level = "INFO"
         config.lftp.remote_address = "server.remote.com"
         config.lftp.remote_username = "user-on-remote-server"
         config.lftp.remote_password = "pass-on-remote-server"
@@ -480,29 +586,26 @@ class TestConfig(unittest.TestCase):
         config.lftp.num_max_connections_per_dir_file = 3
         config.lftp.num_max_total_connections = 4
         config.lftp.use_temp_file = True
-        config.lftp.rate_limit = "0"
         config.controller.interval_ms_remote_scan = 1234
         config.controller.interval_ms_local_scan = 5678
         config.controller.interval_ms_downloading_scan = 9012
         config.controller.extract_path = "/path/extract/stuff"
         config.controller.use_local_path_as_extract_path = True
-        config.controller.deleted_age_off_secs = 1800
+        config.controller.enable_download_validation = False
+        config.controller.download_validation_max_retries = 3
+        config.controller.use_chunked_validation = True
+        config.controller.validation_chunk_size_mb = 4
+        config.controller.enable_disk_space_check = True
+        config.controller.disk_space_min_percent = 10
         config.web.port = 13
         config.autoqueue.enabled = True
         config.autoqueue.patterns_only = True
         config.autoqueue.auto_extract = False
-        config.validation.enabled = True
-        config.validation.algorithm = "xxh128"
-        config.validation.default_chunk_size = 52428800
-        config.validation.min_chunk_size = 1048576
-        config.validation.max_chunk_size = 104857600
-        config.validation.validate_after_chunk = True
-        config.validation.max_retries = 3
-        config.validation.retry_delay_ms = 1000
-        config.validation.enable_adaptive_sizing = True
-        config.validation.settle_delay_secs = 5.0
+        config.set_path_mappings([
+            PathMapping("/remote/server/path", "/local/server/path")
+        ])
         config.to_file(config_file_path)
-        with open(config_file_path) as f:
+        with open(config_file_path, "r") as f:
             actual_str = f.read()
         print(actual_str)
 
@@ -510,7 +613,6 @@ class TestConfig(unittest.TestCase):
         [General]
         debug = True
         verbose = False
-        log_level = INFO
 
         [Lftp]
         remote_address = server.remote.com
@@ -527,8 +629,6 @@ class TestConfig(unittest.TestCase):
         num_max_connections_per_dir_file = 3
         num_max_total_connections = 4
         use_temp_file = True
-        rate_limit = 0
-        staging_path = None
 
         [Controller]
         interval_ms_remote_scan = 1234
@@ -536,7 +636,12 @@ class TestConfig(unittest.TestCase):
         interval_ms_downloading_scan = 9012
         extract_path = /path/extract/stuff
         use_local_path_as_extract_path = True
-        deleted_age_off_secs = 1800
+        enable_download_validation = False
+        download_validation_max_retries = 3
+        use_chunked_validation = True
+        validation_chunk_size_mb = 4
+        enable_disk_space_check = True
+        disk_space_min_percent = 10
 
         [Web]
         port = 13
@@ -546,17 +651,8 @@ class TestConfig(unittest.TestCase):
         patterns_only = True
         auto_extract = False
 
-        [Validation]
-        enabled = True
-        algorithm = xxh128
-        default_chunk_size = 52428800
-        min_chunk_size = 1048576
-        max_chunk_size = 104857600
-        validate_after_chunk = True
-        max_retries = 3
-        retry_delay_ms = 1000
-        enable_adaptive_sizing = True
-        settle_delay_secs = 5.0
+        [PathMappings]
+        mappings_json = [{"remote_path": "/remote/server/path", "local_path": "/local/server/path"}]
         """
 
         golden_lines = [s.strip() for s in golden_str.splitlines()]
@@ -593,119 +689,3 @@ class TestConfig(unittest.TestCase):
         """
         with self.assertRaises(PersistError):
             Config.from_str(content)
-
-
-class TestValidationSettleDelay(unittest.TestCase):
-    """Tests for settle_delay_secs in Config.Validation and ValidationConfig."""
-
-    def _make_full_config_str(self, settle_delay_secs: str = "5.0") -> str:
-        """Return a complete settings.cfg string with a configurable settle_delay_secs."""
-        return f"""
-[General]
-debug=False
-verbose=False
-log_level=INFO
-
-[Lftp]
-remote_address=remote.server.com
-remote_username=user
-remote_password=pass
-remote_port=22
-remote_path=/remote
-local_path=/local
-remote_path_to_scan_script=/remote/script
-use_ssh_key=True
-num_max_parallel_downloads=2
-num_max_parallel_files_per_download=2
-num_max_connections_per_root_file=2
-num_max_connections_per_dir_file=2
-num_max_total_connections=4
-use_temp_file=False
-rate_limit=0
-
-[Controller]
-interval_ms_remote_scan=30000
-interval_ms_local_scan=10000
-interval_ms_downloading_scan=2000
-extract_path=/extract
-use_local_path_as_extract_path=False
-deleted_age_off_secs=1800
-
-[Web]
-port=8800
-
-[AutoQueue]
-enabled=False
-patterns_only=False
-auto_extract=False
-
-[Validation]
-enabled=True
-algorithm=xxh128
-default_chunk_size=52428800
-min_chunk_size=1048576
-max_chunk_size=104857600
-validate_after_chunk=True
-max_retries=3
-retry_delay_ms=1000
-enable_adaptive_sizing=True
-settle_delay_secs={settle_delay_secs}
-"""
-
-    def test_settle_delay_default_is_five(self):
-        """ValidationConfig defaults settle_delay_secs to 5.0 seconds."""
-        from common import ValidationConfig
-        cfg = ValidationConfig()
-        self.assertEqual(5.0, cfg.settle_delay_secs)
-
-    def test_settle_delay_zero_is_allowed(self):
-        """settle_delay_secs=0 is valid (disables the delay)."""
-        from common import ValidationConfig
-        cfg = ValidationConfig(settle_delay_secs=0.0)
-        self.assertEqual(0.0, cfg.settle_delay_secs)
-
-    def test_settle_delay_negative_raises(self):
-        """Negative settle_delay_secs must raise ValueError."""
-        from common import ValidationConfig
-        with self.assertRaises(ValueError):
-            ValidationConfig(settle_delay_secs=-1.0)
-
-    def test_config_validation_roundtrip(self):
-        """settle_delay_secs survives a write-then-read cycle via Config."""
-        config_file_path = tempfile.mktemp(suffix="test_settle_delay_config")
-        try:
-            config = Config.from_str(self._make_full_config_str("7.5"))
-            self.assertEqual("7.5", config.validation.settle_delay_secs)
-            config.to_file(config_file_path)
-            config2 = Config.from_file(config_file_path)
-            self.assertEqual("7.5", config2.validation.settle_delay_secs)
-        finally:
-            if os.path.exists(config_file_path):
-                os.remove(config_file_path)
-
-    def test_config_validation_missing_settle_delay_raises(self):
-        """Omitting settle_delay_secs from an explicit [Validation] section raises ConfigError."""
-        content = self._make_full_config_str()
-        # Remove the settle_delay_secs line
-        lines = [ln for ln in content.splitlines() if "settle_delay_secs" not in ln]
-        content_without = "\n".join(lines)
-        with self.assertRaises(ConfigError):
-            Config.from_str(content_without)
-
-    def test_config_validation_no_section_uses_default(self):
-        """A config file with no [Validation] section at all still gets a default settle_delay_secs."""
-        content = self._make_full_config_str()
-        # Strip out the entire [Validation] section
-        lines = content.splitlines()
-        stripped = []
-        in_validation = False
-        for ln in lines:
-            if ln.strip() == "[Validation]":
-                in_validation = True
-            elif ln.strip().startswith("["):
-                in_validation = False
-            if not in_validation:
-                stripped.append(ln)
-        config = Config.from_str("\n".join(stripped))
-        # Default is 5.0 (stored as the string "5.0" by the null converter)
-        self.assertEqual("5.0", config.validation.settle_delay_secs)

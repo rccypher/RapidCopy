@@ -1,4 +1,4 @@
-FROM rapidcopy/build/angular/env as rapidcopy_test_angular
+FROM seedsync/build/angular/env as seedsync_test_angular
 
 RUN apt-get update
 RUN wget -nv -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
@@ -6,9 +6,9 @@ RUN wget -nv -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome
 
 COPY \
     src/angular/tsconfig.json \
-    src/angular/tsconfig.app.json \
-    src/angular/tsconfig.spec.json \
-    src/angular/angular.json \
+    src/angular/tslint.json \
+    src/angular/karma.conf.js \
+    src/angular/.angular-cli.json \
     /app/
 
 RUN ls -l /app/

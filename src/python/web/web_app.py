@@ -15,7 +15,6 @@ class IHandler(ABC):
     """
     Abstract class that defines a web handler
     """
-
     @abstractmethod
     def add_routes(self, web_app: "WebApp"):
         """
@@ -30,13 +29,12 @@ class IStreamHandler(ABC):
     """
     Abstract class that defines a streaming data provider
     """
-
     @abstractmethod
     def setup(self):
         pass
 
     @abstractmethod
-    def get_value(self) -> str | None:
+    def get_value(self) -> Optional[str]:
         pass
 
     @abstractmethod
@@ -58,7 +56,6 @@ class WebApp(bottle.Bottle):
     """
     Web app implementation
     """
-
     _STREAM_POLL_INTERVAL_IN_MS = 100
 
     def __init__(self, context: Context, controller: Controller):
@@ -68,9 +65,8 @@ class WebApp(bottle.Bottle):
         self.__html_path = context.args.html_path
         self.__status = context.status
         self.logger.info("Html path set to: {}".format(self.__html_path))
-        self._stop = False
-        self.__api_key: str = getattr(context.config.web, 'api_key', '') or ''
-        self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
+        self.__stop = False
+        self.__streaming_handlers = []  # list of (handler, kwargs) pairs
 
     def add_default_routes(self):
         """
@@ -107,9 +103,9 @@ class WebApp(bottle.Bottle):
     def stop(self):
         """
         Exit gracefully, kill any connections and clean up any state
-        :return:
+        :return: 
         """
-        object.__setattr__(self, '_stop', True)
+        self.__stop = True
 
     def __index(self):
         """
@@ -141,7 +137,7 @@ class WebApp(bottle.Bottle):
                 handler.setup()
 
             # Get streaming values until the connection closes
-            while not self._stop:
+            while not self.__stop:
                 for handler in handlers:
                     # Process all values from this handler
                     while True:
@@ -154,7 +150,9 @@ class WebApp(bottle.Bottle):
                 time.sleep(WebApp._STREAM_POLL_INTERVAL_IN_MS / 1000)
 
         finally:
-            self.logger.debug("Stream connection stopped by {}".format("server" if self._stop else "client"))
+            self.logger.debug("Stream connection stopped by {}".format(
+                "server" if self.__stop else "client"
+            ))
 
             # Cleanup all handlers
             for handler in handlers:

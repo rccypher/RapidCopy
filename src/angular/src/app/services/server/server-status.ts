@@ -14,6 +14,8 @@ interface IServerStatus {
         latestRemoteScanTime: Date;
         latestRemoteScanFailed: boolean;
         latestRemoteScanError: string;
+        downloadsPausedDiskSpace: boolean;
+        diskSpaceError: string;
     };
 }
 const DefaultServerStatus: IServerStatus = {
@@ -25,27 +27,29 @@ const DefaultServerStatus: IServerStatus = {
         latestLocalScanTime: null,
         latestRemoteScanTime: null,
         latestRemoteScanFailed: null,
-        latestRemoteScanError: null
+        latestRemoteScanError: null,
+        downloadsPausedDiskSpace: null,
+        diskSpaceError: null
     }
 };
 const ServerStatusRecord = Record(DefaultServerStatus);
 export class ServerStatus extends ServerStatusRecord implements IServerStatus {
-    constructor(props) {
-        super(props);
-    }
+    server: {
+        up: boolean;
+        errorMessage: string;
+    };
 
-    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
-    get server(): { up: boolean; errorMessage: string } {
-        return this.get("server");
-    }
-
-    get controller(): {
+    controller: {
         latestLocalScanTime: Date;
         latestRemoteScanTime: Date;
         latestRemoteScanFailed: boolean;
         latestRemoteScanError: string;
-    } {
-        return this.get("controller");
+        downloadsPausedDiskSpace: boolean;
+        diskSpaceError: string;
+    };
+
+    constructor(props) {
+        super(props);
     }
 }
 
@@ -73,7 +77,9 @@ export module ServerStatus {
                 latestLocalScanTime: latestLocalScanTime,
                 latestRemoteScanTime: latestRemoteScanTime,
                 latestRemoteScanFailed: json.controller.latest_remote_scan_failed,
-                latestRemoteScanError: json.controller.latest_remote_scan_error
+                latestRemoteScanError: json.controller.latest_remote_scan_error,
+                downloadsPausedDiskSpace: json.controller.downloads_paused_disk_space,
+                diskSpaceError: json.controller.disk_space_error
             }
         });
     }
@@ -94,5 +100,7 @@ export interface ServerStatusJson {
         latest_remote_scan_time: string;
         latest_remote_scan_failed: boolean;
         latest_remote_scan_error: string;
+        downloads_paused_disk_space: boolean;
+        disk_space_error: string;
     };
 }

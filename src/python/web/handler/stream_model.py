@@ -15,29 +15,26 @@ class WebResponseModelListener(IModelListener, StreamQueue[SerializeModel.Update
     Model listener used by streams to listen to model updates
     One listener should be created for each new request
     """
-
     def __init__(self):
         super().__init__()
 
     @overrides(IModelListener)
     def file_added(self, file: ModelFile):
-        self.put(
-            SerializeModel.UpdateEvent(change=SerializeModel.UpdateEvent.Change.ADDED, old_file=None, new_file=file)
-        )
+        self.put(SerializeModel.UpdateEvent(change=SerializeModel.UpdateEvent.Change.ADDED,
+                                            old_file=None,
+                                            new_file=file))
 
     @overrides(IModelListener)
     def file_removed(self, file: ModelFile):
-        self.put(
-            SerializeModel.UpdateEvent(change=SerializeModel.UpdateEvent.Change.REMOVED, old_file=file, new_file=None)
-        )
+        self.put(SerializeModel.UpdateEvent(change=SerializeModel.UpdateEvent.Change.REMOVED,
+                                            old_file=file,
+                                            new_file=None))
 
     @overrides(IModelListener)
     def file_updated(self, old_file: ModelFile, new_file: ModelFile):
-        self.put(
-            SerializeModel.UpdateEvent(
-                change=SerializeModel.UpdateEvent.Change.UPDATED, old_file=old_file, new_file=new_file
-            )
-        )
+        self.put(SerializeModel.UpdateEvent(change=SerializeModel.UpdateEvent.Change.UPDATED,
+                                            old_file=old_file,
+                                            new_file=new_file))
 
 
 class ModelStreamHandler(IStreamHandler):
@@ -53,12 +50,10 @@ class ModelStreamHandler(IStreamHandler):
         self.initial_model_files = self.controller.get_model_files_and_add_listener(self.model_listener)
 
     @overrides(IStreamHandler)
-    def get_value(self) -> str | None:
+    def get_value(self) -> Optional[str]:
         if self.first_run:
             self.first_run = False
-            if self.initial_model_files is not None:
-                return self.serialize.model(self.initial_model_files)
-            return None
+            return self.serialize.model(self.initial_model_files)
         else:
             event = self.model_listener.get_next_event()
             if event is not None:

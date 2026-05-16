@@ -1,22 +1,3 @@
-# DEPRECATED - Protractor E2E Tests
-
-> **WARNING: This E2E test suite is deprecated.**
->
-> Protractor is no longer maintained. Please use the new Playwright E2E tests instead:
->
-> ```bash
-> cd src/e2e-playwright
-> npm install
-> npx playwright install chromium
-> npx playwright test
-> ```
->
-> See `src/e2e-playwright/` for the new test suite.
-
----
-
-### Legacy Instructions (for reference only)
-
 ### To run e2e tests in dev mode:
 
 1. Install dependencies
@@ -31,13 +12,13 @@
     - deb install
 
         ```bash
-        make run-tests-e2e RAPIDCOPY_VERSION=latest RAPIDCOPY_ARCH=<arch code> DEV=1
+        make run-tests-e2e SEEDSYNC_VERSION=latest SEEDSYNC_ARCH=<arch code> DEV=1
         ```
 
     - docker image
 
         ```bash
-        make run-tests-e2e RAPIDCOPY_DEB=`readlink -f build/*.deb` RAPIDCOPY_OS=<os code> DEV=1
+        make run-tests-e2e SEEDSYNC_DEB=`readlink -f build/*.deb` SEEDSYNC_OS=<os code> DEV=1
         ```
 
         
@@ -56,7 +37,7 @@
 ### About
 
 The dev end-to-end tests use the following docker images:
-1. myapp: Installs and runs the rapidcopy deb package
+1. myapp: Installs and runs the seedsync deb package
 2. chrome: Runs the selenium server
 3. remote: Runs a remote SSH server
 

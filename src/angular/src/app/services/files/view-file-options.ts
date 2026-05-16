@@ -21,9 +21,6 @@ interface IViewFileOptions {
 
     // Track filter pin status
     pinFilter: boolean;
-
-    // Hide files in DELETED state (local copy gone, still on remote)
-    hideDeleted: boolean;
 }
 
 
@@ -34,43 +31,22 @@ const DefaultViewFileOptions: IViewFileOptions = {
     selectedStatusFilter: null,
     nameFilter: null,
     pinFilter: null,
-    hideDeleted: null,
 };
 const ViewFileOptionsRecord = Record(DefaultViewFileOptions);
 
 
 /**
  * Immutable class that implements the interface
- * Note: Using getters to properly access Record values in Immutable.js 4.x
  */
 export class ViewFileOptions extends ViewFileOptionsRecord implements IViewFileOptions {
+    showDetails: boolean;
+    sortMethod: ViewFileOptions.SortMethod;
+    selectedStatusFilter: ViewFile.Status;
+    nameFilter: string;
+    pinFilter: boolean;
+
     constructor(props) {
         super(props);
-    }
-
-    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
-    get showDetails(): boolean {
-        return this.get("showDetails");
-    }
-
-    get sortMethod(): ViewFileOptions.SortMethod {
-        return this.get("sortMethod");
-    }
-
-    get selectedStatusFilter(): ViewFile.Status {
-        return this.get("selectedStatusFilter");
-    }
-
-    get nameFilter(): string {
-        return this.get("nameFilter");
-    }
-
-    get pinFilter(): boolean {
-        return this.get("pinFilter");
-    }
-
-    get hideDeleted(): boolean {
-        return this.get("hideDeleted");
     }
 }
 
@@ -79,9 +55,9 @@ export module ViewFileOptions {
         STATUS,
         NAME_ASC,
         NAME_DESC,
-        SIZE_ASC,
-        SIZE_DESC,
-        SPEED_DESC,
-        ETA_ASC
+        ETA_ASC,
+        ETA_DESC,
+        SPEED_ASC,
+        SPEED_DESC
     }
 }

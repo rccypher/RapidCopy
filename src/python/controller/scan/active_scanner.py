@@ -1,6 +1,7 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import logging
+from typing import List
 import multiprocessing
 import queue
 
@@ -16,18 +17,17 @@ class ActiveScanner(IScanner):
     A multiprocessing.Queue is used to store the names because the set and scan
     methods are called by different processes.
     """
-
     def __init__(self, local_path: str):
         self.__scanner = SystemScanner(local_path)
-        self.__active_files_queue: multiprocessing.Queue[list[str]] = multiprocessing.Queue()
-        self.__active_files: list[str] = []  # latest state
+        self.__active_files_queue = multiprocessing.Queue()
+        self.__active_files = []  # latest state
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @overrides(IScanner)
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild(self.__class__.__name__)
 
-    def set_active_files(self, file_names: list[str]):
+    def set_active_files(self, file_names: List[str]):
         """
         Set the list of active file names. Only these files will be scanned.
         :param file_names:
@@ -36,7 +36,7 @@ class ActiveScanner(IScanner):
         self.__active_files_queue.put(file_names)
 
     @overrides(IScanner)
-    def scan(self) -> list[SystemFile]:
+    def scan(self) -> List[SystemFile]:
         # Grab the latest list of active files, if any
         try:
             while True:
@@ -52,5 +52,5 @@ class ActiveScanner(IScanner):
                 result.append(self.__scanner.scan_single(file_name))
             except SystemScannerError as ex:
                 # Ignore errors here, file may have been deleted
-                self.logger.debug(str(ex))
+                self.logger.warning(str(ex))
         return result

@@ -1,5 +1,6 @@
 import {Injectable, NgZone} from "@angular/core";
-import {Observable} from "rxjs";
+import {Observable} from "rxjs/Observable";
+import EventSource = require("eventsource");
 
 import {ModelFileService} from "../files/model-file.service";
 import {ServerStatusService} from "../server/server-status.service";
@@ -9,7 +10,7 @@ import {LogService} from "../logs/log.service";
 
 
 export class EventSourceFactory {
-    static createEventSource(url: string): EventSource {
+    static createEventSource(url: string) {
         return new EventSource(url);
     }
 }
@@ -80,7 +81,7 @@ export class StreamDispatchService {
     }
 
     private createSseObserver() {
-        const observable = new Observable(observer => {
+        const observable = Observable.create(observer => {
             const eventSource = EventSourceFactory.createEventSource(this.STREAM_URL);
             for (let eventName of Array.from(this._eventNameToServiceMap.keys())) {
                 eventSource.addEventListener(eventName, event => observer.next(
@@ -111,15 +112,12 @@ export class StreamDispatchService {
             };
         });
         observable.subscribe({
-            next: (x: any) => {
+            next: (x) => {
                 let eventName = x["event"];
                 let eventData = x["data"];
                 // this._logger.debug("Received event:", eventName);
                 this._zone.run(() => {
-                    const service = this._eventNameToServiceMap.get(eventName);
-                    if (service) {
-                        service.notifyEvent(eventName, eventData);
-                    }
+                    this._eventNameToServiceMap.get(eventName).notifyEvent(eventName, eventData);
                 });
             },
             error: err => {

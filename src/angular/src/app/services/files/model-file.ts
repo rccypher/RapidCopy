@@ -14,17 +14,12 @@ interface IModelFile {
     eta: number;
     full_path: string;
     is_extractable: boolean;
+    mapping_index: number;
     local_created_timestamp: Date;
     local_modified_timestamp: Date;
     remote_created_timestamp: Date;
     remote_modified_timestamp: Date;
-    path_pair_id: string;
-    path_pair_name: string;
     children: Set<ModelFile>;
-    // Validation properties
-    validation_progress: number;
-    validation_error: string;
-    corrupt_chunks: number[];
 }
 
 // Boiler plate code to set up an immutable class
@@ -38,17 +33,12 @@ const DefaultModelFile: IModelFile = {
     eta: null,
     full_path: null,
     is_extractable: null,
+    mapping_index: null,
     local_created_timestamp: null,
     local_modified_timestamp: null,
     remote_created_timestamp: null,
     remote_modified_timestamp: null,
-    path_pair_id: null,
-    path_pair_name: null,
-    children: null,
-    // Validation properties
-    validation_progress: null,
-    validation_error: null,
-    corrupt_chunks: null
+    children: null
 };
 const ModelFileRecord = Record(DefaultModelFile);
 
@@ -57,34 +47,27 @@ const ModelFileRecord = Record(DefaultModelFile);
  * Pattern inspired by: http://blog.angular-university.io/angular-2-application
  *                      -architecture-building-flux-like-apps-using-redux-and
  *                      -immutable-js-js
- * Note: Using getters to properly access Record values in Immutable.js 4.x
  */
 export class ModelFile extends ModelFileRecord implements IModelFile {
+    name: string;
+    is_dir: boolean;
+    local_size: number;
+    remote_size: number;
+    state: ModelFile.State;
+    downloading_speed: number;
+    eta: number;
+    full_path: string;
+    is_extractable: boolean;
+    mapping_index: number;
+    local_created_timestamp: Date;
+    local_modified_timestamp: Date;
+    remote_created_timestamp: Date;
+    remote_modified_timestamp: Date;
+    children: Set<ModelFile>;
+
     constructor(props) {
         super(props);
     }
-
-    // Use getters to properly access Record values (Immutable.js 4.x compatibility)
-    get name(): string { return this.get("name"); }
-    get is_dir(): boolean { return this.get("is_dir"); }
-    get local_size(): number { return this.get("local_size"); }
-    get remote_size(): number { return this.get("remote_size"); }
-    get state(): ModelFile.State { return this.get("state"); }
-    get downloading_speed(): number { return this.get("downloading_speed"); }
-    get eta(): number { return this.get("eta"); }
-    get full_path(): string { return this.get("full_path"); }
-    get is_extractable(): boolean { return this.get("is_extractable"); }
-    get local_created_timestamp(): Date { return this.get("local_created_timestamp"); }
-    get local_modified_timestamp(): Date { return this.get("local_modified_timestamp"); }
-    get remote_created_timestamp(): Date { return this.get("remote_created_timestamp"); }
-    get remote_modified_timestamp(): Date { return this.get("remote_modified_timestamp"); }
-    get path_pair_id(): string { return this.get("path_pair_id"); }
-    get path_pair_name(): string { return this.get("path_pair_name"); }
-    get children(): Set<ModelFile> { return this.get("children"); }
-    // Validation getters
-    get validation_progress(): number { return this.get("validation_progress"); }
-    get validation_error(): string { return this.get("validation_error"); }
-    get corrupt_chunks(): number[] { return this.get("corrupt_chunks"); }
 }
 
 // Additional types
@@ -125,8 +108,6 @@ export module ModelFile {
         DELETED         = <any> "deleted",
         EXTRACTING      = <any> "extracting",
         EXTRACTED       = <any> "extracted",
-        VALIDATING      = <any> "validating",
-        VALIDATED       = <any> "validated",
-        CORRUPT         = <any> "corrupt"
+        VALIDATING      = <any> "validating"
     }
 }

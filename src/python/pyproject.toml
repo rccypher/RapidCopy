@@ -6,100 +6,21 @@ description = ""
 authors = []
 
 [tool.poetry.dependencies]
-python = "^3.11"
-bottle = ">=0.12.25,<1.0"
-mkdocs = "^1.1.2"
-mkdocs-material = "^6.1.7"
-parameterized = "^0.7.4"
-paste = "^3.5.0"
-patool = "^1.12"
-pexpect = "^4.8.0"
-pytz = ">=2020.4"
-requests = "^2.25.1"
-tblib = "^1.7.0"
-timeout-decorator = "^0.5.0"
-xxhash = "^3.4"
+python = "~3.8"
+bottle = "*"
+mkdocs = "*"
+mkdocs-material = "*"
+parameterized = "*"
+paste = "*"
+patool = "*"
+pexpect = "*"
+pytz = "*"
+requests = "*"
+tblib = "*"
+timeout-decorator = "*"
 
-[tool.poetry.group.dev.dependencies]
-pyinstaller = { version = "^6.0", python = ">=3.11,<3.15" }
-testfixtures = "^6.17.0"
-webtest = "^2.0.35"
-pytest = "^8.0"
-pytest-cov = "^4.1"
-ruff = "^0.4"
-mypy = "^1.10"
-types-requests = "^2.31"
-types-pytz = ">=2024.1"
-
-# =============================================================================
-# Tool Configurations
-# =============================================================================
-
-[tool.ruff]
-target-version = "py311"
-line-length = 120
-
-[tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "UP",  # pyupgrade
-    "B",   # flake8-bugbear
-    "SIM", # flake8-simplify
-]
-ignore = [
-    "E501",   # line too long (handled by formatter)
-    "E731",   # do not assign a lambda expression
-    "B008",   # do not perform function calls in argument defaults
-    "B024",   # abstract base class without abstract methods (design choice)
-    "SIM108", # use ternary operator instead of if-else block
-    "UP032",  # use f-string instead of format call
-    "UP006",  # use dict instead of Dict for type annotations
-    "UP035",  # import from collections.abc
-    "F401",   # imported but unused (many re-exports in __init__.py)
-    "F821",   # undefined name (false positives with dynamic imports)
-]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401", "E402"]  # Allow unused imports and late imports in __init__.py
-"tests/*" = ["B008", "E402", "SIM102", "SIM115"]  # Allow fixtures, late imports, nested ifs, and manual file handling in tests
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = false
-warn_unused_ignores = true
-ignore_missing_imports = true
-explicit_package_bases = true
-mypy_path = "."
-exclude = [
-    "build/",
-    "dist/",
-    ".venv/",
-    "tests/",
-]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --tb=short"
-filterwarnings = [
-    "ignore::DeprecationWarning",
-]
-
-[tool.coverage.run]
-source = ["."]
-omit = [
-    "tests/*",
-    ".venv/*",
-    "build/*",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-]
+[tool.poetry.dev-dependencies]
+pyinstaller = "*"
+testfixtures = "*"
+webtest = "*"
+pytest = "^6.2.1"

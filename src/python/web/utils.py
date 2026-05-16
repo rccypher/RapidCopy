@@ -20,7 +20,7 @@ class StreamQueue(Generic[T]):
     def put(self, event: T):
         self.__queue.put(event)
 
-    def get_next_event(self) -> T | None:
+    def get_next_event(self) -> Optional[T]:
         """
         Returns the next event if there is one, otherwise returns None
         :return:
@@ -29,22 +29,3 @@ class StreamQueue(Generic[T]):
             return self.__queue.get(block=False)
         except Empty:
             return None
-
-
-from bottle import HTTPResponse
-
-# Maximum allowed length for filenames passed to controller actions
-MAX_FILENAME_LEN = 4096
-
-
-def check_length(value: str, max_len: int, label: str) -> "HTTPResponse | None":
-    """
-    Validate that a string does not exceed max_len characters.
-    Returns a 400 HTTPResponse if the check fails, otherwise None.
-    """
-    if len(value) > max_len:
-        return HTTPResponse(
-            body="{} exceeds maximum length of {} characters".format(label, max_len),
-            status=400
-        )
-    return None

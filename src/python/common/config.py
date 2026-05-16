@@ -1,8 +1,11 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import configparser
+import json
+from typing import Dict, List
 from io import StringIO
 import collections
+from distutils.util import strtobool
 from abc import ABC
 from typing import Type, TypeVar, Callable, Any
 
@@ -11,108 +14,107 @@ from .persist import Persist, PersistError
 from .types import overrides
 
 
-def strtobool(val: str) -> bool:
-    """
-    Convert a string representation of truth to True or False.
-
-    True values are: 'y', 'yes', 't', 'true', 'on', '1'
-    False values are: 'n', 'no', 'f', 'false', 'off', '0'
-
-    This replaces the deprecated distutils.util.strtobool which was
-    removed in Python 3.12.
-    """
-    val = val.lower().strip()
-    if val in ("y", "yes", "t", "true", "on", "1"):
-        return True
-    elif val in ("n", "no", "f", "false", "off", "0"):
-        return False
-    else:
-        raise ValueError(f"Invalid boolean value: {val!r}")
-
-
 class ConfigError(AppError):
     """
     Exception indicating a bad config value
     """
-
     pass
 
 
-InnerConfigType = dict[str, str]
-OuterConfigType = dict[str, InnerConfigType]
+class PathMapping:
+    """
+    Represents a single remote/local directory path mapping
+    """
+    def __init__(self, remote_path: str, local_path: str):
+        self.remote_path = remote_path
+        self.local_path = local_path
+
+    def to_dict(self) -> dict:
+        return {"remote_path": self.remote_path, "local_path": self.local_path}
+
+    @staticmethod
+    def from_dict(d: dict) -> "PathMapping":
+        return PathMapping(d["remote_path"], d["local_path"])
+
+    def __eq__(self, other):
+        if not isinstance(other, PathMapping):
+            return False
+        return self.remote_path == other.remote_path and self.local_path == other.local_path
+
+    def __repr__(self):
+        return "PathMapping(remote_path={}, local_path={})".format(self.remote_path, self.local_path)
+
+
+InnerConfigType = Dict[str, str]
+OuterConfigType = Dict[str, InnerConfigType]
 
 
 # Source: https://stackoverflow.com/a/39205612/8571324
-T = TypeVar("T", bound="InnerConfig")
+T = TypeVar('T', bound='InnerConfig')
 
 
 class Converters:
     @staticmethod
-    def null(_: type[T], __: str, value: str) -> str:
+    def null(_: T, __: str, value: str) -> str:
         return value
 
     @staticmethod
-    def int(cls: type[T], name: str, value: str) -> int:
+    def int(cls: T, name: str, value: str) -> int:
         if not value:
-            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
+            raise ConfigError("Bad config: {}.{} is empty".format(
+                cls.__name__, name
+            ))
         try:
             val = int(value)
-        except ValueError as e:
-            raise ConfigError(
-                "Bad config: {}.{} ({}) must be an integer value".format(cls.__name__, name, value)
-            ) from e
+        except ValueError:
+            raise ConfigError("Bad config: {}.{} ({}) must be an integer value".format(
+                cls.__name__, name, value
+            ))
         return val
 
     @staticmethod
-    def bool(cls: type[T], name: str, value: str) -> bool:
+    def bool(cls: T, name: str, value: str) -> bool:
         if not value:
-            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
+            raise ConfigError("Bad config: {}.{} is empty".format(
+                cls.__name__, name
+            ))
         try:
-            val = strtobool(value)
-        except ValueError as e:
-            raise ConfigError("Bad config: {}.{} ({}) must be a boolean value".format(cls.__name__, name, value)) from e
+            val = bool(strtobool(value))
+        except ValueError:
+            raise ConfigError("Bad config: {}.{} ({}) must be a boolean value".format(
+                cls.__name__, name, value
+            ))
         return val
 
 
 class Checkers:
     @staticmethod
-    def null(_: type[T], __: str, value: Any) -> Any:
+    def null(_: T, __: str, value: Any) -> Any:
         return value
 
     @staticmethod
-    def string_nonempty(cls: type[T], name: str, value: str) -> str:
+    def string_nonempty(cls: T, name: str, value: str) -> str:
         if not value or not value.strip():
-            raise ConfigError("Bad config: {}.{} is empty".format(cls.__name__, name))
+            raise ConfigError("Bad config: {}.{} is empty".format(
+                cls.__name__, name
+            ))
         return value
 
     @staticmethod
-    def int_non_negative(cls: type[T], name: str, value: int) -> int:
+    def int_non_negative(cls: T, name: str, value: int) -> int:
         if value < 0:
-            raise ConfigError("Bad config: {}.{} ({}) must be zero or greater".format(cls.__name__, name, value))
+            raise ConfigError("Bad config: {}.{} ({}) must be zero or greater".format(
+                cls.__name__, name, value
+            ))
         return value
 
     @staticmethod
-    def int_positive(cls: type[T], name: str, value: int) -> int:
+    def int_positive(cls: T, name: str, value: int) -> int:
         if value < 1:
-            raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(cls.__name__, name, value))
+            raise ConfigError("Bad config: {}.{} ({}) must be greater than 0".format(
+                cls.__name__, name, value
+            ))
         return value
-
-    @staticmethod
-    def int_non_negative_max(max_val: int):
-        """Returns a checker that enforces 0 <= value <= max_val"""
-        def _check(cls: type[T], name: str, value: int) -> int:
-            if value < 0:
-                raise ConfigError(
-                    "Bad config: {}.{} ({}) must be zero or greater".format(cls.__name__, name, value)
-                )
-            if value > max_val:
-                raise ConfigError(
-                    "Bad config: {}.{} ({}) must not exceed {} (FD_SETSIZE limit)".format(
-                        cls.__name__, name, value, max_val
-                    )
-                )
-            return value
-        return _check
 
 
 class InnerConfig(ABC):
@@ -127,22 +129,21 @@ class InnerConfig(ABC):
     The checker function performs boundary check on the native type value.
     The converter function converts the string representation into the native type.
     """
-
     class PropMetadata:
         """Tracks property metadata"""
-
         def __init__(self, checker: Callable, converter: Callable):
             self.checker = checker
             self.converter = converter
 
     # Global map to map a property to its metadata
     # Is there a way for each concrete class to do this separately?
-    __prop_addon_map: collections.OrderedDict[property, "InnerConfig.PropMetadata"] = collections.OrderedDict()
+    __prop_addon_map = collections.OrderedDict()
 
     @classmethod
     def _create_property(cls, name: str, checker: Callable, converter: Callable) -> property:
         # noinspection PyProtectedMember
-        prop = property(fget=lambda s: s._get_property(name), fset=lambda s, v: s._set_property(name, v, checker))
+        prop = property(fget=lambda s: s._get_property(name),
+                        fset=lambda s, v: s._set_property(name, v, checker))
         prop_addon = InnerConfig.PropMetadata(checker=checker, converter=converter)
         InnerConfig.__prop_addon_map[prop] = prop_addon
         return prop
@@ -172,18 +173,16 @@ class InnerConfig(ABC):
         # noinspection PyCallingNonCallable
         inner_config = cls()
         property_map = {p: getattr(cls, p) for p in dir(cls) if isinstance(getattr(cls, p), property)}
-        for name, _prop in property_map.items():
+        for name, prop in property_map.items():
             if name not in config_dict:
-                # Use the default value from the constructor instead of failing.
-                # This allows new config fields to be added without breaking
-                # existing config files.
-                continue
+                raise ConfigError("Missing config: {}.{}".format(cls.__name__, name))
             inner_config.set_property(name, config_dict[name])
             del config_dict[name]
 
-        # Ignore unknown keys in config_dict instead of failing.
-        # This allows old config fields to be removed without breaking
-        # existing config files.
+        # Raise error if a key in config_dict did not match a property
+        extra_keys = config_dict.keys()
+        if extra_keys:
+            raise ConfigError("Unknown config: {}.{}".format(cls.__name__, next(iter(extra_keys))))
 
         return inner_config
 
@@ -199,7 +198,7 @@ class InnerConfig(ABC):
         # Prop map contains all properties of all config classes, so filtering is required
         all_properties = InnerConfig.__prop_addon_map.keys()
         for prop in all_properties:
-            if prop in my_property_to_name_map:
+            if prop in my_property_to_name_map.keys():
                 name = my_property_to_name_map[prop]
                 config_dict[name] = getattr(self, name)
         return config_dict
@@ -242,18 +241,14 @@ class Config(Persist):
     """
     Configuration registry
     """
-
     class General(IC):
         debug = PROP("debug", Checkers.null, Converters.bool)
         verbose = PROP("verbose", Checkers.null, Converters.bool)
-        # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO, ignored if debug=True)
-        log_level = PROP("log_level", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
             self.debug = None
             self.verbose = None
-            self.log_level = None
 
     class Lftp(IC):
         remote_address = PROP("remote_address", Checkers.string_nonempty, Converters.null)
@@ -265,25 +260,17 @@ class Config(Persist):
         remote_path_to_scan_script = PROP("remote_path_to_scan_script", Checkers.string_nonempty, Converters.null)
         use_ssh_key = PROP("use_ssh_key", Checkers.null, Converters.bool)
         num_max_parallel_downloads = PROP("num_max_parallel_downloads", Checkers.int_positive, Converters.int)
-        num_max_parallel_downloads_per_path = PROP(
-            "num_max_parallel_downloads_per_path", Checkers.int_positive, Converters.int
-        )
-        num_max_parallel_files_per_download = PROP(
-            "num_max_parallel_files_per_download", Checkers.int_positive, Converters.int
-        )
-        num_max_connections_per_root_file = PROP(
-            "num_max_connections_per_root_file", Checkers.int_positive, Converters.int
-        )
-        num_max_connections_per_dir_file = PROP(
-            "num_max_connections_per_dir_file", Checkers.int_positive, Converters.int
-        )
-        num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative_max(32), Converters.int)
+        num_max_parallel_files_per_download = PROP("num_max_parallel_files_per_download",
+                                                   Checkers.int_positive,
+                                                   Converters.int)
+        num_max_connections_per_root_file = PROP("num_max_connections_per_root_file",
+                                                 Checkers.int_positive,
+                                                 Converters.int)
+        num_max_connections_per_dir_file = PROP("num_max_connections_per_dir_file",
+                                                Checkers.int_positive,
+                                                Converters.int)
+        num_max_total_connections = PROP("num_max_total_connections", Checkers.int_non_negative, Converters.int)
         use_temp_file = PROP("use_temp_file", Checkers.null, Converters.bool)
-        # Rate limit for downloads: "0" = unlimited, or specify like "1M" (1 MB/s), "500K" (500 KB/s)
-        rate_limit = PROP("rate_limit", Checkers.null, Converters.null)
-        # Staging path for in-progress downloads (empty string = auto-derive as {local_path}/incomplete)
-        # Completed files are moved to local_path. Set to empty string to use the default.
-        staging_path = PROP("staging_path", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
@@ -301,17 +288,6 @@ class Config(Persist):
             self.num_max_connections_per_dir_file = None
             self.num_max_total_connections = None
             self.use_temp_file = None
-            self.rate_limit = None
-            self.staging_path = None
-
-        @classmethod
-        def from_dict(cls: Type[T], config_dict: InnerConfigType) -> T:
-            # staging_path is optional for backward compatibility with existing settings.cfg files.
-            # Backfill with empty string (= auto-derive as local_path/incomplete) if missing.
-            if "staging_path" not in config_dict:
-                config_dict = dict(config_dict)
-                config_dict["staging_path"] = ""
-            return super().from_dict(config_dict)
 
     class Controller(IC):
         interval_ms_remote_scan = PROP("interval_ms_remote_scan", Checkers.int_positive, Converters.int)
@@ -319,8 +295,12 @@ class Config(Persist):
         interval_ms_downloading_scan = PROP("interval_ms_downloading_scan", Checkers.int_positive, Converters.int)
         extract_path = PROP("extract_path", Checkers.string_nonempty, Converters.null)
         use_local_path_as_extract_path = PROP("use_local_path_as_extract_path", Checkers.null, Converters.bool)
-        # Seconds a DELETED file stays visible before being aged off the dashboard (0 = never)
-        deleted_age_off_secs = PROP("deleted_age_off_secs", Checkers.int_non_negative, Converters.int)
+        enable_download_validation = PROP("enable_download_validation", Checkers.null, Converters.bool)
+        download_validation_max_retries = PROP("download_validation_max_retries", Checkers.int_positive, Converters.int)
+        use_chunked_validation = PROP("use_chunked_validation", Checkers.null, Converters.bool)
+        validation_chunk_size_mb = PROP("validation_chunk_size_mb", Checkers.int_positive, Converters.int)
+        enable_disk_space_check = PROP("enable_disk_space_check", Checkers.null, Converters.bool)
+        disk_space_min_percent = PROP("disk_space_min_percent", Checkers.int_positive, Converters.int)
 
         def __init__(self):
             super().__init__()
@@ -329,7 +309,12 @@ class Config(Persist):
             self.interval_ms_downloading_scan = None
             self.extract_path = None
             self.use_local_path_as_extract_path = None
-            self.deleted_age_off_secs = None
+            self.enable_download_validation = None
+            self.download_validation_max_retries = None
+            self.use_chunked_validation = None
+            self.validation_chunk_size_mb = None
+            self.enable_disk_space_check = None
+            self.disk_space_min_percent = None
 
     class Web(InnerConfig):
         port = PROP("port", Checkers.int_positive, Converters.int)
@@ -349,40 +334,12 @@ class Config(Persist):
             self.patterns_only = None
             self.auto_extract = None
 
-    class Validation(InnerConfig):
-        # Enable/disable download validation
-        enabled = PROP("enabled", Checkers.null, Converters.bool)
-        # Checksum algorithm: xxh128, md5, sha256, sha1
-        algorithm = PROP("algorithm", Checkers.string_nonempty, Converters.null)
-        # Default chunk size in bytes (default: 10485760 = 10MB)
-        default_chunk_size = PROP("default_chunk_size", Checkers.int_positive, Converters.int)
-        # Minimum chunk size in bytes (default: 1048576 = 1MB)
-        min_chunk_size = PROP("min_chunk_size", Checkers.int_positive, Converters.int)
-        # Maximum chunk size in bytes (default: 104857600 = 100MB)
-        max_chunk_size = PROP("max_chunk_size", Checkers.int_positive, Converters.int)
-        # Validate chunks inline during download; corrupt chunks are re-downloaded via pget_range
-        validate_after_chunk = PROP("validate_after_chunk", Checkers.null, Converters.bool)
-        # Maximum retry attempts for corrupt chunks
-        max_retries = PROP("max_retries", Checkers.int_non_negative, Converters.int)
-        # Delay between retries in milliseconds
-        retry_delay_ms = PROP("retry_delay_ms", Checkers.int_non_negative, Converters.int)
-        # Enable adaptive chunk sizing based on network conditions
-        enable_adaptive_sizing = PROP("enable_adaptive_sizing", Checkers.null, Converters.bool)
-        # Seconds to wait after download completes before hashing local chunks (avoids OS page-cache false positives)
-        settle_delay_secs = PROP("settle_delay_secs", Checkers.null, Converters.null)
+    class PathMappings(IC):
+        mappings_json = PROP("mappings_json", Checkers.null, Converters.null)
 
         def __init__(self):
             super().__init__()
-            self.enabled = None
-            self.algorithm = None
-            self.default_chunk_size = None
-            self.min_chunk_size = None
-            self.max_chunk_size = None
-            self.validate_after_chunk = None
-            self.max_retries = None
-            self.retry_delay_ms = None
-            self.enable_adaptive_sizing = None
-            self.settle_delay_secs = None
+            self.mappings_json = None
 
     def __init__(self):
         self.general = Config.General()
@@ -390,7 +347,7 @@ class Config(Persist):
         self.controller = Config.Controller()
         self.web = Config.Web()
         self.autoqueue = Config.AutoQueue()
-        self.validation = Config.Validation()
+        self.pathmappings = Config.PathMappings()
 
     @staticmethod
     def _check_section(dct: OuterConfigType, name: str) -> InnerConfigType:
@@ -408,13 +365,18 @@ class Config(Persist):
 
     @classmethod
     @overrides(Persist)
-    def from_str(cls, content: str) -> "Config":
+    def from_str(cls: "Config", content: str) -> "Config":
         config_parser = configparser.ConfigParser()
         try:
             config_parser.read_string(content)
-        except (configparser.MissingSectionHeaderError, configparser.ParsingError) as e:
-            raise PersistError("Error parsing Config - {}: {}".format(type(e).__name__, str(e))) from e
-        config_dict: dict[str, dict[str, str]] = {}
+        except (
+                configparser.MissingSectionHeaderError,
+                configparser.ParsingError
+        ) as e:
+            raise PersistError("Error parsing Config - {}: {}".format(
+                type(e).__name__, str(e))
+            )
+        config_dict = {}
         for section in config_parser.sections():
             config_dict[section] = {}
             for option in config_parser.options(section):
@@ -444,25 +406,17 @@ class Config(Persist):
         config.controller = Config.Controller.from_dict(Config._check_section(config_dict, "Controller"))
         config.web = Config.Web.from_dict(Config._check_section(config_dict, "Web"))
         config.autoqueue = Config.AutoQueue.from_dict(Config._check_section(config_dict, "AutoQueue"))
-        # Validation section is optional for backwards compatibility
-        if "Validation" in config_dict:
-            config.validation = Config.Validation.from_dict(Config._check_section(config_dict, "Validation"))
-        else:
-            # Use default validation config
-            config.validation = Config.Validation.from_dict(
-                {
-                    "enabled": "True",
-                    "algorithm": "xxh128",
-                    "default_chunk_size": "52428800",
-                    "min_chunk_size": "1048576",
-                    "max_chunk_size": "104857600",
-                    "validate_after_chunk": "True",
-                    "max_retries": "3",
-                    "retry_delay_ms": "1000",
-                    "enable_adaptive_sizing": "True",
-                    "settle_delay_secs": "5.0",
-                }
+
+        # PathMappings is optional for backward compatibility
+        if "PathMappings" in config_dict:
+            config.pathmappings = Config.PathMappings.from_dict(
+                Config._check_section(config_dict, "PathMappings")
             )
+        else:
+            # Migrate from lftp.remote_path and lftp.local_path
+            config.pathmappings = Config.PathMappings()
+            mappings = [PathMapping(config.lftp.remote_path, config.lftp.local_path)]
+            config.pathmappings.mappings_json = json.dumps([m.to_dict() for m in mappings])
 
         Config._check_empty_outer_dict(config_dict)
         return config
@@ -476,8 +430,23 @@ class Config(Persist):
         config_dict["Controller"] = self.controller.as_dict()
         config_dict["Web"] = self.web.as_dict()
         config_dict["AutoQueue"] = self.autoqueue.as_dict()
-        config_dict["Validation"] = self.validation.as_dict()
+        config_dict["PathMappings"] = self.pathmappings.as_dict()
         return config_dict
+
+    def get_path_mappings(self) -> List[PathMapping]:
+        """
+        Returns the list of path mappings from the config
+        """
+        if self.pathmappings.mappings_json:
+            data = json.loads(self.pathmappings.mappings_json)
+            return [PathMapping.from_dict(d) for d in data]
+        return []
+
+    def set_path_mappings(self, mappings: List[PathMapping]):
+        """
+        Sets the path mappings in the config
+        """
+        self.pathmappings.mappings_json = json.dumps([m.to_dict() for m in mappings])
 
     def has_section(self, name: str) -> bool:
         """

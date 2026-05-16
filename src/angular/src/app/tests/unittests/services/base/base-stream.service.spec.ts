@@ -1,5 +1,4 @@
 import {TestBed} from "@angular/core/testing";
-import {Injectable} from "@angular/core";
 
 import {BaseStreamService} from "../../../../services/base/base-stream.service";
 import {createMockEventSource, MockEventSource} from "../../../mocks/mock-event-source";
@@ -10,7 +9,6 @@ import {EventSourceFactory} from "../../../../services/base/stream-service.regis
 const DoNothing = {next: reaction => {}};
 
 
-@Injectable()
 class TestBaseStreamService extends BaseStreamService {
     eventList = [];
 
@@ -44,11 +42,11 @@ describe("Testing base stream service", () => {
         spyOn(EventSourceFactory, 'createEventSource').and.callFake(
             (url: string) => {
                 mockEventSource = createMockEventSource(url);
-                return mockEventSource as unknown as EventSource;
+                return mockEventSource;
             }
         );
 
-        baseStreamService = TestBed.inject(TestBaseStreamService);
+        baseStreamService = TestBed.get(TestBaseStreamService);
         spyOn(baseStreamService, "onConnected");
         spyOn(baseStreamService, "onDisconnected");
     });

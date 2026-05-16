@@ -1,6 +1,5 @@
-import {Component, Input, Output, ChangeDetectionStrategy, ChangeDetectorRef, EventEmitter, OnInit, OnChanges, SimpleChanges} from "@angular/core";
-import {Subject} from "rxjs";
-import {debounceTime, distinctUntilChanged} from "rxjs/operators";
+import {Component, Input, Output, ChangeDetectionStrategy, EventEmitter, OnInit} from "@angular/core";
+import {Subject} from "rxjs/Subject";
 
 @Component({
     selector: "app-option",
@@ -10,11 +9,12 @@ import {debounceTime, distinctUntilChanged} from "rxjs/operators";
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 
-export class OptionComponent implements OnInit, OnChanges {
+export class OptionComponent implements OnInit {
     @Input() type: OptionType;
     @Input() label: string;
     @Input() value: any;
     @Input() description: string;
+    @Input() optionDisabled: boolean = false;
 
     @Output() changeEvent = new EventEmitter<any>();
 
@@ -25,24 +25,16 @@ export class OptionComponent implements OnInit, OnChanges {
 
     private newValue = new Subject<any>();
 
-    constructor(private _changeDetector: ChangeDetectorRef) {}
-
-    ngOnChanges(changes: SimpleChanges): void {
-        if (changes['value']) {
-            this._changeDetector.markForCheck();
-        }
-    }
-
     // noinspection JSUnusedGlobalSymbols
     ngOnInit(): void {
         // Debounce
         // References:
         //      https://angular.io/tutorial/toh-pt6#fix-the-herosearchcomponent-class
         //      https://stackoverflow.com/a/41965515
-        this.newValue.pipe(
-            debounceTime(this.DEBOUNCE_TIME_MS),
-            distinctUntilChanged()
-        ).subscribe({next: val => this.changeEvent.emit(val)});
+        this.newValue
+            .debounceTime(this.DEBOUNCE_TIME_MS)
+            .distinctUntilChanged()
+            .subscribe({next: val => this.changeEvent.emit(val)});
     }
 
     onChange(value: any) {
