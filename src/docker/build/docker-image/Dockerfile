@@ -87,7 +87,7 @@ RUN chmod a+x /usr/local/sbin/scp
 
 # Create non-root user and directories under that user
 RUN groupadd -g 1000 rapidcopy && \
-    useradd -r -u 1000 -g rapidcopy rapidcopy
+    useradd -r -m -u 1000 -g rapidcopy rapidcopy
 RUN mkdir /config && \
     mkdir /downloads && \
     chown rapidcopy:rapidcopy /config && \
