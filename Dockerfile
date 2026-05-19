@@ -126,7 +126,7 @@ RUN mkdir -p /root/.ssh && \
 
 # Create non-root user
 RUN groupadd -g 1000 rapidcopy && \
-    useradd -r -u 1000 -g rapidcopy rapidcopy && \
+    useradd -r -m -u 1000 -g rapidcopy rapidcopy && \
     mkdir /config && \
     mkdir /downloads && \
     mkdir /mounts && \
