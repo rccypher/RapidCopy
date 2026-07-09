@@ -863,7 +863,15 @@ class Controller:
         self.__mp_logger.propagate_exception()
         self.__extract_process.propagate_exception()
         if self.__validation_config.enabled:
-            self.__validation_process.propagate_exception()
+            try:
+                self.__validation_process.propagate_exception()
+            except Exception as e:
+                # A crash in the validation subprocess must not take down the whole
+                # controller (downloads/scans/extraction). Log and continue in a
+                # degraded state; validation stops until the app is restarted.
+                self.logger.exception(
+                    "Validation process error (non-fatal, continuing without validation): {}".format(e)
+                )
 
     def __cleanup_commands(self):
         """

@@ -104,9 +104,16 @@ class SystemScanner:
         else:
             raise SystemScannerError("Path does not exist: {}".format(path))
 
-        return self.__create_system_file(
-            PseudoDirEntry(name=name, path=path, is_dir=os.path.isdir(path), stat=os.stat(path))
-        )
+        try:
+            return self.__create_system_file(
+                PseudoDirEntry(name=name, path=path, is_dir=os.path.isdir(path), stat=os.stat(path))
+            )
+        except OSError as e:
+            # File/dir may have been deleted or become inaccessible between the
+            # existence check above and stat/scandir here (TOCTOU race, common
+            # for incomplete/ partial downloads). Convert to SystemScannerError
+            # so callers can skip it instead of crashing the scanner process.
+            raise SystemScannerError("Failed to scan '{}': {}".format(path, e))
 
     def __create_system_file(self, entry) -> SystemFile:
         """

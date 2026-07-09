@@ -21,7 +21,12 @@ class DeleteLocalProcess(AppOneShotProcess):
             self.logger.error("Failed to delete non-existing file: {}".format(file_path))
         else:
             if os.path.isfile(file_path):
-                os.remove(file_path)
+                try:
+                    os.remove(file_path)
+                except FileNotFoundError:
+                    # Deleted by another actor between the check above and here
+                    # (TOCTOU). Nothing to do; don't let it kill the controller.
+                    self.logger.warning("File already gone: {}".format(file_path))
             else:
                 shutil.rmtree(file_path, ignore_errors=True)
 

@@ -184,6 +184,12 @@ class ExtractDispatch:
                 except ExtractError:
                     self.logger.exception("Caught an extraction error")
                     completed = False
+                except Exception:
+                    # Any unexpected error (e.g. PermissionError/FileExistsError from
+                    # makedirs, or an unexpected patool failure) must not kill the
+                    # worker thread, or all future extractions hang as EXTRACTING.
+                    self.logger.exception("Unexpected error during extraction")
+                    completed = False
                 finally:
                     # pop the task
                     self.__task_queue.get(block=False)
