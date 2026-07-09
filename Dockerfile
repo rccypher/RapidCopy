@@ -129,7 +129,7 @@ RUN mkdir -p /root/.ssh && \
 # Create non-root user and add to media group (gid 1002) for Sonarr/Radarr access
 RUN groupadd -g 1000 rapidcopy && \
     groupadd -g 1002 media && \
-    useradd -r -u 1000 -g rapidcopy -G media rapidcopy && \
+    useradd -r -m -u 1000 -g rapidcopy -G media rapidcopy && \
     mkdir /config && \
     mkdir /downloads && \
     mkdir /downloads/incomplete && \
