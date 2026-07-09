@@ -561,7 +561,10 @@ class Controller:
                     ):
                         downloaded = True
                     if downloaded:
-                        self.__persist.downloaded_file_names.add(diff.new_file.name)
+                        # downloaded_file_names is a read-only property that returns a
+                        # throwaway set; must write through record_download() so the
+                        # backing downloaded_file_timestamps dict is actually updated.
+                        self.__persist.record_download(diff.new_file.name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
                         # Move completed file from staging_path to local_path
                         if self.__is_multi_path_mode:
@@ -641,7 +644,9 @@ class Controller:
                         self.logger.info("Aging off DELETED files (re-download eligible): {}".format(_aged_off))
                         for _name in _aged_off:
                             self.__deleted_timestamps.pop(_name, None)
-                            self.__persist.downloaded_file_names.discard(_name)
+                            # Write through remove_download(); .discard() on the
+                            # property mutates a throwaway set and does nothing.
+                            self.__persist.remove_download(_name)
                             if _name in self.__model.get_file_names():
                                 self.__model.remove_file(_name)
                         self.__model_builder.set_downloaded_files(self.__persist.downloaded_file_names)
