@@ -665,16 +665,25 @@ export class ViewFileService {
     private createAction(file: ViewFile,
                          action: (file: ModelFile) => Observable<WebReaction>)
             : Observable<WebReaction> {
-        return Observable.create(observer => {
+        // Use `new Observable(...)` (Observable.create is deprecated and removed in
+        // RxJS 8) and complete() after emitting so callers using take(1)/firstValueFrom
+        // don't hang waiting for a completion that never comes.
+        return new Observable<WebReaction>(observer => {
             if (!this._prevModelFiles.has(file.name)) {
                 // File not found, exit early
                 this._logger.error("File to queue not found: " + file.name);
                 observer.next(new WebReaction(false, null, `File '${file.name}' not found`));
+                observer.complete();
             } else {
                 const modelFile = this._prevModelFiles.get(file.name);
-                action(modelFile).subscribe(reaction => {
-                    this._logger.debug("Received model reaction: %O", reaction);
-                    observer.next(reaction);
+                action(modelFile).subscribe({
+                    next: reaction => {
+                        this._logger.debug("Received model reaction: %O", reaction);
+                        observer.next(reaction);
+                        observer.complete();
+                    },
+                    // Propagate errors instead of leaving the caller hanging forever.
+                    error: err => observer.error(err),
                 });
             }
         });

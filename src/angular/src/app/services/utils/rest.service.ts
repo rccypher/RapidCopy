@@ -59,7 +59,7 @@ export class RestService {
                         observer.complete();
                     }
                 });
-        }).pipe(shareReplay(1));
+        }).pipe(shareReplay({bufferSize: 1, refCount: true}));
         // shareReplay is needed to:
         //      prevent duplicate http requests
         //      share result with those that subscribe after the value was published
@@ -92,6 +92,6 @@ export class RestService {
                         observer.complete();
                     }
                 });
-        }).pipe(shareReplay(1));
+        }).pipe(shareReplay({bufferSize: 1, refCount: true}));
     }
 }

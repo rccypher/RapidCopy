@@ -105,3 +105,44 @@ class TestControllerPersist(unittest.TestCase):
         content = "{"
         with self.assertRaises(PersistError):
             ControllerPersist.from_str(content)
+
+
+class TestControllerPersistConcurrency(unittest.TestCase):
+    """Regression: to_str() must not raise 'changed size during iteration' when the
+    controller thread mutates the tracking collections concurrently."""
+
+    def test_to_str_is_safe_under_concurrent_mutation(self):
+        import threading
+
+        persist = ControllerPersist()
+        stop = threading.Event()
+        errors = []
+
+        def mutate():
+            i = 0
+            while not stop.is_set():
+                # Bounded key space so the collections churn (add/remove) without
+                # growing unbounded — we're testing the lock, not serialization cost.
+                k = i % 200
+                persist.record_download("file_{}".format(k))
+                persist.add_extracted_file("arc_{}".format(k))
+                persist.remove_download("file_{}".format((k + 1) % 200))
+                persist.discard_extracted_files({"arc_{}".format((k + 1) % 200)})
+                i += 1
+
+        writer = threading.Thread(target=mutate)
+        writer.start()
+        try:
+            # Serialize repeatedly while the writer thread churns the collections.
+            for _ in range(2000):
+                try:
+                    out = persist.to_str()
+                    json.loads(out)  # must always be valid JSON
+                except Exception as e:  # noqa: BLE001 - capture any race error
+                    errors.append(e)
+                    break
+        finally:
+            stop.set()
+            writer.join()
+
+        self.assertEqual(errors, [], "to_str() raced with mutation: {}".format(errors))

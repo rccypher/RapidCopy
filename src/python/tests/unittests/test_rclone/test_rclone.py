@@ -137,3 +137,51 @@ class TestRclone(unittest.TestCase):
             self.rclone.num_parallel_files = 0
         with self.assertRaises(ValueError):
             self.rclone.num_max_total_connections = -1
+
+
+class TestPgetRangeBinaryIntegrity(unittest.TestCase):
+    """Regression: corrupt-chunk re-download must preserve exact binary bytes.
+
+    The old password-auth path routed data through a pexpect pty, which
+    translated CRLF and stripped trailing whitespace, silently corrupting the
+    repaired bytes. The rclone-cat path must return raw bytes verbatim.
+    """
+
+    @patch("rclone.rclone.subprocess.run")
+    @patch("rclone.rclone.shutil.which", return_value="/usr/bin/rclone")
+    def _make(self, mock_which, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="obscured_pass\n")
+        r = Rclone(address="example.com", port=22, user="testuser", password="testpass")
+        r.set_base_logger(logging.getLogger("TestPget"))
+        return r
+
+    def test_binary_bytes_written_verbatim(self):
+        import tempfile
+        r = self._make()
+        # Bytes that a pty/strip path would mangle: CRLF + trailing whitespace + NULs
+        payload = b"\x00\x01\r\n\x02\xff  \t\n"
+        size = len(payload)
+        with tempfile.NamedTemporaryFile(delete=False) as tf:
+            tf.write(b"\x00" * (size + 8))  # pre-size the file
+            local_path = tf.name
+        try:
+            with patch("rclone.rclone.subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0, stdout=payload, stderr=b"")
+                r._do_pget_range("/remote/downloads/file.bin", local_path, 0, size)
+
+                # exact bytes on disk — no CRLF translation, no stripping
+                with open(local_path, "rb") as f:
+                    self.assertEqual(f.read(size), payload)
+
+                # command is `rclone cat ... --offset 0 --count N`, not ssh/dd
+                cmd = mock_run.call_args.args[0]
+                self.assertEqual(cmd[:2], ["rclone", "cat"])
+                self.assertIn("--offset", cmd)
+                self.assertIn("--count", cmd)
+                self.assertNotIn("dd", cmd)
+                self.assertFalse(any("ssh" == str(c) for c in cmd))
+                # password auth -> creds via env, not argv
+                self.assertIn("RCLONE_SFTP_PASS", mock_run.call_args.kwargs["env"])
+        finally:
+            os.unlink(local_path)
+        r.exit()

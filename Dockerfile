@@ -145,6 +145,12 @@ USER rapidcopy
 # Setup default config
 RUN /scripts/setup_default_config.sh
 
+# Liveness probe: if the web server deadlocks (e.g. all worker threads stuck) the
+# process stays up but stops answering, which `restart` alone can't detect. This
+# makes the container report unhealthy so an orchestrator/restart policy can act.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8800/', timeout=5)" || exit 1
+
 CMD [ \
     "python", \
     "/app/python/rapidcopy.py", \

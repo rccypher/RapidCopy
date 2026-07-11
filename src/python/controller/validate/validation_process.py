@@ -13,7 +13,7 @@ import os
 import queue
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from common import (
@@ -142,6 +142,13 @@ class ValidationDispatch:
         # Stall watchdog for inline validation (see _INLINE_STALL_TIMEOUT_SECS)
         self._active_last_size: int = 0
         self._active_last_progress_at: datetime | None = None
+        # Stall watchdog for in-flight corrupt-chunk re-downloads: progress is
+        # measured by the count of terminal (VALID/CORRUPT) chunks.
+        self._active_last_terminal: int = 0
+        self._active_redownload_at: datetime | None = None
+        # Post-download settle deadline (page-cache flush): local hashing is
+        # deferred until this passes, without blocking the IPC loop.
+        self._active_settle_until: datetime | None = None
 
         # Redownload requests emitted when a corrupt chunk needs a partial re-fetch
         self._pending_redownloads: list[CorruptChunkRedownload] = []
@@ -191,13 +198,16 @@ class ValidationDispatch:
         local_path = os.path.join(self._local_base_path, command.local_path)
         remote_path = os.path.join(self._remote_base_path, command.remote_path)
 
-        # For post-download (non-inline) validation, wait for the OS page cache to flush
-        # before hashing local chunks.  LFTP's parallel pget connections can finish writing
-        # while some dirty pages are still buffered in the kernel; hashing immediately causes
-        # every chunk to appear corrupt on the first pass.  A short settle delay eliminates
-        # these false positives without affecting inline (in-progress) validation.
+        # For post-download (non-inline) validation, defer local chunk hashing until the OS
+        # page cache has flushed.  Parallel pget connections can finish writing while some
+        # dirty pages are still buffered in the kernel; hashing immediately causes every
+        # chunk to appear corrupt on the first pass.  This is done NON-BLOCKING: record a
+        # settle deadline and skip hashing cycles until it passes, rather than time.sleep()
+        # which would stall the whole validation IPC loop (command/size/resume queues).
         if not command.inline and self.config.settle_delay_secs > 0:
-            time.sleep(self.config.settle_delay_secs)
+            self._active_settle_until = datetime.now() + timedelta(seconds=self.config.settle_delay_secs)
+        else:
+            self._active_settle_until = None
 
         # Calculate chunk size using adaptive sizing
         chunk_size = self._adaptive_sizer.calculate_chunk_size(command.file_size)
@@ -210,6 +220,8 @@ class ValidationDispatch:
         # (Re)start the inline stall watchdog for this file
         self._active_last_size = 0
         self._active_last_progress_at = datetime.now()
+        self._active_last_terminal = 0
+        self._active_redownload_at = None
 
         # Get remote checksums first (batched for efficiency)
         validation_info = self._chunk_manager.get_validation_info(local_path)
@@ -247,6 +259,11 @@ class ValidationDispatch:
 
         if not validation_info:
             self._active_file = None
+            return None
+
+        # Post-download settle: skip local hashing until the page cache has flushed.
+        # Non-blocking — we just yield this cycle instead of sleeping the whole loop.
+        if self._active_settle_until is not None and datetime.now() < self._active_settle_until:
             return None
 
         # Check if we have full file checksums to validate
@@ -329,6 +346,40 @@ class ValidationDispatch:
                     self._active_file = None
                     self._inline_local_sizes.pop(local_path, None)
                 return None
+
+        # Wait for any in-flight corrupt-chunk re-downloads to land before
+        # concluding. These chunks are DOWNLOADING (neither PENDING nor CORRUPT),
+        # so without this guard the file would fall through to "all chunks valid"
+        # while a repair is still in flight and be wrongly reported VALID.
+        downloading = [c for c in validation_info.chunks if c.status == ChunkStatus.DOWNLOADING]
+        if downloading:
+            # Progress = number of terminal (VALID/CORRUPT) chunks. If the
+            # controller's re-download never completes, don't wedge the queue
+            # forever — fail the file after the stall timeout.
+            terminal = validation_info.validated_chunks
+            now = datetime.now()
+            if self._active_redownload_at is None or terminal != self._active_last_terminal:
+                self._active_last_terminal = terminal
+                self._active_redownload_at = now
+            elif (now - self._active_redownload_at).total_seconds() > self._INLINE_STALL_TIMEOUT_SECS:
+                self.logger.warning(
+                    "Chunk re-download for '%s' did not complete within %ds; marking file corrupt.",
+                    local_path,
+                    self._INLINE_STALL_TIMEOUT_SECS,
+                )
+                self._chunk_manager.mark_file_complete(local_path, False)
+                self._chunk_manager.remove_file(local_path)
+                self._active_file = None
+                self._active_remote_path = None
+                self._inline_local_sizes.pop(local_path, None)
+                return ValidationCompletedResult(
+                    timestamp=now,
+                    name=os.path.basename(local_path),
+                    file_path=local_path,
+                    is_valid=False,
+                    corrupt_chunks=[c.index for c in downloading],
+                )
+            return None
 
         # All chunks processed, check results
         corrupt_chunks = self._chunk_manager.get_corrupt_chunks(local_path)

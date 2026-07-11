@@ -1,5 +1,5 @@
 import {Injectable, NgZone} from "@angular/core";
-import {Observable} from "rxjs";
+import {Observable, Subscription} from "rxjs";
 
 import {ModelFileService} from "../files/model-file.service";
 import {ServerStatusService} from "../server/server-status.service";
@@ -55,6 +55,9 @@ export class StreamDispatchService {
     private _eventNameToServiceMap: Map<string, IStreamService> = new Map();
     private _services: IStreamService[] = [];
 
+    private _subscription: Subscription = null;
+    private _reconnectHandle: any = null;
+
     constructor(private _logger: LoggerService,
                 private _zone: NgZone) {
     }
@@ -80,6 +83,12 @@ export class StreamDispatchService {
     }
 
     private createSseObserver() {
+        // Defensive: tear down any previous subscription/EventSource before opening a
+        // new one, so a reconnect can never leave two live streams running in parallel.
+        if (this._subscription) {
+            this._subscription.unsubscribe();
+            this._subscription = null;
+        }
         const observable = new Observable(observer => {
             const eventSource = EventSourceFactory.createEventSource(this.STREAM_URL);
             for (let eventName of Array.from(this._eventNameToServiceMap.keys())) {
@@ -104,13 +113,22 @@ export class StreamDispatchService {
                 }
             };
 
-            eventSource.onerror = x => observer.error(x);
+            eventSource.onerror = x => {
+                // EventSource fires onerror for transient drops too and then
+                // auto-reconnects on its own (readyState === CONNECTING). Only
+                // treat a permanently CLOSED stream as a real error; let the
+                // browser silently recover from transient blips instead of
+                // flapping the whole UI to "disconnected" and forcing a reconnect.
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    observer.error(x);
+                }
+            };
 
             return () => {
                 eventSource.close();
             };
         });
-        observable.subscribe({
+        this._subscription = observable.subscribe({
             next: (x: any) => {
                 let eventName = x["event"];
                 let eventData = x["data"];
@@ -132,7 +150,15 @@ export class StreamDispatchService {
                     });
                 }
 
-                setTimeout(() => { this.createSseObserver(); }, this.STREAM_RETRY_INTERVAL_MS);
+                // Schedule a single reconnect; clear any pending one first so
+                // repeated errors can't stack multiple reconnect timers.
+                if (this._reconnectHandle) {
+                    clearTimeout(this._reconnectHandle);
+                }
+                this._reconnectHandle = setTimeout(() => {
+                    this._reconnectHandle = null;
+                    this.createSseObserver();
+                }, this.STREAM_RETRY_INTERVAL_MS);
             }
         });
     }

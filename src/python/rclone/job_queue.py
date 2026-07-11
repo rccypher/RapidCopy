@@ -60,7 +60,7 @@ class JobQueue:
         self.logger = logging.getLogger("JobQueue")
         self._lock = threading.Lock()
         self._pending: deque[_Job] = deque()
-        self._running: dict[str, _Job] = {}  # name -> job
+        self._running: dict[int, _Job] = {}  # job_id -> job (unique; names may repeat)
         self._errors: list[str] = []
         self._next_id = 1
         self._max_parallel_jobs = max_parallel_jobs
@@ -140,23 +140,27 @@ class JobQueue:
         Returns True if the job was found.
         """
         with self._lock:
-            # Check pending queue first
-            for i, job in enumerate(self._pending):
-                if job.name == name:
-                    del self._pending[i]
-                    self.logger.debug("Removed queued job '%s'", name)
-                    return True
+            found = False
 
-            # Check running jobs
-            job = self._running.get(name)
-            if job and job.process:
-                self.logger.debug("Killing running job '%s' (pid=%d)", name, job.process.pid)
-                job.kill_event.set()
-                self._terminate_process(job.process)
-                return True
+            # Remove all pending jobs with this name
+            remaining = deque(j for j in self._pending if j.name != name)
+            if len(remaining) != len(self._pending):
+                self.logger.debug("Removed queued job(s) '%s'", name)
+                self._pending = remaining
+                found = True
 
-        self.logger.debug("Kill failed to find job '%s'", name)
-        return False
+            # Kill all running jobs with this name (there may be more than one,
+            # since names are not unique; _running is keyed by job_id).
+            for job in list(self._running.values()):
+                if job.name == name and job.process:
+                    self.logger.debug("Killing running job '%s' (pid=%d)", name, job.process.pid)
+                    job.kill_event.set()
+                    self._terminate_process(job.process)
+                    found = True
+
+        if not found:
+            self.logger.debug("Kill failed to find job '%s'", name)
+        return found
 
     def kill_all(self):
         """Kill all queued and running jobs."""
@@ -233,7 +237,7 @@ class JobQueue:
         """Submit a job to the executor."""
         with self._lock:
             job.state = _JobState.RUNNING
-            self._running[job.name] = job
+            self._running[job.job_id] = job
         job.future = self._executor.submit(self._run_job, job)
 
     def _run_job(self, job: _Job):
@@ -307,7 +311,7 @@ class JobQueue:
         finally:
             # Clean up: remove from running, reap process
             with self._lock:
-                self._running.pop(job.name, None)
+                self._running.pop(job.job_id, None)
             if job.process:
                 try:
                     job.process.wait(timeout=5)

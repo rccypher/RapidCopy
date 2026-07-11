@@ -146,3 +146,23 @@ class TestJobQueue(unittest.TestCase):
         dir_status = next(s for s in statuses if s.name == "dir1")
         self.assertEqual(file_status.type, JobStatus.Type.PGET)
         self.assertEqual(dir_status.type, JobStatus.Type.MIRROR)
+
+    def test_same_name_jobs_both_tracked_and_killable(self):
+        """Regression: two running jobs with the SAME name must both be tracked
+        (keyed by job_id, not name) so one's completion can't evict the other,
+        and kill_job must terminate both."""
+        env = os.environ.copy()
+        self.queue.enqueue("dup", False, ["sleep", "30"], env)
+        self.queue.enqueue("dup", False, ["sleep", "30"], env)
+        time.sleep(0.5)
+
+        statuses = self.queue.get_statuses()
+        running = [s for s in statuses if s.name == "dup" and s.state == JobStatus.State.RUNNING]
+        self.assertEqual(len(running), 2, "both same-name jobs should be tracked as running")
+
+        result = self.queue.kill_job("dup")
+        self.assertTrue(result)
+        time.sleep(1)
+
+        statuses = self.queue.get_statuses()
+        self.assertNotIn("dup", {s.name for s in statuses})

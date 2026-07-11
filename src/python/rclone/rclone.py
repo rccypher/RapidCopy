@@ -1,9 +1,7 @@
 # Rclone transfer backend: replaces the lftp backend with rclone subprocess management.
 
 import logging
-import math
 import os
-import shlex
 import shutil
 import subprocess
 import threading
@@ -69,10 +67,6 @@ class Rclone(TransferBackend):
 
         # Job queue
         self.__job_queue = JobQueue(max_parallel_jobs=self.__num_parallel_jobs)
-
-        # Sshcp instance for pget_range (lazy-initialized)
-        self.__sshcp = None
-        self.__sshcp_lock = threading.Lock()
 
     def set_base_logger(self, base_logger: logging.Logger):
         self.logger = base_logger.getChild("Rclone")
@@ -331,63 +325,46 @@ class Rclone(TransferBackend):
         Background thread: download byte range via SSH + dd, write to local file.
         """
         size = end_offset - offset
-        block_size = 4096
-        skip_blocks = offset // block_size
-        # We may need to read a few extra bytes if offset isn't block-aligned
-        offset_remainder = offset % block_size
-        count_bytes = size + offset_remainder
 
         try:
-            # Build SSH command to read byte range from remote
-            dd_cmd = (
-                f"dd if={shlex.quote(remote_path)} "
-                f"bs={block_size} "
-                f"skip={skip_blocks} "
-                f"count={math.ceil(count_bytes / block_size)} "
-                f"2>/dev/null"
-            )
-
-            # Use subprocess directly for SSH (supports both key and password auth)
-            ssh_args = [
-                "ssh",
-                "-p", str(self.__port),
-                "-o", "StrictHostKeyChecking=no",
-                "-o", "UserKnownHostsFile=/dev/null",
-                "-o", "LogLevel=error",
+            # Fetch the exact byte range via `rclone cat --offset --count`.
+            # This reuses the working SFTP backend + auth (key file or
+            # RCLONE_SFTP_PASS) for BOTH auth types and returns raw stdout bytes.
+            # It replaces the old SSH+dd path, whose password-auth branch routed
+            # binary data through a pexpect pty (CRLF translation + whitespace
+            # strip) and silently corrupted the re-downloaded bytes.
+            remote_spec = f":sftp,host={self.__address},port={self.__port},user={self.__user}:"
+            cmd = [
+                "rclone", "cat",
+                f"{remote_spec}{remote_path}",
+                "--offset", str(offset),
+                "--count", str(size),
+                "--config", "/dev/null",
             ]
+            env = os.environ.copy()
             if self.__password is None:
-                ssh_args += ["-o", "PasswordAuthentication=no"]
-
-            ssh_args += [f"{self.__user}@{self.__address}", dd_cmd]
+                cmd += ["--sftp-key-file", os.path.expanduser("~/.ssh/id_rsa")]
+            elif self.__obscured_password:
+                env["RCLONE_SFTP_PASS"] = self.__obscured_password
 
             self.logger.debug(
                 "pget_range: fetching bytes %d-%d from %s", offset, end_offset, remote_path
             )
 
-            if self.__password is not None:
-                # Password auth: use Sshcp which handles pexpect interaction
-                sshcp = self._get_sshcp()
-                data = sshcp.shell(dd_cmd)
-            else:
-                # Key auth: use subprocess directly
-                result = subprocess.run(
-                    ssh_args, capture_output=True, timeout=300
-                )
-                if result.returncode != 0:
-                    stderr = result.stderr.decode("utf-8", "replace").strip()
-                    raise RcloneError(f"SSH dd failed: {stderr}")
-                data = result.stdout
-
-            # Trim to exact byte range (if offset wasn't block-aligned)
-            if offset_remainder > 0:
-                data = data[offset_remainder:]
-            data = data[:size]
+            result = subprocess.run(cmd, capture_output=True, timeout=300, env=env)
+            if result.returncode != 0:
+                stderr = result.stderr.decode("utf-8", "replace").strip()
+                raise RcloneError(f"rclone cat failed: {stderr}")
+            data = result.stdout
 
             if len(data) != size:
                 self.logger.warning(
                     "pget_range: expected %d bytes, got %d for %s at offset %d",
                     size, len(data), remote_path, offset,
                 )
+            # Never write past the chunk's byte range: an over-read would clobber
+            # the following (possibly already-VALID) chunk's bytes on disk.
+            data = data[:size]
 
             # Write to local file at the correct offset
             with open(local_path, "r+b") as f:
@@ -403,21 +380,6 @@ class Rclone(TransferBackend):
             self.logger.error(error_msg)
             with self.__job_queue._lock:
                 self.__job_queue._errors.append(error_msg)
-
-    def _get_sshcp(self):
-        """Lazy-initialize and return an Sshcp instance for pget_range."""
-        with self.__sshcp_lock:
-            if self.__sshcp is None:
-                from ssh import Sshcp
-
-                self.__sshcp = Sshcp(
-                    host=self.__address,
-                    port=self.__port,
-                    user=self.__user,
-                    password=self.__password,
-                )
-                self.__sshcp.set_base_logger(self.logger)
-            return self.__sshcp
 
     @staticmethod
     def _obscure_password(password: str) -> str:

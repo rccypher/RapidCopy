@@ -86,19 +86,30 @@ RUN chmod a+x /usr/local/sbin/scp
 
 
 # Create non-root user and directories under that user
+# (kept in sync with the root Dockerfile: media group + /mounts + /logs)
 RUN groupadd -g 1000 rapidcopy && \
-    useradd -r -m -u 1000 -g rapidcopy rapidcopy
+    groupadd -g 1002 media && \
+    useradd -r -m -u 1000 -g rapidcopy -G media rapidcopy
 RUN mkdir /config && \
     mkdir /downloads && \
     mkdir /downloads/incomplete && \
+    mkdir /mounts && \
+    mkdir /logs && \
     chown rapidcopy:rapidcopy /config && \
-    chown -R rapidcopy:rapidcopy /downloads
+    chown -R rapidcopy:rapidcopy /downloads && \
+    chown rapidcopy:rapidcopy /mounts && \
+    chown rapidcopy:rapidcopy /logs
 
 # Switch to non-root user
 USER rapidcopy
 
 # First time config setup and replacement
 RUN /scripts/setup_default_config.sh
+
+# Liveness probe (see root Dockerfile): report unhealthy if the web server
+# deadlocks so the process staying up doesn't hide an unresponsive app.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8800/', timeout=5)" || exit 1
 
 # Must run app inside shell
 # Otherwise the container crashes as soon as a child process exits
@@ -107,7 +118,8 @@ CMD [ \
     "/app/python/rapidcopy.py", \
     "-c", "/config", \
     "--html", "/app/html", \
-    "--scanfs", "/app/scanfs" \
+    "--scanfs", "/app/scanfs", \
+    "--logdir", "/logs" \
 ]
 
 EXPOSE 8800

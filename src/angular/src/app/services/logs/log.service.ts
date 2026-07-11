@@ -9,7 +9,9 @@ import {LogRecord} from "./log-record";
 @Injectable()
 export class LogService extends BaseStreamService {
 
-    private _logs: ReplaySubject<LogRecord> = new ReplaySubject();
+    // Cap the replay buffer: an unbounded ReplaySubject would retain every log
+    // record for the whole session and replay all of them to each new subscriber.
+    private _logs: ReplaySubject<LogRecord> = new ReplaySubject(500);
 
     constructor() {
         super();

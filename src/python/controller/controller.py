@@ -502,7 +502,7 @@ class Controller:
             self.__model_builder.set_extract_statuses(latest_extract_statuses.statuses)
         if latest_extracted_results:
             for result in latest_extracted_results:
-                self.__persist.extracted_file_names.add(result.name)
+                self.__persist.add_extracted_file(result.name)
             self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
         # Build the new model, if needed
@@ -608,7 +608,7 @@ class Controller:
                         pass
                 if remove_extracted_file_names:
                     self.logger.info("Removing from extracted list: {}".format(remove_extracted_file_names))
-                    self.__persist.extracted_file_names.difference_update(remove_extracted_file_names)
+                    self.__persist.discard_extracted_files(remove_extracted_file_names)
                     self.__model_builder.set_extracted_files(self.__persist.extracted_file_names)
 
                 # Age off DELETED files after a delay.
@@ -941,6 +941,11 @@ class Controller:
                     self.logger.info(
                         "Validation completed for '{}': {}".format(file_name, "VALID" if result.is_valid else "CORRUPT")
                     )
+
+                    # Validation for this file is done (valid, corrupt, or abandoned by
+                    # the stall watchdog) — drop any lingering chunk re-download tracking
+                    # so a stale entry can't later fire resume_chunk() on a fresh run.
+                    self.__pending_chunk_redownloads.pop(result.file_path, None)
 
                     if file_name in self.__model.get_file_names():
                         file = self.__model.get_file(file_name)

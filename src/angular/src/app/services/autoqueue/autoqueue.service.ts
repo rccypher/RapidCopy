@@ -98,11 +98,15 @@ export class AutoQueueService extends BaseWebService {
             obs.subscribe({
                 next: reaction => {
                     if (reaction.success) {
-                        // Update our copy and notify clients
+                        // Update our copy and notify clients. Re-derive the index from the
+                        // CURRENT list (not the snapshot captured before the async call), so a
+                        // concurrent add/remove can't make us delete the wrong pattern.
                         const patterns = this._patterns.getValue();
-                        const finalIndex = currentPatterns.findIndex(pat => pat.pattern === pattern);
-                        const newPatterns = patterns.remove(finalIndex);
-                        this._patterns.next(newPatterns);
+                        const finalIndex = patterns.findIndex(pat => pat.pattern === pattern);
+                        if (finalIndex >= 0) {
+                            const newPatterns = patterns.remove(finalIndex);
+                            this._patterns.next(newPatterns);
+                        }
                     }
                 }
             });

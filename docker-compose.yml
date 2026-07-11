@@ -4,6 +4,12 @@ services:
     image: rapidcopy:latest
     container_name: rapidcopy
     restart: unless-stopped
+    # Bound memory so a runaway/stuck transfer or extraction can't starve the host.
+    # (Honored by `docker compose` v2; for `docker run` deploys pass --memory.)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     ports:
       - "8800:8800"
     volumes:
