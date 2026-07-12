@@ -1,6 +1,7 @@
 # Copyright 2017, Inderpreet Singh, All rights reserved.
 
 import logging
+import shlex
 import time
 
 import pexpect
@@ -42,9 +43,11 @@ class Sshcp:
         # Common flags
         command_args += [
             "-o",
-            "StrictHostKeyChecking=no",  # ignore host key changes
-            "-o",
-            "UserKnownHostsFile=/dev/null",  # ignore known hosts file
+            # accept-new: trust the seedbox host key on first contact, but REFUSE to
+            # connect if a previously-seen key changes — this detects an active MITM.
+            # (Was "no", which blindly accepted any key, including a changed one, and
+            # UserKnownHostsFile=/dev/null, which discarded all host-key memory.)
+            "StrictHostKeyChecking=accept-new",
             "-o",
             "LogLevel=error",  # suppress warnings
         ]
@@ -151,16 +154,13 @@ class Sshcp:
         if not command:
             raise ValueError("Command cannot be empty")
 
-        # escape the command
-        if "'" in command and '"' in command:
-            # I don't know how to handle this yet...
-            raise ValueError("Command cannot contain both single and double quotes")
-        elif '"' in command:
-            # double quote in command, cover with single quotes
-            command = "'{}'".format(command)
-        else:
-            # no double quote in command, cover with double quotes
-            command = '"{}"'.format(command)
+        # Quote the whole remote command as a single POSIX shell token so pexpect's
+        # local shlex parse hands it to ssh as one argument intact (the remote shell
+        # then parses it). shlex.quote handles ANY characters — including a command
+        # that already contains both ' and " (e.g. a filename with an apostrophe that
+        # an upstream shlex.quote turned into ...'"'"'...), which the old single/double
+        # quote wrapping rejected outright, breaking scan/delete for such names.
+        command = shlex.quote(command)
 
         flags = [
             "-p",

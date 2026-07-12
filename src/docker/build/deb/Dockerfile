@@ -63,7 +63,7 @@ RUN	pyinstaller /python/scan_fs.py \
 
 # Creates environment for angular
 # Note: Using Node 18 for Angular 18 compatibility
-FROM node:18-slim AS rapidcopy_build_angular_env
+FROM node:22-slim AS rapidcopy_build_angular_env
 COPY src/angular/package*.json /app/
 WORKDIR /app
 RUN npm install

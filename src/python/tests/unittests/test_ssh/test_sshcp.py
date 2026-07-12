@@ -159,10 +159,14 @@ class TestSshcp(unittest.TestCase):
         out_str = out.decode().strip()
         self.assertEqual(_dir, out_str)
 
-        # single and double quotes - error out
-        _dir = os.path.join(self.remote_dir, "a b")
-        with self.assertRaises(ValueError):
-            sshcp.shell("mkdir \"{}\" && cd '{}' && pwd".format(_dir, _dir))
+        # A name containing an apostrophe: shlex.quote (as delete/scan use upstream)
+        # emits BOTH quote types, which the old wrapping rejected with ValueError.
+        # It must now round-trip and execute correctly.
+        import shlex as _shlex
+        _dir = os.path.join(self.remote_dir, "a'b")
+        q = _shlex.quote(_dir)
+        out = sshcp.shell("mkdir {} && cd {} && pwd".format(q, q))
+        self.assertEqual(_dir, out.decode().strip())
 
     @timeout_decorator.timeout(5)
     def test_shell_error_bad_password(self):

@@ -2,6 +2,9 @@
 
 from typing import Type, Callable, Optional
 from abc import ABC, abstractmethod
+import hmac
+import os
+import secrets
 import time
 
 import bottle
@@ -74,7 +77,26 @@ class WebApp(bottle.Bottle):
         self.__status = context.status
         self.logger.info("Html path set to: {}".format(self.__html_path))
         self._stop = False
-        self.__api_key: str = getattr(context.config.web, 'api_key', '') or ''
+        # NOTE: bottle.Bottle blocks re-assigning an existing instance attribute
+        # ("Attribute ... already defined"), so compute the key in a local and
+        # assign self.__api_key exactly once.
+        api_key: str = getattr(context.config.web, 'api_key', '') or ''
+        if not api_key:
+            # First startup with no key: generate one, persist it, and log it once
+            # so the operator can retrieve it from `docker logs`. All /server/*
+            # requests then require it (the web UI gets it via index.html injection).
+            api_key = secrets.token_urlsafe(32)
+            context.config.web.api_key = api_key
+            try:
+                config_path = getattr(context.args, "config_path", None)
+                if config_path:
+                    context.config.to_file(config_path)
+            except Exception:
+                self.logger.warning("Could not persist generated API key to config file")
+            # Don't log the key value itself (logs are persisted + served over the
+            # log stream). The operator retrieves it from the [Web] api_key config entry.
+            self.logger.info("Generated a new web API key; see [Web] api_key in the config file.")
+        self.__api_key: str = api_key
         self.__streaming_handlers: list[tuple[Type[IStreamHandler], dict]] = []
 
     def add_default_routes(self):
@@ -83,6 +105,9 @@ class WebApp(bottle.Bottle):
         been added.
         :return:
         """
+        # Enforce API-key auth on all /server/* routes (see __check_auth)
+        self.add_hook("before_request", self.__check_auth)
+
         # Streaming route
         self.get("/server/stream")(self.__web_stream)
 
@@ -116,12 +141,38 @@ class WebApp(bottle.Bottle):
         """
         object.__setattr__(self, '_stop', True)
 
+    def __check_auth(self):
+        """
+        before_request hook: require a valid API key on every /server/* request.
+        Static assets and the SPA index are served without a key (the browser must
+        load the page to obtain the key that the UI then sends back).
+        """
+        path = bottle.request.path or ""
+        if not path.startswith("/server/"):
+            return
+        # EventSource cannot set headers, so the SSE stream passes the key as a
+        # query param; all other endpoints use the X-Api-Key header.
+        provided = bottle.request.get_header("X-Api-Key") or bottle.request.query.get("apikey") or ""
+        if not (provided and hmac.compare_digest(str(provided), self.__api_key)):
+            raise bottle.HTTPError(401, "Unauthorized")
+
     def __index(self):
         """
-        Serves the index.html static file
-        :return:
+        Serves index.html with the API key injected so the trusted-LAN UI can
+        authenticate its own API calls. Falls back to plain static serving if the
+        file can't be read/templated.
         """
-        return self.__static("index.html")
+        index_path = os.path.join(self.__html_path, "index.html")
+        try:
+            with open(index_path, "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            # Direct static serve (NOT self.__static, which would delegate back here
+            # for index.html and recurse).
+            return static_file("index.html", root=self.__html_path)
+        html = html.replace("__RAPIDCOPY_API_KEY__", self.__api_key)
+        bottle.response.content_type = "text/html; charset=utf-8"
+        return html
 
     # noinspection PyMethodMayBeStatic
     def __static(self, file_path: str):
@@ -130,6 +181,10 @@ class WebApp(bottle.Bottle):
         :param file_path:
         :return:
         """
+        # Serve index.html through __index so the API key is injected; a raw static
+        # serve would return the page with the un-replaced placeholder.
+        if file_path in ("", "index.html"):
+            return self.__index()
         return static_file(file_path, root=self.__html_path)
 
     def __web_stream(self):

@@ -137,6 +137,15 @@ class ExtractDispatch:
                         and curr_file.local_size > 0
                         and Extract.is_archive(archive_full_path)
                     ):
+                        # Guard against path traversal from an untrusted remote
+                        # filename (e.g. "../../etc"): the archive and its output
+                        # directory must stay within their configured roots.
+                        if not ExtractDispatch.__is_within(self.__local_path, archive_full_path) or \
+                                not ExtractDispatch.__is_within(self.__out_dir_path, out_dir_path):
+                            self.logger.warning(
+                                "Skipping archive with out-of-bounds path: %s", curr_file.full_path
+                            )
+                            continue
                         task.add_archive(archive_path=archive_full_path, out_dir_path=out_dir_path)
 
             # Coalesce extractions
@@ -152,10 +161,23 @@ class ExtractDispatch:
             if model_file.local_size in (None, 0):
                 raise ExtractDispatchError("File does not exist locally: {}".format(model_file.name))
             archive_full_path = os.path.join(self.__local_path, model_file.name)
+            if not ExtractDispatch.__is_within(self.__local_path, archive_full_path):
+                raise ExtractDispatchError("File path is out of bounds: {}".format(model_file.name))
             if not Extract.is_archive(archive_full_path):
                 raise ExtractDispatchError("File is not an archive: {}".format(model_file.name))
             task.add_archive(archive_path=archive_full_path, out_dir_path=self.__out_dir_path)
             self.__task_queue.put(task)
+
+    @staticmethod
+    def __is_within(base: str, target: str) -> bool:
+        """True if `target` resolves to a path inside `base` (blocks ../ traversal).
+
+        Uses realpath so symlinked components can't point the archive/output path
+        outside the root either.
+        """
+        base_abs = os.path.realpath(base)
+        target_abs = os.path.realpath(target)
+        return target_abs == base_abs or target_abs.startswith(base_abs + os.sep)
 
     def _worker_run(self):
         self.logger.debug("Started worker thread")

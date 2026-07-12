@@ -1,4 +1,16 @@
 export class Localization {
+    // Escape untrusted values before embedding them in notification HTML that is
+    // rendered via [innerHTML]. The surrounding tags (<br/>, <a>) are intentional;
+    // only interpolated server-provided data must be escaped to prevent XSS.
+    static escapeHtml(s: string): string {
+        return String(s == null ? "" : s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
     static Error = class {
         public static readonly SERVER_DISCONNECTED = "Lost connection to the RapidCopy service.";
     };
@@ -14,11 +26,11 @@ export class Localization {
         public static readonly STATUS_REMOTE_SCAN_WAITING = "Waiting for remote server to respond...";
         public static readonly STATUS_REMOTE_SERVER_ERROR = (error: string) =>
             `Lost connection to remote server. Retrying automatically. \
-             ${error ? "<br />" + error : ""}`
+             ${error ? "<br />" + Localization.escapeHtml(error) : ""}`
 
         public static readonly NEW_VERSION_AVAILABLE = (url: string) =>
             `A new version of RapidCopy is available! \
-             Click <a href="${url}" target="blank">here</a> to grab the latest version.`
+             Click <a href="${Localization.escapeHtml(url)}" target="blank">here</a> to grab the latest version.`
     };
 
     static Modal = class {

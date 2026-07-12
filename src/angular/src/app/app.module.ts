@@ -1,6 +1,7 @@
 import {BrowserModule} from "@angular/platform-browser";
 import {APP_INITIALIZER, NgModule} from "@angular/core";
-import {provideHttpClient, withInterceptorsFromDi} from "@angular/common/http";
+import {HTTP_INTERCEPTORS, provideHttpClient, withInterceptorsFromDi} from "@angular/common/http";
+import {ApiKeyInterceptor} from "./services/utils/api-key.interceptor";
 import {FormsModule} from "@angular/forms";
 import {RouteReuseStrategy, RouterModule} from "@angular/router";
 
@@ -81,6 +82,8 @@ import {NetworkMountService} from "./services/settings/network-mount.service";
     ],
     providers: [
         provideHttpClient(withInterceptorsFromDi()),
+        // Attach the X-Api-Key header to backend requests (see ApiKeyInterceptor)
+        {provide: HTTP_INTERCEPTORS, useClass: ApiKeyInterceptor, multi: true},
         {provide: RouteReuseStrategy, useClass: CachedReuseStrategy},
         LoggerService,
         NotificationService,

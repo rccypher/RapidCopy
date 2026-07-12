@@ -11,6 +11,7 @@ This module provides:
 """
 
 import os
+import tempfile
 import subprocess
 import socket
 import logging
@@ -301,15 +302,23 @@ def mount_cifs(
     except NetworkMountError as e:
         return MountOperationResult(MountResult.ERROR, str(e))
 
-    # Build mount options
+    # Build mount options. Credentials are written to a private 0600 temp file and
+    # passed via `-o credentials=<file>` rather than `-o password=...`, which would
+    # expose the password in `ps` / /proc/<pid>/cmdline to any local user.
     options = []
+    creds_path = None
 
     if mount.username:
-        options.append(f"username={mount.username}")
+        creds_lines = [f"username={mount.username}"]
         if decrypted_password:
-            options.append(f"password={decrypted_password}")
+            creds_lines.append(f"password={decrypted_password}")
         if mount.domain:
-            options.append(f"domain={mount.domain}")
+            creds_lines.append(f"domain={mount.domain}")
+        # mkstemp creates the file with 0600 permissions by default.
+        fd, creds_path = tempfile.mkstemp(prefix=".cifs-creds-")
+        with os.fdopen(fd, "w") as f:
+            f.write("\n".join(creds_lines) + "\n")
+        options.append(f"credentials={creds_path}")
     else:
         options.append("guest")
 
@@ -324,12 +333,8 @@ def mount_cifs(
     cmd.extend([source, mount_point])
 
     if logger:
-        # Log without password
-        safe_cmd = cmd.copy()
-        for i, arg in enumerate(safe_cmd):
-            if "password=" in arg:
-                safe_cmd[i] = arg.split("password=")[0] + "password=***"
-        logger.debug(f"Mounting CIFS: {' '.join(safe_cmd)}")
+        # No secret on the command line anymore (credentials are in the temp file).
+        logger.debug(f"Mounting CIFS: {' '.join(cmd)}")
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -349,6 +354,13 @@ def mount_cifs(
         return MountOperationResult(MountResult.TIMEOUT, "Mount operation timed out")
     except Exception as e:
         return MountOperationResult(MountResult.ERROR, str(e))
+    finally:
+        # The kernel has read the credentials by the time mount returns; remove the file.
+        if creds_path:
+            try:
+                os.remove(creds_path)
+            except OSError:
+                pass
 
 
 def mount_local(mount: NetworkMount, logger: Optional[logging.Logger] = None) -> MountOperationResult:

@@ -23,9 +23,17 @@ class ConfigHandler(IHandler):
         out_json = SerializeConfig.config(self.__config)
         return HTTPResponse(body=out_json)
 
+    # Keys that must not be settable through the generic config endpoint. The API
+    # key is managed server-side (generated/persisted at startup); allowing it to be
+    # set or cleared here would let a client break or hijack authentication.
+    __UNSETTABLE_KEYS = frozenset({"api_key", "apikey"})
+
     def __handle_set_config(self, section: str, key: str, value: str):
         # value is double encoded
         value = unquote(value)
+
+        if key.lower() in ConfigHandler.__UNSETTABLE_KEYS:
+            return HTTPResponse(body="'{}' cannot be set via this endpoint".format(key), status=403)
 
         if not self.__config.has_section(section):
             return HTTPResponse(body="There is no section '{}' in config".format(section), status=400)

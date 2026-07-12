@@ -4,7 +4,7 @@
 # ============================================
 # Stage 1: Build Angular frontend
 # ============================================
-FROM node:18-slim AS angular-builder
+FROM node:22-slim AS angular-builder
 
 WORKDIR /app
 COPY src/angular/package*.json ./
@@ -19,7 +19,7 @@ RUN npx ng build --configuration production --output-path /build/html
 # ============================================
 # Stage 2: Build scanfs binary
 # ============================================
-FROM python:3.11-slim-bullseye AS scanfs-builder
+FROM python:3.11-slim AS scanfs-builder
 
 RUN apt-get update && apt-get install -y \
     binutils \
@@ -85,9 +85,13 @@ RUN if [ -f /etc/apt/sources.list ]; then \
 
 # Install rclone (pinned version for reproducibility)
 ARG RCLONE_VERSION=1.68.2
-RUN curl -O https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
+# Verify the published SHA256 before installing so a compromised CDN/MITM at build
+# time can't slip in a malicious rclone binary.
+RUN curl -fsSL -O https://downloads.rclone.org/v${RCLONE_VERSION}/rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
+    curl -fsSL -O https://downloads.rclone.org/v${RCLONE_VERSION}/SHA256SUMS && \
+    grep " rclone-v${RCLONE_VERSION}-linux-amd64.deb$" SHA256SUMS | sha256sum -c - && \
     dpkg -i rclone-v${RCLONE_VERSION}-linux-amd64.deb && \
-    rm rclone-v${RCLONE_VERSION}-linux-amd64.deb
+    rm rclone-v${RCLONE_VERSION}-linux-amd64.deb SHA256SUMS
 
 # Install Poetry
 RUN pip install --no-cache-dir pipx && \

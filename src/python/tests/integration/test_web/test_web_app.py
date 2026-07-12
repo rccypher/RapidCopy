@@ -37,8 +37,10 @@ class BaseTestWebApp(unittest.TestCase):
         # Real status
         self.context.status = Status()
 
-        # Real config
+        # Real config with a known API key so auth is deterministic in tests
         self.context.config = Config()
+        self.api_key = "test-api-key"
+        self.context.config.web.api_key = self.api_key
 
         # Real auto-queue persist
         self.auto_queue_persist = AutoQueuePersist()
@@ -70,9 +72,46 @@ class BaseTestWebApp(unittest.TestCase):
                                              self.controller,
                                              self.auto_queue_persist)
         self.web_app = self.web_app_builder.build()
-        self.test_app = TestApp(self.web_app)
+        # All requests carry the API key header so /server/* auth passes.
+        self.test_app = TestApp(self.web_app, extra_environ={"HTTP_X_API_KEY": self.api_key})
 
 
 class TestWebApp(BaseTestWebApp):
     def test_process(self):
         self.web_app.process()
+
+
+class TestWebAppAuth(BaseTestWebApp):
+    """The API-key auth gate on /server/* routes."""
+
+    def test_missing_key_is_rejected(self):
+        # A fresh client with no key header must be rejected on /server/* routes.
+        no_key = TestApp(self.web_app)
+        resp = no_key.get("/server/config/get", expect_errors=True)
+        self.assertEqual(401, resp.status_int)
+
+    def test_wrong_key_is_rejected(self):
+        bad = TestApp(self.web_app, extra_environ={"HTTP_X_API_KEY": "not-the-key"})
+        resp = bad.get("/server/config/get", expect_errors=True)
+        self.assertEqual(401, resp.status_int)
+
+    def test_correct_key_is_accepted(self):
+        resp = self.test_app.get("/server/config/get")
+        self.assertEqual(200, resp.status_int)
+
+    def test_key_accepted_as_query_param_for_stream(self):
+        # EventSource can't set headers, so the key may be supplied as ?apikey=
+        no_key = TestApp(self.web_app)
+        resp = no_key.get("/server/config/get?apikey=" + self.api_key)
+        self.assertEqual(200, resp.status_int)
+
+    def test_key_is_generated_when_absent(self):
+        # Regression: with no configured key the app must GENERATE one and still
+        # construct (bottle.Bottle blocks re-assigning an existing attribute, so a
+        # naive double-assignment crashed here). The generated key is then enforced.
+        self.context.config.web.api_key = None
+        builder = WebAppBuilder(self.context, self.controller, self.auto_queue_persist)
+        app = builder.build()  # must not raise
+        self.assertTrue(self.context.config.web.api_key)  # a key was generated
+        resp = TestApp(app).get("/server/config/get", expect_errors=True)
+        self.assertEqual(401, resp.status_int)  # enforcement is active

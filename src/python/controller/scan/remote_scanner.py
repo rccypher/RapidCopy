@@ -2,6 +2,7 @@
 
 import logging
 import json
+import shlex
 from typing import List
 import os
 from typing import Optional
@@ -67,7 +68,12 @@ class RemoteScanner(IScanner):
             self._install_scanfs()
 
         try:
-            out = self.__ssh.shell("'{}' '{}'".format(self.__remote_path_to_scan_script, self.__remote_path_to_scan))
+            out = self.__ssh.shell(
+                "{} {}".format(
+                    shlex.quote(self.__remote_path_to_scan_script),
+                    shlex.quote(self.__remote_path_to_scan),
+                )
+            )
         except SshcpError as e:
             self.logger.warning("Caught an SshcpError: {}".format(str(e)))
             recoverable = True
@@ -101,7 +107,9 @@ class RemoteScanner(IScanner):
             local_md5sum = hashlib.md5(f.read()).hexdigest()
         self.logger.debug("Local scanfs md5sum = {}".format(local_md5sum))
         try:
-            out = self.__ssh.shell("md5sum {} | awk '{{print $1}}' || echo".format(self.__remote_path_to_scan_script))
+            out = self.__ssh.shell(
+                "md5sum {} | awk '{{print $1}}' || echo".format(shlex.quote(self.__remote_path_to_scan_script))
+            )
             out = out.decode()
             if out == local_md5sum:
                 self.logger.info("Skipping remote scanfs installation: already installed")
@@ -135,16 +143,14 @@ class RemoteScanner(IScanner):
 
     def _parse_scan_output(self, out: bytes) -> List[SystemFile]:
         """
-        Parse scan output and convert to SystemFile objects.
+        Parse scan output (JSON) into SystemFile objects.
 
-        Supports both JSON (preferred) and pickle (legacy) formats for backward
-        compatibility with older scanfs binaries.
-
-        SECURITY NOTE: JSON is preferred over pickle to prevent Remote Code
-        Execution (RCE) attacks. Pickle can deserialize arbitrary Python objects,
-        which could allow an attacker who controls the remote server to execute
-        arbitrary code on the local machine. The pickle fallback is provided only
-        for backward compatibility with existing scanfs binaries.
+        SECURITY: Only JSON is accepted. The scan output comes from the remote
+        seedbox and is therefore untrusted. The previous pickle fallback was a
+        remote-code-execution vector — pickle.loads() on attacker-controlled
+        bytes (a compromised or malicious seedbox) executes arbitrary code on the
+        local machine during deserialization, before any type check runs. The
+        shipped scanfs binary emits JSON, so no fallback is needed.
 
         Expected JSON format:
         [
@@ -159,26 +165,11 @@ class RemoteScanner(IScanner):
             ...
         ]
         """
-        from datetime import datetime
-        import pickle
-
-        # Try JSON first (preferred format)
         try:
             data = json.loads(out.decode("utf-8"))
-            return self._parse_json_files(data)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            pass
-
-        # Fall back to pickle for legacy scanfs binaries
-        # SECURITY WARNING: pickle is unsafe with untrusted data
-        self.logger.warning("Using legacy pickle format for scan output - consider updating scanfs binary")
-        try:
-            files = pickle.loads(out)
-            if isinstance(files, list) and all(isinstance(f, SystemFile) for f in files):
-                return files
-            raise ValueError("Invalid pickle data: expected list of SystemFile objects")
-        except (pickle.UnpicklingError, ValueError, AttributeError, ModuleNotFoundError) as e:
-            raise json.JSONDecodeError(f"Failed to parse scan output as JSON or pickle: {e}", "", 0) from e
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise json.JSONDecodeError(f"Failed to parse scan output as JSON: {e}", "", 0) from e
+        return self._parse_json_files(data)
 
     def _parse_json_files(self, data: list) -> List[SystemFile]:
         """Parse JSON file data into SystemFile objects."""

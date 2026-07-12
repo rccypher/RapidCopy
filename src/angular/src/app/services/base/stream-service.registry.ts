@@ -5,6 +5,7 @@ import {ModelFileService} from "../files/model-file.service";
 import {ServerStatusService} from "../server/server-status.service";
 import {LoggerService} from "../utils/logger.service";
 import {ConnectedService} from "../utils/connected.service";
+import {ApiKeyInterceptor} from "../utils/api-key.interceptor";
 import {LogService} from "../logs/log.service";
 
 
@@ -90,7 +91,13 @@ export class StreamDispatchService {
             this._subscription = null;
         }
         const observable = new Observable(observer => {
-            const eventSource = EventSourceFactory.createEventSource(this.STREAM_URL);
+            // EventSource cannot set request headers, so the API key is passed as a
+            // query param (the backend accepts ?apikey= on the stream route).
+            const apiKey = ApiKeyInterceptor.getApiKey();
+            const url = apiKey
+                ? `${this.STREAM_URL}?apikey=${encodeURIComponent(apiKey)}`
+                : this.STREAM_URL;
+            const eventSource = EventSourceFactory.createEventSource(url);
             for (let eventName of Array.from(this._eventNameToServiceMap.keys())) {
                 eventSource.addEventListener(eventName, event => observer.next(
                     {
