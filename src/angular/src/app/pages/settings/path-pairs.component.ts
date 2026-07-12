@@ -49,7 +49,15 @@ export class PathPairsComponent implements OnInit, OnDestroy {
     }
 
     // Start creating a new path pair
+    // Collapsed by default so the section doesn't take up space unless being used.
+    collapsed = true;
+
+    toggleCollapsed(): void {
+        this.collapsed = !this.collapsed;
+    }
+
     startCreate(): void {
+        this.collapsed = false;
         this.isCreating = true;
         this.isEditing = false;
         this.editingPair = null;
@@ -58,6 +66,7 @@ export class PathPairsComponent implements OnInit, OnDestroy {
 
     // Start editing an existing path pair
     startEdit(pair: PathPair): void {
+        this.collapsed = false;
         this.isEditing = true;
         this.isCreating = false;
         this.editingPair = pair;

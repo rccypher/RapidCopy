@@ -1,14 +1,25 @@
 <div class="network-mounts-container">
     <div class="header">
-        <h4>Network Mounts</h4>
-        <p class="description">Configure NFS or SMB/CIFS network shares to mount in the container.</p>
-        <button class="btn btn-primary btn-sm add-btn" 
+        <h4 class="section-toggle"
+            role="button"
+            tabindex="0"
+            [attr.aria-expanded]="!collapsed"
+            (click)="toggleCollapsed()"
+            (keydown.enter)="toggleCollapsed()"
+            (keydown.space)="toggleCollapsed()">
+            <span class="collapse-chevron" [class.expanded]="!collapsed">&#9656;</span>
+            Network Mounts
+            <span class="section-count" *ngIf="mounts.length > 0">({{ mounts.length }})</span>
+        </h4>
+        <p class="description" *ngIf="!collapsed">Configure NFS or SMB/CIFS network shares to mount in the container.</p>
+        <button class="btn btn-primary btn-sm add-btn"
                 (click)="startCreate()" 
                 [disabled]="isCreating || isEditing">
             <span>+ Add Network Mount</span>
         </button>
     </div>
 
+  <div class="section-body" *ngIf="!collapsed">
     <!-- Create/Edit Form -->
     <div class="form-card" *ngIf="isCreating || isEditing">
         <h5>{{ isCreating ? 'New Network Mount' : 'Edit Network Mount' }}</h5>
@@ -203,6 +214,8 @@
             </div>
         </div>
     </div>
+
+  </div><!-- /section-body -->
 
     <!-- Empty State -->
     <ng-template #emptyState>

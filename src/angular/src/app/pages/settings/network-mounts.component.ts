@@ -59,7 +59,15 @@ export class NetworkMountsComponent implements OnInit, OnDestroy {
     }
 
     // Start creating a new mount
+    // Collapsed by default so the section doesn't take up space unless being used.
+    collapsed = true;
+
+    toggleCollapsed(): void {
+        this.collapsed = !this.collapsed;
+    }
+
     startCreate(): void {
+        this.collapsed = false;
         this.isCreating = true;
         this.isEditing = false;
         this.editingMount = null;
@@ -68,6 +76,7 @@ export class NetworkMountsComponent implements OnInit, OnDestroy {
 
     // Start editing an existing mount
     startEdit(mount: NetworkMount): void {
+        this.collapsed = false;
         this.isEditing = true;
         this.isCreating = false;
         this.editingMount = mount;
