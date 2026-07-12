@@ -284,6 +284,10 @@ class Controller:
             if validation_cfg.settle_delay_secs is not None
             else 5.0,
         )
+        # When the app runs its own chunked validation, skip rclone's redundant
+        # full-file --checksum pass; otherwise keep it so transfers still get a
+        # hash-based integrity check rather than size-only.
+        self.__transfer.use_transfer_checksum = not self.__validation_config.enabled
         self.__validation_process = ValidationProcess(
             config=self.__validation_config,
             ssh_host=self.__context.config.lftp.remote_address,

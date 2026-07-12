@@ -57,6 +57,9 @@ class Rclone(TransferBackend):
         self.__num_max_total_connections = 16
         self.__rate_limit: str = "0"
         self.__min_chunk_size: str = "0"
+        # Whether to pass rclone --checksum on transfers. Defaults True (safe);
+        # the controller disables it when the app's own chunked validation is on.
+        self.__use_transfer_checksum = True
         self.__use_temp_file = True  # Always use temp files to prevent page-cache corruption
         self.__temp_file_name = ""  # suffix pattern, e.g., "*.lftp"
 
@@ -129,6 +132,14 @@ class Rclone(TransferBackend):
         if value < 1:
             raise ValueError("Number of connections must be positive")
         self.__num_connections_per_root_file = value
+
+    @property
+    def use_transfer_checksum(self) -> bool:
+        return self.__use_transfer_checksum
+
+    @use_transfer_checksum.setter
+    def use_transfer_checksum(self, value: bool):
+        self.__use_transfer_checksum = bool(value)
 
     @property
     def num_connections_per_dir_file(self) -> int:
@@ -288,6 +299,15 @@ class Rclone(TransferBackend):
         # Suppress rclone config file save errors (we use inline backend, no config needed)
         cmd += ["--config", "/dev/null"]
 
+        # Throughput tuning (benchmarked Whatbox->home on a 4.9GB 1080p file):
+        # - multi-thread-cutoff: engage multi-threaded streaming for files >64MB
+        #   (default is 256MB, which excludes many episodes). Combined with the
+        #   per-file stream counts above this is the dominant lever (~3.8x).
+        # - buffer-size + use-mmap: small, ~free smoothing of throughput.
+        # (--sftp-concurrency and a fixed cipher were benchmarked and did NOT help.)
+        cmd += ["--multi-thread-cutoff", "64M"]
+        cmd += ["--buffer-size", "32M", "--use-mmap"]
+
         # Progress reporting
         cmd += ["--use-json-log", "--stats", "1s", "-v"]
 
@@ -298,8 +318,11 @@ class Rclone(TransferBackend):
         # Retry settings for resilience
         cmd += ["--retries", "3", "--low-level-retries", "10"]
 
-        # Checksum verification (rclone will use remote md5sum/sha1sum if available)
-        cmd += ["--checksum"]
+        # Transfer-time checksum. Skipped when the app runs its own (faster, chunked
+        # xxh128) validation, to avoid a redundant full-file remote hash pass on every
+        # file. Kept when app validation is off so integrity isn't only size-based.
+        if self.__use_transfer_checksum:
+            cmd += ["--checksum"]
 
         # SSH key auth
         if self.__password is None:

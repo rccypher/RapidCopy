@@ -112,6 +112,26 @@ class TestRclone(unittest.TestCase):
         self.assertNotIn("RCLONE_SFTP_PASS", env)
         rclone.exit()
 
+    def test_build_command_perf_flags(self):
+        # PR3 throughput tuning is always applied.
+        cmd, _ = self.rclone._build_command("movie.mkv", False, "/remote", "/local")
+        self.assertIn("--multi-thread-cutoff", cmd)
+        self.assertEqual(cmd[cmd.index("--multi-thread-cutoff") + 1], "64M")
+        self.assertIn("--buffer-size", cmd)
+        self.assertEqual(cmd[cmd.index("--buffer-size") + 1], "32M")
+        self.assertIn("--use-mmap", cmd)
+        self.assertIn("--multi-thread-streams", cmd)
+
+    def test_checksum_conditional_on_app_validation(self):
+        # When the app runs its own validation, rclone's redundant --checksum is dropped.
+        self.rclone.use_transfer_checksum = False
+        cmd, _ = self.rclone._build_command("movie.mkv", False, "/remote", "/local")
+        self.assertNotIn("--checksum", cmd)
+        # When app validation is off, keep --checksum for a hash-based integrity check.
+        self.rclone.use_transfer_checksum = True
+        cmd, _ = self.rclone._build_command("movie.mkv", False, "/remote", "/local")
+        self.assertIn("--checksum", cmd)
+
     def test_status_empty(self):
         statuses = self.rclone.status()
         self.assertEqual(len(statuses), 0)

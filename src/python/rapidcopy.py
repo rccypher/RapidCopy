@@ -338,10 +338,14 @@ class Rapidcopy:
         config.lftp.use_ssh_key = False
         config.lftp.num_max_parallel_downloads = 8
         config.lftp.num_max_parallel_downloads_per_path = 4
+        # Multi-threaded SFTP streaming is the dominant throughput lever for large
+        # (1080p+) files: benchmarking Whatbox->home showed 1 stream ~13 MB/s vs
+        # 8 streams ~49 MB/s (3.8x). 8 streams x 4 parallel files caps at the 32
+        # total-connection ceiling.
         config.lftp.num_max_parallel_files_per_download = 4
-        config.lftp.num_max_connections_per_root_file = 4
-        config.lftp.num_max_connections_per_dir_file = 4
-        config.lftp.num_max_total_connections = 16
+        config.lftp.num_max_connections_per_root_file = 8
+        config.lftp.num_max_connections_per_dir_file = 8
+        config.lftp.num_max_total_connections = 32
         config.lftp.use_temp_file = False
         config.lftp.rate_limit = "0"  # No limit by default
         config.lftp.staging_path = ""  # Empty = auto-derive as local_path/incomplete
