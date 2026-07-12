@@ -126,6 +126,9 @@ export module ViewFile {
         EXTRACTED       = <any> "extracted",
         VALIDATING      = <any> "validating",
         VALIDATED       = <any> "validated",
-        CORRUPT         = <any> "corrupt"
+        CORRUPT         = <any> "corrupt",
+        // Filter-only pseudo-status: no file ever HAS this status; it selects the
+        // set of in-progress files (see StatusFilterCriteria).
+        ACTIVE          = <any> "active"
     }
 }

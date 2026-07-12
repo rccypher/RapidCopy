@@ -54,6 +54,11 @@
                     <div class="icon"><img src="assets/icons/stopped.svg" class="stopped" /></div>
                     <span class="text">Stopped</span>
                 </div>
+                <div class="sel-item"
+                     *ngIf="(options | async)?.selectedStatusFilter == ViewFile.Status.ACTIVE">
+                    <div class="icon"><img src="assets/icons/downloading.svg" class="downloading" /></div>
+                    <span class="text">Active</span>
+                </div>
             </div>
         </button>
         <div class="dropdown-menu" ngbDropdownMenu>
@@ -62,6 +67,12 @@
                  (click)="onFilterByStatus(null)">
                 <div class="icon"></div>
                 <span class="text">All</span>
+            </div>
+            <div class="dropdown-item" ngbDropdownItem
+                 [class.active]="(options | async)?.selectedStatusFilter == ViewFile.Status.ACTIVE"
+                 (click)="onFilterByStatus(ViewFile.Status.ACTIVE)">
+                <div class="icon"><img src="assets/icons/downloading.svg" class="downloading" /></div>
+                <span class="text">Active Only</span>
             </div>
             <div class="dropdown-item" ngbDropdownItem
                  [class.active]="(options | async)?.selectedStatusFilter == ViewFile.Status.EXTRACTED"

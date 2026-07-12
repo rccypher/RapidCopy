@@ -1,19 +1,12 @@
 @import '../../common/common';
 
-$card-bg: #fff;
-$card-bg-dark: #2d2d2d;
-$border-color: #e0e0e0;
-$border-color-dark: #444;
-$text-color: #333;
-$text-color-muted: #777;
-$progress-bg: #e9ecef;
-$progress-bar-color: $primary-color;
-$active-border-color: $primary-color;
+// Colors come from the shared CSS custom properties (which switch with the theme),
+// so no local SCSS color variables are defined here.
 
 .path-pair-stats-container {
     margin: 0 15px 15px 15px;
-    background-color: $card-bg;
-    border: 1px solid $border-color;
+    background-color: var(--color-bg-card);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     overflow: hidden;
 
@@ -23,7 +16,7 @@ $active-border-color: $primary-color;
         align-items: center;
         padding: 12px 15px;
         background-color: rgba(0, 0, 0, 0.02);
-        border-bottom: 1px solid $border-color;
+        border-bottom: 1px solid var(--color-border);
         cursor: pointer;
         user-select: none;
 
@@ -37,7 +30,7 @@ $active-border-color: $primary-color;
             gap: 8px;
             font-weight: 500;
             font-size: 0.95em;
-            color: $text-color;
+            color: var(--color-text-primary);
 
             .icon {
                 width: 18px;
@@ -51,7 +44,7 @@ $active-border-color: $primary-color;
             border: none;
             padding: 4px 8px;
             cursor: pointer;
-            color: $text-color-muted;
+            color: var(--color-text-secondary);
             transition: transform 0.2s ease;
 
             .arrow {
@@ -77,14 +70,14 @@ $active-border-color: $primary-color;
     }
 
     .path-pair-card {
-        background-color: $card-bg;
-        border: 1px solid $border-color;
+        background-color: var(--color-bg-card);
+        border: 1px solid var(--color-border);
         border-radius: 6px;
         padding: 12px;
         transition: border-color 0.2s ease, box-shadow 0.2s ease;
 
         &.active {
-            border-color: $active-border-color;
+            border-color: var(--color-accent-primary);
             box-shadow: 0 0 0 1px rgba($primary-color, 0.1);
         }
 
@@ -97,12 +90,12 @@ $active-border-color: $primary-color;
             .pair-name {
                 font-weight: 600;
                 font-size: 1em;
-                color: $text-color;
+                color: var(--color-text-primary);
             }
 
             .file-count {
                 font-size: 0.8em;
-                color: $text-color-muted;
+                color: var(--color-text-secondary);
                 background-color: rgba(0, 0, 0, 0.05);
                 padding: 2px 8px;
                 border-radius: 10px;
@@ -119,13 +112,13 @@ $active-border-color: $primary-color;
                 .progress {
                     flex: 1;
                     height: 8px;
-                    background-color: $progress-bg;
+                    background-color: var(--color-progress-bg);
                     border-radius: 4px;
                     overflow: hidden;
 
                     .progress-bar {
                         height: 100%;
-                        background-color: $progress-bar-color;
+                        background-color: var(--color-progress-bar);
                         transition: width 0.3s ease;
 
                         &.progress-bar-striped {
@@ -151,7 +144,7 @@ $active-border-color: $primary-color;
                 .progress-text {
                     font-size: 0.85em;
                     font-weight: 500;
-                    color: $text-color;
+                    color: var(--color-text-primary);
                     min-width: 40px;
                     text-align: right;
                 }
@@ -176,12 +169,12 @@ $active-border-color: $primary-color;
                     .stat-value {
                         font-weight: 600;
                         font-size: 0.9em;
-                        color: $text-color;
+                        color: var(--color-text-primary);
                     }
 
                     .stat-label {
                         font-size: 0.8em;
-                        color: $text-color-muted;
+                        color: var(--color-text-secondary);
                     }
                 }
             }
@@ -193,10 +186,10 @@ $active-border-color: $primary-color;
                 font-size: 0.85em;
 
                 .size-info {
-                    color: $text-color-muted;
+                    color: var(--color-text-secondary);
 
                     .local {
-                        color: $text-color;
+                        color: var(--color-text-primary);
                         font-weight: 500;
                     }
 
@@ -205,7 +198,7 @@ $active-border-color: $primary-color;
                     }
 
                     .remote {
-                        color: $text-color-muted;
+                        color: var(--color-text-secondary);
                     }
                 }
 
@@ -239,85 +232,3 @@ $active-border-color: $primary-color;
 }
 
 /* Dark mode support */
-:host-context(.dark-mode) {
-    .path-pair-stats-container {
-        background-color: $card-bg-dark;
-        border-color: $border-color-dark;
-
-        .header {
-            background-color: rgba(255, 255, 255, 0.02);
-            border-bottom-color: $border-color-dark;
-
-            &:hover {
-                background-color: rgba(255, 255, 255, 0.04);
-            }
-
-            .title {
-                color: #e0e0e0;
-
-                .icon {
-                    filter: invert(1);
-                }
-            }
-
-            .expand-btn {
-                color: #999;
-            }
-        }
-
-        .path-pair-card {
-            background-color: $card-bg-dark;
-            border-color: $border-color-dark;
-
-            .card-header {
-                .pair-name {
-                    color: #e0e0e0;
-                }
-
-                .file-count {
-                    background-color: rgba(255, 255, 255, 0.1);
-                    color: #999;
-                }
-            }
-
-            .card-body {
-                .progress-section {
-                    .progress {
-                        background-color: #444;
-                    }
-
-                    .progress-text {
-                        color: #e0e0e0;
-                    }
-                }
-
-                .stats-row .stat {
-                    .stat-icon {
-                        filter: invert(1);
-                    }
-
-                    .stat-value {
-                        color: #e0e0e0;
-                    }
-
-                    .stat-label {
-                        color: #999;
-                    }
-                }
-
-                .info-row {
-                    .size-info {
-                        .local {
-                            color: #e0e0e0;
-                        }
-
-                        .separator,
-                        .remote {
-                            color: #999;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

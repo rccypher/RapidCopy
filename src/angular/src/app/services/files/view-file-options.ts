@@ -82,6 +82,8 @@ export module ViewFileOptions {
         SIZE_ASC,
         SIZE_DESC,
         SPEED_DESC,
-        ETA_ASC
+        SPEED_ASC,
+        ETA_ASC,
+        ETA_DESC
     }
 }

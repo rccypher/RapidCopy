@@ -9,6 +9,11 @@ import {LoggerService} from "../../services/utils/logger.service";
 import {ViewFileOptions} from "../../services/files/view-file-options";
 import {ViewFileOptionsService} from "../../services/files/view-file-options.service";
 import {ServerCommandService} from "../../services/server/server-command.service";
+import {NotificationService} from "../../services/utils/notification.service";
+import {Notification} from "../../services/utils/notification";
+import {WebReaction} from "../../services/utils/rest.service";
+import {NgbModal} from "@ng-bootstrap/ng-bootstrap";
+import {ConfirmModalComponent} from "../main/confirm-modal.component";
 
 @Component({
     selector: "app-file-list",
@@ -59,21 +64,40 @@ export class FileListComponent implements OnInit, OnDestroy {
     public totalPages = 0;
     public readonly PAGE_SIZES = [25, 50, 100];
     private _paginationSubscription: Subscription;
+    private _optionsSubscription: Subscription;
 
-    // Maps column names to their sort method(s)
+    // Maps column names to their sort method(s). Columns with distinct asc/desc
+    // toggle direction on repeated clicks.
     private static readonly COLUMN_SORT_MAP: Record<string, {asc: ViewFileOptions.SortMethod, desc: ViewFileOptions.SortMethod}> = {
         name:   {asc: ViewFileOptions.SortMethod.NAME_ASC,   desc: ViewFileOptions.SortMethod.NAME_DESC},
         status: {asc: ViewFileOptions.SortMethod.STATUS,     desc: ViewFileOptions.SortMethod.STATUS},
-        speed:  {asc: ViewFileOptions.SortMethod.SPEED_DESC, desc: ViewFileOptions.SortMethod.SPEED_DESC},
-        eta:    {asc: ViewFileOptions.SortMethod.ETA_ASC,    desc: ViewFileOptions.SortMethod.ETA_ASC},
+        speed:  {asc: ViewFileOptions.SortMethod.SPEED_ASC,  desc: ViewFileOptions.SortMethod.SPEED_DESC},
+        eta:    {asc: ViewFileOptions.SortMethod.ETA_ASC,    desc: ViewFileOptions.SortMethod.ETA_DESC},
         size:   {asc: ViewFileOptions.SortMethod.SIZE_ASC,   desc: ViewFileOptions.SortMethod.SIZE_DESC},
     };
+
+    // Reverse map: keeps the column-header indicators in sync with the active sort
+    // method (e.g. after page reload from persisted state, or when changed via the
+    // Sort dropdown rather than a header click).
+    private static readonly SORT_METHOD_TO_COLUMN: Map<ViewFileOptions.SortMethod, {column: string, asc: boolean}> = new Map([
+        [ViewFileOptions.SortMethod.NAME_ASC,   {column: "name",   asc: true}],
+        [ViewFileOptions.SortMethod.NAME_DESC,  {column: "name",   asc: false}],
+        [ViewFileOptions.SortMethod.STATUS,     {column: "status", asc: true}],
+        [ViewFileOptions.SortMethod.SPEED_ASC,  {column: "speed",  asc: true}],
+        [ViewFileOptions.SortMethod.SPEED_DESC, {column: "speed",  asc: false}],
+        [ViewFileOptions.SortMethod.ETA_ASC,    {column: "eta",    asc: true}],
+        [ViewFileOptions.SortMethod.ETA_DESC,   {column: "eta",    asc: false}],
+        [ViewFileOptions.SortMethod.SIZE_ASC,   {column: "size",   asc: true}],
+        [ViewFileOptions.SortMethod.SIZE_DESC,  {column: "size",   asc: false}],
+    ]);
 
     constructor(private _logger: LoggerService,
                 private viewFileService: ViewFileService,
                 private viewFileOptionsService: ViewFileOptionsService,
                 private _changeDetector: ChangeDetectorRef,
-                private serverCommandService: ServerCommandService) {
+                private serverCommandService: ServerCommandService,
+                private notificationService: NotificationService,
+                private modalService: NgbModal) {
         this.files = viewFileService.filteredFiles;
         this.options = this.viewFileOptionsService.options;
     }
@@ -81,7 +105,10 @@ export class FileListComponent implements OnInit, OnDestroy {
     ngOnInit() {
         // Subscribe to file updates to keep toolbar state current
         this._filesSubscription = this.viewFileService.filteredFiles.subscribe(files => {
-            const selected = files.filter(f => f.isMultiSelected).toArray();
+            // Toolbar reflects ALL selected files (across every page), not just the
+            // visible page — otherwise the count and enabled-actions were wrong for
+            // selections made on other pages, and "Clear" wiped invisible selections.
+            const selected = this.viewFileService.multiSelectedFiles;
             this.multiSelectCount = selected.length;
             this.canQueueAny = selected.some(f => f.isQueueable);
             this.canStopAny = selected.some(f => f.isStoppable);
@@ -114,6 +141,17 @@ export class FileListComponent implements OnInit, OnDestroy {
             this.totalPages = size > 0 ? Math.ceil(total / size) : 1;
             this._changeDetector.markForCheck();
         });
+
+        // Keep the column-header sort indicators in sync with the active sort method
+        // (persisted state on load, or changes made via the Sort dropdown).
+        this._optionsSubscription = this.viewFileOptionsService.options.subscribe(options => {
+            const mapping = FileListComponent.SORT_METHOD_TO_COLUMN.get(options.sortMethod);
+            if (mapping) {
+                this.activeSortColumn = mapping.column;
+                this.sortAscending = mapping.asc;
+                this._changeDetector.markForCheck();
+            }
+        });
     }
 
     ngOnDestroy() {
@@ -122,6 +160,9 @@ export class FileListComponent implements OnInit, OnDestroy {
         }
         if (this._paginationSubscription) {
             this._paginationSubscription.unsubscribe();
+        }
+        if (this._optionsSubscription) {
+            this._optionsSubscription.unsubscribe();
         }
     }
 
@@ -180,32 +221,44 @@ export class FileListComponent implements OnInit, OnDestroy {
 
     // --- Single-file actions (pass-through from FileComponent) ---
 
+    // Surface a failed action to the user instead of silently swallowing it.
+    private handleActionResult(reaction: WebReaction, label: string): void {
+        this._logger.info(reaction);
+        if (reaction && !reaction.success) {
+            this.notificationService.show(new Notification({
+                level: Notification.Level.DANGER,
+                text: `${label} failed: ${reaction.errorMessage || "unknown error"}`,
+                dismissible: true,
+            }));
+        }
+    }
+
     onQueue(file: ViewFile) {
-        this.viewFileService.queue(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.queue(file).subscribe(r => this.handleActionResult(r, "Queue"));
     }
 
     onStop(file: ViewFile) {
-        this.viewFileService.stop(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.stop(file).subscribe(r => this.handleActionResult(r, "Stop"));
     }
 
     onExtract(file: ViewFile) {
-        this.viewFileService.extract(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.extract(file).subscribe(r => this.handleActionResult(r, "Extract"));
     }
 
     onDeleteLocal(file: ViewFile) {
-        this.viewFileService.deleteLocal(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.deleteLocal(file).subscribe(r => this.handleActionResult(r, "Delete local"));
     }
 
     onDeleteRemote(file: ViewFile) {
-        this.viewFileService.deleteRemote(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.deleteRemote(file).subscribe(r => this.handleActionResult(r, "Delete remote"));
     }
 
     onValidate(file: ViewFile) {
-        this.viewFileService.validate(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.validate(file).subscribe(r => this.handleActionResult(r, "Validate"));
     }
 
     onPrioritize(file: ViewFile) {
-        this.viewFileService.prioritize(file).subscribe(data => this._logger.info(data));
+        this.viewFileService.prioritize(file).subscribe(r => this.handleActionResult(r, "Prioritize"));
     }
 
     // --- Remote rescan ---
@@ -271,34 +324,55 @@ export class FileListComponent implements OnInit, OnDestroy {
         });
     }
 
+    // In-app confirmation dialog (replaces native confirm). Runs onConfirm only if
+    // the user confirms; guarding here also prevents a double-fire from rapid clicks.
+    private confirmAction(title: string, message: string, onConfirm: () => void): void {
+        const ref = this.modalService.open(ConfirmModalComponent, {centered: true});
+        ref.componentInstance.title = title;
+        ref.componentInstance.message = message;
+        ref.componentInstance.confirmText = "Delete";
+        ref.componentInstance.danger = true;
+        ref.result.then((confirmed) => { if (confirmed) { onConfirm(); } }, () => { /* cancelled */ });
+    }
+
     onBulkDeleteLocal() {
         if (!this.canDeleteLocalAny || this.bulkDeletingLocal) return;
         const count = this.viewFileService.multiSelectedFiles.filter(f => f.isLocallyDeletable).length;
-        if (!confirm(`Delete Local\n\nDelete the local copy of ${count} file(s)? This cannot be undone.`)) return;
-        this.bulkDeletingLocal = true;
-        this._changeDetector.markForCheck();
-        this.viewFileService.bulkAction(
-            f => f.isLocallyDeletable,
-            f => this.viewFileService.deleteLocal(f)
-        ).subscribe({
-            next: () => { this.bulkDeletingLocal = false; this._changeDetector.markForCheck(); },
-            error: () => { this.bulkDeletingLocal = false; this._changeDetector.markForCheck(); }
-        });
+        this.confirmAction(
+            "Delete Local",
+            `Delete the local copy of ${count} file(s)? This cannot be undone.`,
+            () => {
+                this.bulkDeletingLocal = true;
+                this._changeDetector.markForCheck();
+                this.viewFileService.bulkAction(
+                    f => f.isLocallyDeletable,
+                    f => this.viewFileService.deleteLocal(f)
+                ).subscribe({
+                    next: () => { this.bulkDeletingLocal = false; this._changeDetector.markForCheck(); },
+                    error: () => { this.bulkDeletingLocal = false; this._changeDetector.markForCheck(); }
+                });
+            }
+        );
     }
 
     onBulkDeleteRemote() {
         if (!this.canDeleteRemoteAny || this.bulkDeletingRemote) return;
         const count = this.viewFileService.multiSelectedFiles.filter(f => f.isRemotelyDeletable).length;
-        if (!confirm(`Delete Remote\n\nDelete ${count} file(s) from the remote server? This cannot be undone.`)) return;
-        this.bulkDeletingRemote = true;
-        this._changeDetector.markForCheck();
-        this.viewFileService.bulkAction(
-            f => f.isRemotelyDeletable,
-            f => this.viewFileService.deleteRemote(f)
-        ).subscribe({
-            next: () => { this.bulkDeletingRemote = false; this._changeDetector.markForCheck(); },
-            error: () => { this.bulkDeletingRemote = false; this._changeDetector.markForCheck(); }
-        });
+        this.confirmAction(
+            "Delete Remote",
+            `Delete ${count} file(s) from the remote server? This cannot be undone.`,
+            () => {
+                this.bulkDeletingRemote = true;
+                this._changeDetector.markForCheck();
+                this.viewFileService.bulkAction(
+                    f => f.isRemotelyDeletable,
+                    f => this.viewFileService.deleteRemote(f)
+                ).subscribe({
+                    next: () => { this.bulkDeletingRemote = false; this._changeDetector.markForCheck(); },
+                    error: () => { this.bulkDeletingRemote = false; this._changeDetector.markForCheck(); }
+                });
+            }
+        );
     }
 
     onBulkValidate() {

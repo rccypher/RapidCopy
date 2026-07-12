@@ -17,7 +17,8 @@
             Enable AutoQueue in Settings to queue files automatically.
         </ng-container>
     </span>
-    <div id="controls" [attr.disabled]="enabled && patternsOnly ? null : true">
+    <div id="controls" [attr.disabled]="enabled && patternsOnly ? null : true"
+         [attr.aria-disabled]="enabled && patternsOnly ? null : true">
         <div *ngFor="let pattern of patterns | async"
              class="pattern">
             <div class="button" appClickStopPropagation

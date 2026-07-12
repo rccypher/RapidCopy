@@ -1,4 +1,4 @@
-<ng-container *ngIf="(hasMultiplePathPairs$ | async) && (stats$ | async) as stats">
+<ng-container *ngIf="(stats$ | async) as stats">
     <div class="path-pair-stats-container" *ngIf="stats.length > 0">
         <div class="header" (click)="toggleExpanded()">
             <div class="title">

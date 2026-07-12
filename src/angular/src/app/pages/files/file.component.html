@@ -6,7 +6,7 @@
                    [checked]="file.isMultiSelected"
                    (click)="onCheckboxClick($event)" />
         </div>
-        <div class="status">
+        <div class="status" role="img" [attr.aria-label]="'Status: ' + (file.status | capitalize)">
             <img src="assets/icons/default-remote.svg" id="default-remote"
                  *ngIf="file.status === ViewFile.Status.DEFAULT && file.remoteSize > 0" />
             <img src="assets/icons/default-local.svg" id="default-local"
@@ -106,7 +106,7 @@
     <div class="actions">
         <div class="button" appClickStopPropagation
              [attr.disabled]="isQueueable() ? null : true"
-             [title]="isQueueable() ? 'Queue for download' : 'Cannot queue: ' + file.status"
+             [title]="isQueueable() ? 'Queue for download' : 'Cannot queue: ' + (file.status | capitalize)"
              (click)="!isQueueable() || onQueue(file)"
              [class.loading]="activeAction == FileAction.QUEUE">
             <div class="loader"></div>
@@ -142,7 +142,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isRemotelyDeletable() ? null : true"
-             [title]="isRemotelyDeletable() ? 'Delete from remote server' : 'Cannot delete: ' + file.status"
+             [title]="isRemotelyDeletable() ? 'Delete from remote server' : 'Cannot delete: ' + (file.status | capitalize)"
              (click)="!isRemotelyDeletable() || onDeleteRemote(file)"
              [class.loading]="activeAction == FileAction.DELETE_REMOTE">
             <div class="loader"></div>
@@ -151,7 +151,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isValidatable() ? null : true"
-             [title]="isValidatable() ? 'Run integrity validation' : 'Cannot validate: ' + file.status"
+             [title]="isValidatable() ? 'Run integrity validation' : 'Cannot validate: ' + (file.status | capitalize)"
              (click)="!isValidatable() || onValidate(file)"
              [class.loading]="activeAction == FileAction.VALIDATE">
             <div class="loader"></div>
@@ -160,7 +160,7 @@
         </div>
         <div class="button" appClickStopPropagation
              [attr.disabled]="isPrioritizable() ? null : true"
-             [title]="isPrioritizable() ? 'Move to front of download queue' : 'Cannot prioritize: ' + file.status"
+             [title]="isPrioritizable() ? 'Move to front of download queue' : 'Cannot prioritize: ' + (file.status | capitalize)"
              (click)="!isPrioritizable() || onPrioritize(file)"
              [class.loading]="activeAction == FileAction.PRIORITIZE">
             <div class="loader"></div>

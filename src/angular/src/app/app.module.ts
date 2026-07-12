@@ -8,6 +8,7 @@ import {RouteReuseStrategy, RouterModule} from "@angular/router";
 import {NgbModule} from "@ng-bootstrap/ng-bootstrap";
 
 import {AppComponent} from "./pages/main/app.component";
+import {ConfirmModalComponent} from "./pages/main/confirm-modal.component";
 import {environment} from "../environments/environment";
 import {LoggerService} from "./services/utils/logger.service";
 import {FileListComponent} from "./pages/files/file-list.component";
@@ -57,6 +58,7 @@ import {NetworkMountService} from "./services/settings/network-mount.service";
         CapitalizePipe,
         ClickStopPropagationDirective,
         AppComponent,
+        ConfirmModalComponent,
         FileListComponent,
         FileComponent,
         FileOptionsComponent,

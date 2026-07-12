@@ -4,6 +4,7 @@ import {
 } from "@angular/core";
 
 import {NgbModal} from "@ng-bootstrap/ng-bootstrap";
+import {ConfirmModalComponent} from "../main/confirm-modal.component";
 
 import {ViewFile} from "../../services/files/view-file";
 import {Localization} from "../../common/localization";
@@ -44,6 +45,7 @@ export class FileComponent implements OnChanges {
 
     // Indicates an active action on-going
     activeAction: FileAction = null;
+    private _actionTimeout: any = null;
 
     constructor(private modalService: NgbModal) {}
 
@@ -53,6 +55,7 @@ export class FileComponent implements OnChanges {
         const newFile: ViewFile = changes.file.currentValue;
         if (oldFile != null && newFile != null && oldFile.status !== newFile.status) {
             // Reset any active action
+            this.clearActionTimeout();
             this.activeAction = null;
 
             // Scroll into view if this file is selected and not already in viewport
@@ -63,11 +66,16 @@ export class FileComponent implements OnChanges {
     }
 
     showDeleteConfirmation(title: string, message: string, callback: () => void) {
-        // Simple confirmation using native browser dialog
-        // Can be enhanced with NgbModal for a styled modal if needed
-        if (confirm(`${title}\n\n${message}`)) {
-            callback();
-        }
+        const ref = this.modalService.open(ConfirmModalComponent, {centered: true});
+        ref.componentInstance.title = title;
+        // messages may contain simple HTML (e.g. <b>name</b>); the modal renders text, so strip tags
+        ref.componentInstance.message = message.replace(/<[^>]+>/g, "");
+        ref.componentInstance.confirmText = "Delete";
+        ref.componentInstance.danger = true;
+        ref.result.then(
+            (confirmed) => { if (confirmed) { callback(); } },
+            () => { /* dismissed / cancelled */ }
+        );
     }
 
     isQueueable() {
@@ -103,20 +111,40 @@ export class FileComponent implements OnChanges {
         this.checkboxEvent.emit({file: this.file, shiftKey: event.shiftKey});
     }
 
+    // Set the in-flight action and start a safety timer. The spinner is normally
+    // cleared by ngOnChanges when the file's status changes; but some actions don't
+    // change status (e.g. re-queue/re-validate), which would leave the spinner stuck
+    // — so auto-clear after a few seconds as a fallback.
+    private startAction(action: FileAction): void {
+        this.activeAction = action;
+        this.clearActionTimeout();
+        this._actionTimeout = setTimeout(() => {
+            this.activeAction = null;
+            this._actionTimeout = null;
+        }, 5000);
+    }
+
+    private clearActionTimeout(): void {
+        if (this._actionTimeout != null) {
+            clearTimeout(this._actionTimeout);
+            this._actionTimeout = null;
+        }
+    }
+
     onQueue(file: ViewFile) {
-        this.activeAction = FileAction.QUEUE;
+        this.startAction(FileAction.QUEUE);
         // Pass to parent component
         this.queueEvent.emit(file);
     }
 
     onStop(file: ViewFile) {
-        this.activeAction = FileAction.STOP;
+        this.startAction(FileAction.STOP);
         // Pass to parent component
         this.stopEvent.emit(file);
     }
 
     onExtract(file: ViewFile) {
-        this.activeAction = FileAction.EXTRACT;
+        this.startAction(FileAction.EXTRACT);
         // Pass to parent component
         this.extractEvent.emit(file);
     }
@@ -126,7 +154,7 @@ export class FileComponent implements OnChanges {
             Localization.Modal.DELETE_LOCAL_TITLE,
             Localization.Modal.DELETE_LOCAL_MESSAGE(file.name),
             () => {
-                this.activeAction = FileAction.DELETE_LOCAL;
+                this.startAction(FileAction.DELETE_LOCAL);
                 // Pass to parent component
                 this.deleteLocalEvent.emit(file);
             }
@@ -138,7 +166,7 @@ export class FileComponent implements OnChanges {
             Localization.Modal.DELETE_REMOTE_TITLE,
             Localization.Modal.DELETE_REMOTE_MESSAGE(file.name),
             () => {
-                this.activeAction = FileAction.DELETE_REMOTE;
+                this.startAction(FileAction.DELETE_REMOTE);
                 // Pass to parent component
                 this.deleteRemoteEvent.emit(file);
             }
@@ -146,13 +174,13 @@ export class FileComponent implements OnChanges {
     }
 
     onValidate(file: ViewFile) {
-        this.activeAction = FileAction.VALIDATE;
+        this.startAction(FileAction.VALIDATE);
         // Pass to parent component
         this.validateEvent.emit(file);
     }
 
     onPrioritize(file: ViewFile) {
-        this.activeAction = FileAction.PRIORITIZE;
+        this.startAction(FileAction.PRIORITIZE);
         // Pass to parent component
         this.prioritizeEvent.emit(file);
     }

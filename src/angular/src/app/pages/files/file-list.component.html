@@ -98,23 +98,23 @@
                    [title]="allVisibleSelected ? 'Deselect all' : 'Select all'"
                    (click)="onSelectAllToggle($event)" />
         </div>
-        <div class="name sortable" (click)="onHeaderSort('name')">
+        <div class="name sortable" role="button" tabindex="0" (click)="onHeaderSort('name')" (keydown.enter)="onHeaderSort('name')" (keydown.space)="onHeaderSort('name')" [attr.aria-sort]="activeSortColumn === 'name' ? (sortAscending ? 'ascending' : 'descending') : null">
             Filename
             <span class="sort-indicator" *ngIf="activeSortColumn === 'name'">{{sortAscending ? '▲' : '▼'}}</span>
         </div>
-        <div class="status sortable" (click)="onHeaderSort('status')">
+        <div class="status sortable" role="button" tabindex="0" (click)="onHeaderSort('status')" (keydown.enter)="onHeaderSort('status')" (keydown.space)="onHeaderSort('status')" [attr.aria-sort]="activeSortColumn === 'status' ? (sortAscending ? 'ascending' : 'descending') : null">
             Status
             <span class="sort-indicator" *ngIf="activeSortColumn === 'status'">▲</span>
         </div>
-        <div class="speed sortable" (click)="onHeaderSort('speed')">
+        <div class="speed sortable" role="button" tabindex="0" (click)="onHeaderSort('speed')" (keydown.enter)="onHeaderSort('speed')" (keydown.space)="onHeaderSort('speed')" [attr.aria-sort]="activeSortColumn === 'speed' ? (sortAscending ? 'ascending' : 'descending') : null">
             Speed
-            <span class="sort-indicator" *ngIf="activeSortColumn === 'speed'">▼</span>
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'speed'">{{sortAscending ? '▲' : '▼'}}</span>
         </div>
-        <div class="eta sortable" (click)="onHeaderSort('eta')">
+        <div class="eta sortable" role="button" tabindex="0" (click)="onHeaderSort('eta')" (keydown.enter)="onHeaderSort('eta')" (keydown.space)="onHeaderSort('eta')" [attr.aria-sort]="activeSortColumn === 'eta' ? (sortAscending ? 'ascending' : 'descending') : null">
             ETA
-            <span class="sort-indicator" *ngIf="activeSortColumn === 'eta'">▲</span>
+            <span class="sort-indicator" *ngIf="activeSortColumn === 'eta'">{{sortAscending ? '▲' : '▼'}}</span>
         </div>
-        <div class="size sortable" (click)="onHeaderSort('size')">
+        <div class="size sortable" role="button" tabindex="0" (click)="onHeaderSort('size')" (keydown.enter)="onHeaderSort('size')" (keydown.space)="onHeaderSort('size')" [attr.aria-sort]="activeSortColumn === 'size' ? (sortAscending ? 'ascending' : 'descending') : null">
             Size
             <span class="sort-indicator" *ngIf="activeSortColumn === 'size'">{{sortAscending ? '▲' : '▼'}}</span>
         </div>

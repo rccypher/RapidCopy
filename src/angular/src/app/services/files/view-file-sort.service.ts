@@ -103,6 +103,18 @@ const SpeedDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile)
 };
 
 /**
+ * Sort by speed ascending (slowest first), then by name
+ */
+const SpeedAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const speedA = a.downloadingSpeed ?? 0;
+    const speedB = b.downloadingSpeed ?? 0;
+    if (speedA !== speedB) {
+        return speedA - speedB;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
  * Sort by ETA ascending (shortest first), zero/null last, then by name
  */
 const EtaAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
@@ -112,6 +124,20 @@ const EtaAscendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): n
     if (etaA <= 0 && etaB > 0) return 1;
     if (etaA !== etaB) {
         return etaA - etaB;
+    }
+    return a.name.localeCompare(b.name);
+};
+
+/**
+ * Sort by ETA descending (longest first), zero/null last, then by name
+ */
+const EtaDescendingComparator: ViewFileComparator = (a: ViewFile, b: ViewFile): number => {
+    const etaA = a.eta ?? 0;
+    const etaB = b.eta ?? 0;
+    if (etaA > 0 && etaB <= 0) return -1;
+    if (etaA <= 0 && etaB > 0) return 1;
+    if (etaA !== etaB) {
+        return etaB - etaA;
     }
     return a.name.localeCompare(b.name);
 };
@@ -152,9 +178,15 @@ export class ViewFileSortService {
                 } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_DESC) {
                     this._viewFileService.setComparator(SpeedDescendingComparator);
                     this._logger.debug("Comparator set to: Speed Desc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.SPEED_ASC) {
+                    this._viewFileService.setComparator(SpeedAscendingComparator);
+                    this._logger.debug("Comparator set to: Speed Asc");
                 } else if (this._sortMethod === ViewFileOptions.SortMethod.ETA_ASC) {
                     this._viewFileService.setComparator(EtaAscendingComparator);
                     this._logger.debug("Comparator set to: ETA Asc");
+                } else if (this._sortMethod === ViewFileOptions.SortMethod.ETA_DESC) {
+                    this._viewFileService.setComparator(EtaDescendingComparator);
+                    this._logger.debug("Comparator set to: ETA Desc");
                 } else {
                     this._viewFileService.setComparator(null);
                     this._logger.debug("Comparator set to: null");

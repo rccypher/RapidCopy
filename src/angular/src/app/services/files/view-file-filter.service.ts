@@ -23,8 +23,22 @@ class StatusFilterCriteria implements ViewFileFilterCriteria {
         return this._status;
     }
 
+    // In-progress statuses matched by the "Active only" filter preset.
+    private static readonly ACTIVE_STATUSES = [
+        ViewFile.Status.DOWNLOADING,
+        ViewFile.Status.QUEUED,
+        ViewFile.Status.EXTRACTING,
+        ViewFile.Status.VALIDATING,
+    ];
+
     meetsCriteria(viewFile: ViewFile): boolean {
-        return this._status == null || this._status === viewFile.status;
+        if (this._status == null) {
+            return true;
+        }
+        if (this._status === ViewFile.Status.ACTIVE) {
+            return StatusFilterCriteria.ACTIVE_STATUSES.indexOf(viewFile.status) !== -1;
+        }
+        return this._status === viewFile.status;
     }
 }
 

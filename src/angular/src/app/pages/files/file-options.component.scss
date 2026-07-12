@@ -30,7 +30,9 @@
                 }
                 .text {
                     margin-left: 5px;
-                    display: none;
+                    // Keep the selected sort/filter label visible on mobile so the
+                    // active direction (e.g. Name A->Z vs Z->A) is legible.
+                    display: inline-block;
                 }
             }
         }
