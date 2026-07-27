@@ -19,7 +19,11 @@ RUN npx ng build --configuration production --output-path /build/html
 # ============================================
 # Stage 2: Build scanfs binary
 # ============================================
-FROM python:3.11-slim AS scanfs-builder
+# Pinned to Bullseye (GLIBC 2.31) deliberately - do NOT bump to a newer base.
+# PyInstaller links the bundled libpython against the build environment's GLIBC,
+# so building on Bookworm or newer produces a scanfs requiring GLIBC 2.38, which
+# cannot run on Ubuntu 22.04 seedboxes (GLIBC 2.35). See issues #2 and #24.
+FROM python:3.11-slim-bullseye AS scanfs-builder
 
 RUN apt-get update && apt-get install -y \
     binutils \
